@@ -2,7 +2,7 @@
 // beats (LEVEL UP! flash, XP floaters, toasts) that the views trigger.
 
 import { loadState, saveState } from './store.js';
-import { defaultState, syncStepHabits } from './game.js';
+import { defaultState, syncStepHabits, migrate } from './game.js';
 import { refreshConditions } from './condition.js';
 import { activeEffects } from './skilltree.js';
 import { rescheduleAll } from './notifications.js';
@@ -161,11 +161,13 @@ const ctx = {
 // ---- Boot ---------------------------------------------------------------
 
 async function boot() {
-  state = await loadState();
+  state = migrate(await loadState());
   if (!state) {
     state = defaultState();
     await saveState(state);
     toast('Welcome, adventurer!');
+  } else {
+    await saveState(state); // persist any migration
   }
   refreshConditions(state);
 
@@ -183,6 +185,13 @@ async function boot() {
       render();
     }
   });
+  // Poll the pedometer live while the app is open so step goals auto-complete
+  // in real time (not only on open/resume).
+  setInterval(async () => {
+    if (document.hidden) return;
+    const fired = await ctx.syncSteps();
+    if (fired.length) render();
+  }, 60000);
 }
 
 boot();

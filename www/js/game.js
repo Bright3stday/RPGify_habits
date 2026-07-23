@@ -11,27 +11,20 @@ import { refreshConditions } from './condition.js';
 import { activeEffects } from './skilltree.js';
 import { stepsToday } from './pedometer.js';
 import { rollLoot } from './items.js';
-import { equipmentBonuses, emptyEquipment } from './equipment.js';
+import { emptyEquipment } from './equipment.js';
+import { ATTRIBUTES, scoreOf } from './attributes.js';
 
-export const SCHEMA_VERSION = 1;
-
-// A small, fixed retro palette — one deliberate hue per default stat.
-const DEFAULT_STATS = [
-  { name: 'Body', color: '#e05a5a' },
-  { name: 'Mind', color: '#48c8ff' },
-  { name: 'Discipline', color: '#f0c020' },
-  { name: 'Craft', color: '#6ad46a' },
-];
+export const SCHEMA_VERSION = 2;
 
 export function defaultState() {
   const state = {
     version: SCHEMA_VERSION,
     createdAt: now(),
-    stats: {},
+    stats: {},          // the six fixed primary attributes, keyed by attribute id
     habits: {},
     tree: { unlocked: [] },
-    inventory: [], // loot collected from completions
-    equipment: emptyEquipment(),
+    inventory: [],      // cosmetic loot collected from completions
+    equipment: emptyEquipment(), // cosmetic only — no stat bonuses
     reminders: {},
     settings: {
       activeHours: { start: 9, end: 21 }, // 9am–9pm
@@ -43,31 +36,52 @@ export function defaultState() {
     },
     meta: { lastCheckIn: null },
   };
-  let bodyId = null;
-  for (const s of DEFAULT_STATS) {
-    const id = uid('stat');
-    if (s.name === 'Body') bodyId = id;
-    state.stats[id] = {
-      id,
-      name: s.name,
-      color: s.color,
-      xp: 0,
-      condition: 100,
-      healthySince: now(),
+  for (const a of ATTRIBUTES) {
+    state.stats[a.id] = {
+      id: a.id, name: a.name, color: a.color,
+      xp: 0, condition: 100, healthySince: now(),
     };
   }
-  // Showcase the pedometer feature: a step-goal habit feeding Body that
+  // Showcase the pedometer: a step-goal habit training Strength that
   // auto-completes on the day you hit your goal.
-  if (bodyId) {
-    addHabit(state, {
-      name: 'Daily Steps',
-      description: 'Auto-completes when you reach your step goal.',
-      statIds: [bodyId],
-      source: 'steps',
-      stepGoal: 8000,
-      xpPerCompletion: 50,
-    });
+  addHabit(state, {
+    name: 'Daily Steps',
+    description: 'Auto-completes when you reach your step goal.',
+    statIds: ['str'],
+    source: 'steps',
+    stepGoal: 8000,
+    xpPerCompletion: 50,
+  });
+  refreshConditions(state);
+  return state;
+}
+
+// Luck attribute -> loot luck (0..~0.3). Growing Luck improves your drops.
+export function luckFactor(state) {
+  return clamp((scoreOf(state, 'lck') - 8) * 0.015, 0, 0.3);
+}
+
+// Migrate an older save to the current schema. v1 used free-form stat
+// categories; v2 uses the six fixed attributes. We keep the player's habits and
+// (cosmetic) loot, point habits at Strength as a starting attribute, and reset
+// the skill tree (its old node ids referenced the removed categories).
+export function migrate(state) {
+  if (!state) return state;
+  const isV2 = state.stats && state.stats.str && state.stats.spd;
+  if (isV2) { state.version = SCHEMA_VERSION; return state; }
+  state.stats = {};
+  for (const a of ATTRIBUTES) {
+    state.stats[a.id] = {
+      id: a.id, name: a.name, color: a.color, xp: 0, condition: 100, healthySince: now(),
+    };
   }
+  for (const h of Object.values(state.habits || {})) {
+    h.statIds = ['str']; // reassignable by the user afterwards
+  }
+  state.tree = { unlocked: [] };
+  if (!state.equipment) state.equipment = emptyEquipment();
+  if (!state.inventory) state.inventory = [];
+  state.version = SCHEMA_VERSION;
   refreshConditions(state);
   return state;
 }
@@ -171,7 +185,6 @@ export function completeHabit(state, id, at = now()) {
   if (!h || h.retired) return null;
 
   const { xpMultiplier } = activeEffects(state);
-  const equip = equipmentBonuses(state);
   const awards = [];
   const levelUps = [];
 
@@ -179,7 +192,7 @@ export function completeHabit(state, id, at = now()) {
     const stat = state.stats[statId];
     if (!stat) continue;
     const before = levelFromXp(stat.xp);
-    const mult = (xpMultiplier[statId] || 1) * equip.xpMult; // tree × gear
+    const mult = xpMultiplier[statId] || 1; // skill-tree XP bonus
     const gain = Math.round(h.xpPerCompletion * mult);
     stat.xp += gain;
     const after = levelFromXp(stat.xp);
@@ -200,9 +213,8 @@ export function completeHabit(state, id, at = now()) {
   h.history.push(at);
   if (h.history.length > 200) h.history = h.history.slice(-200);
 
-  // Loot roll — uses the streak we just updated (consistency improves drops)
-  // plus any luck from equipped accessories.
-  const loot = rollLoot(h, Math.random, { luck: equip.luck });
+  // Loot roll — streak (consistency) plus your Luck attribute improve drops.
+  const loot = rollLoot(h, Math.random, { luck: luckFactor(state) });
   if (loot) addLoot(state, loot);
 
   refreshConditions(state, at);

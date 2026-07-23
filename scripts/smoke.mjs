@@ -21,13 +21,24 @@ try {
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+  // Reward beats chain (level-up + loot) and are modal — clear them all.
+  const dismissBeats = async () => {
+    for (let i = 0; i < 8; i += 1) {
+      const b = await page.$('.levelup');
+      if (!b) break;
+      await b.click();
+      await wait(120);
+    }
+  };
 
   await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle' });
   await wait(300);
 
-  // Dashboard shows the 4 default stats.
-  const statNames = await page.$$eval('.stat-name', (els) => els.map((e) => e.textContent));
-  check(statNames.length === 4, `dashboard shows 4 default stats (${statNames.join(',')})`);
+  // Character sheet: one hero + the six attributes.
+  const heroCount = await page.$$eval('.hero-avatar .sprite', (els) => els.length);
+  check(heroCount === 1, `dashboard shows one hero sprite (${heroCount})`);
+  const attrNames = await page.$$eval('.attr-col:first-child .attr-name', (els) => els.map((e) => e.textContent.trim()));
+  check(attrNames.length === 6 && attrNames.includes('Strength'), `six primary attributes shown (${attrNames.join(',')})`);
 
   // Go to Quests, add a habit.
   await page.click('.tab[data-route="habits"]');
@@ -46,13 +57,16 @@ try {
   await wait(300);
   const leveled = await page.$('.levelup');
   check(!!leveled, 'completing habit triggers LEVEL UP! beat');
-  if (leveled) { await page.click('.levelup'); await wait(200); }
+  await dismissBeats();
 
-  // Dashboard reflects XP.
+  // Dashboard reflects XP (character gained EXP / an attribute rose above base).
   await page.click('.tab[data-route="dashboard"]');
   await wait(150);
-  const anyLv2 = await page.$$eval('.stat-level', (els) => els.some((e) => /LV [2-9]/.test(e.textContent)));
-  check(anyLv2, 'a stat reached level 2+ after completion');
+  const grew = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('rpgify.state.v1'));
+    return Object.values(s.stats).reduce((a, x) => a + x.xp, 0) >= 120;
+  });
+  check(grew, 'character gained XP after completion');
 
   // Skill tree renders nodes; novice should be available now.
   await page.click('.tab[data-route="tree"]');
@@ -66,19 +80,17 @@ try {
     await wait(200);
     const unlockBeat = await page.$('.levelup');
     check(!!unlockBeat, 'unlocking a node fires SKILL UNLOCKED beat');
-    if (unlockBeat) { await page.click('.levelup'); await wait(150); }
+    await dismissBeats();
   }
 
   // Steps feature: dashboard shows sprites + a steps widget; logging steps to
   // the goal auto-completes the seeded Daily Steps habit.
   await page.click('.tab[data-route="dashboard"]');
   await wait(150);
-  const spriteCount = await page.$$eval('.stat-avatar .sprite', (els) => els.length);
-  check(spriteCount === 4, `each stat shows an evolving sprite (${spriteCount})`);
   const hasStepsWidget = await page.$$eval('.window-title', (els) => els.some((e) => /STEPS TODAY/.test(e.textContent)));
   check(hasStepsWidget, 'steps widget renders on dashboard');
   // log 3000 x3 = 9000 >= 8000 goal
-  for (let i = 0; i < 3; i += 1) { await page.click('[data-steps-add="3000"]'); await wait(120); }
+  for (let i = 0; i < 3; i += 1) { await page.click('[data-steps-add="3000"]'); await wait(120); await dismissBeats(); }
   const stepsDone = await page.$$eval('.h-meta, .window', (els) => els.some((e) => /done today ✓|✓/.test(e.textContent)));
   const bodyLeveledOrDone = await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem('rpgify.state.v1'));
@@ -119,9 +131,9 @@ try {
     const s = JSON.parse(localStorage.getItem('rpgify.state.v1'));
     return s.equipment && s.equipment.weapon && s.equipment.weapon.key === 'excalibur';
   });
-  check(equipped, 'equipping loot fills the weapon slot');
-  const bonusShown = await page.$$eval('.hero-bonus', (els) => els.some((e) => /XP/.test(e.textContent)));
-  check(bonusShown, 'equipped gear shows an XP bonus');
+  check(equipped, 'equipping loot fills the weapon slot (cosmetic)');
+  const cosmeticNote = await page.$$eval('.hero-bonus', (els) => els.some((e) => /cosmetic/.test(e.textContent)));
+  check(cosmeticNote, 'gear is labelled cosmetic (no stat bonuses)');
 
   // Persistence: reload and confirm the habit survived.
   await page.reload({ waitUntil: 'networkidle' });

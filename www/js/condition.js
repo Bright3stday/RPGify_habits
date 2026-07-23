@@ -12,7 +12,7 @@
 
 import { periodMs } from './cadence.js';
 import { clamp } from './util.js';
-import { equipmentBonuses } from './equipment.js';
+import { activeEffects } from './skilltree.js';
 
 // Condition stays pristine for one full grace period past due, then falls to
 // zero over this many further periods.
@@ -47,8 +47,8 @@ export function statCondition(state, statId, at = Date.now()) {
   if (feeders.length === 0) return 100;
   const sum = feeders.reduce((acc, h) => acc + habitHealth(h, at), 0);
   const raw = sum / feeders.length;
-  // Equipped body armour / shields soften the loss (never full immunity).
-  const resist = equipmentBonuses(state).decayResist;
+  // Skill-tree Steadfast/Master nodes soften the loss (never full immunity).
+  const resist = activeEffects(state).decayResist;
   const resisted = 100 - (100 - raw) * (1 - resist);
   return Math.round(resisted);
 }

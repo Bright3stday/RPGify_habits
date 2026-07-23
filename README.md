@@ -1,9 +1,14 @@
 # RPGify Habits
 
-An **offline-first habit & skill-building system framed as an RPG**. Habits feed
-XP into stats; stats level up and unlock a branching skill tree. Neglected
-habits visibly **decay** — so lapsing has a felt cost, not just a silent absence
-of reward.
+An **offline-first habit tracker framed as a Final Fantasy character sheet**.
+Real-life habits train six primary attributes (Strength, Magic, Vitality,
+Spirit, Luck, Speed); those raise your **character level**, derived stats
+(Attack, Defense, HP, MP…), and **skill points** you spend on a branching skill
+tree. You are a single hero who levels up by doing beneficial things — and
+visibly **decays** (down to a slime) when you neglect them.
+
+Power comes from **growing real habits → leveling → skills**, not from
+min-maxing items: loot and gear are collected and worn purely for looks.
 
 It is designed around one behavioural problem: people start habits with
 discipline but go complacent once the original pain fades. Two mechanisms fight
@@ -27,11 +32,11 @@ scheduled locally.
 
 | Screen | What it does |
 |--------|--------------|
-| **Status** (dashboard) | Every stat at a glance — level, segmented XP bar, condition badge (`STEADY` / `FADING` / `CRACKED` / `BROKEN`), plus today's due quests. |
-| **Quests** (habits) | Add / edit / retire habits. Set cadence (daily / every N days / weekly), XP per completion, and which stat(s) each feeds. |
-| **Skills** | The branching skill tree, one diamond per stat. Tap a glowing node to unlock. |
-| **Bag** | Your Hero paper-doll + gear slots, and the loot collected from completions. Tap gear to equip. |
-| **Config** | Define your own stats, configure reminders (weekly check-in + water/posture nudges), and export/import your save. |
+| **Status** | The character sheet: your hero sprite, Level + EXP, HP/MP/SP, the six primary attributes (each with an upkeep dot), and derived stats (Attack, Magic Attack, Defense, Magic Defense…). Plus today's steps and due quests. |
+| **Quests** (habits) | Add / edit / retire habits. Set cadence (daily / every N days / weekly), XP per completion, and which attribute(s) each trains. |
+| **Skills** | Skill points + a branching diamond per attribute. Power nodes boost XP; Steadfast/Master nodes grant decay resistance. Tap a glowing node to spend an SP. |
+| **Bag** | Your hero + cosmetic gear slots, and the loot collected from completions. Tap gear to equip (looks only — no bonuses). |
+| **Config** | The (fixed) attribute list, reminders (weekly check-in + water/posture nudges), and export/import your save. |
 
 ---
 
@@ -48,74 +53,67 @@ habit does not rot as fast (in real time) as a lapsed *daily* one. Each habit
 gets one full grace period, then its stat's condition falls to zero over the
 next three periods.
 
-### Leveling
-A slightly super-linear curve (`www/js/leveling.js`): cumulative XP to reach
-level *L* is `50·L·(L−1)` — early levels come fast (early wins are the hook),
-later ones ask for more.
+### Attributes, character level & derived stats
+Six fixed primary attributes (`www/js/attributes.js`): **Strength, Magic,
+Vitality, Spirit, Luck, Speed**. Each habit trains one or more of them. An
+attribute's *score* grows permanently from XP (you never lose progress), while
+its *condition* (upkeep) decays with neglect.
 
-### Steps & the evolving avatar
+The sum of all attribute XP drives your **character level** (a steeper curve,
+`www/js/leveling.js`), and everything on the status screen is derived from the
+primaries + level, JRPG-style: Attack = STR·2 + Lv, Defense = VIT + Lv/2, HP
+from VIT, MP from MAG/SPR, etc. Each character level grants **1 skill point**.
+
+### One hero, who levels and devolves
+A single hero sprite (`www/js/sprites.js`) — *you* — driven by character level
+and overall condition, not one-per-attribute:
+
+```
+character level 1-3  -> Adventurer
+character level 4-6  -> Warrior   (leather + sword)
+character level 7-10 -> Knight    (plate, shield, plumed helm)
+character level 11+  -> Mage      (robe, staff, arcane aura)
+overall condition worn    -> the current class, desaturated (early warning)
+overall condition cracked -> Imp   (devolved into a lesser monster)
+overall condition broken  -> Slime (your hero literally melts into goo)
+```
+
+Do your habits and your hero climbs the class ladder; neglect them and it
+devolves toward a slime — the loss-aversion thesis made literal. Drawn
+procedurally as inline SVG (no image assets).
+
+### Steps
 A habit can be **auto (steps)** instead of tap-to-log: it carries a daily step
 goal and **auto-completes the moment you hit it** (awarding XP, resetting decay),
-at most once per day. Steps come from the device's hardware pedometer on Android
-(`www/js/pedometer.js` ⇄ `StepCounterPlugin.java`, using `TYPE_STEP_COUNTER`);
-with no sensor (web, or a phone without one) you log them manually.
+at most once per day. On Android, steps read straight from the hardware
+pedometer (`www/js/pedometer.js` ⇄ `StepCounterPlugin.java`, `TYPE_STEP_COUNTER`)
+and the app polls live while open, so goals complete on their own; with no
+sensor (web) you log them manually.
 
-Each stat shows a **Final Fantasy–style class avatar that evolves and devolves**
-(`www/js/sprites.js`):
-
-```
-healthy, level 1-2 -> Adventurer
-healthy, level 3-4 -> Warrior   (leather + sword)
-healthy, level 5-6 -> Knight    (plate, shield, plumed helm)
-healthy, level 7+  -> Mage      (robe, staff, arcane aura)
-condition worn     -> the current class, desaturated (early warning)
-condition cracked  -> Imp       (devolved into a lesser monster)
-condition broken   -> Slime     (a leveled-up class literally melts into goo)
-```
-
-Because step completions feed the Body stat's XP (evolution) and reset its decay
-(condition), **walking levels your class up and neglect devolves it into a
-slime** — the loss-aversion thesis made literal. Sprites are drawn procedurally
-as inline SVG (no image assets), so they stay crisp and tint on decay.
-
-### Loot
-Completing a quest doesn't just give XP — it can **drop treasure** (`www/js/items.js`).
-Every completion rolls a loot table of FF-flavored weapons, armour, treasure and
-consumables across five rarities (Common → Legendary); a longer streak improves
-both the drop chance and the rarity odds, so **consistency literally pays out**.
-Drops fire a `TREASURE!` beat and collect in the **Bag** screen.
-
-### Equipment & bonuses
-Loot isn't just for show — equip it (`www/js/equipment.js`). Five slots
-(Weapon, Head, Body, Off-hand, Accessory) feed a **Hero** paper-doll that
-visibly wears your gear, and each piece grants a stacking bonus:
-
-| Slot | Bonus |
-|------|-------|
-| Weapon, Head | **+XP %** on every completion (stacks with skill-tree multipliers) |
-| Body, Off-hand | **decay resistance** — condition drops slower (capped, never immune) |
-| Accessory (gems) | **loot luck** — better drop chance and rarity |
-
-Rarer items give bigger bonuses. The bonuses are wired into the real loop:
-XP is multiplied in `completeHabit`, decay is softened in `statCondition`, and
-luck feeds `rollLoot` — so kitting out your hero measurably changes the game.
-
-### Skill tree — branching, with real choices
-Stats are user-defined, so the tree can't be hand-authored. Instead each stat
-grows the same **diamond** shape (`www/js/skilltree.js`):
+### Skill tree — where the bonuses live
+One **diamond** per attribute (`www/js/skilltree.js`):
 
 ```
-        Novice
+        Adept
        /      \
    Power     Steadfast     <- MUTUALLY EXCLUSIVE: pick one, the other locks
        \      /
         Master
 ```
 
-The two middle nodes are an exclusive choice, so progression is a decision, not
-a checklist. The Steadfast branch and the Master capstone are gated on
-**sustained** engagement (days a stat has stayed above 70% condition), not just
-accumulated XP — the tree rewards *consistency*, not just total effort.
+Unlocking a node **spends a skill point** and requires attribute level +
+*sustained* consistency (days above 70% condition). Power nodes grant **+XP%**
+for that attribute; Steadfast/Master nodes grant **decay resistance** (applied
+in `statCondition`, capped, never full immunity). This is the *only* source of
+bonuses — they come from growing habits and leveling, never from items.
+
+### Loot & gear (cosmetic)
+Completing a quest can **drop treasure** (`www/js/items.js`) — FF-flavored
+weapons, armour, treasure and consumables across five rarities; longer streaks
+and a higher **Luck** attribute improve the odds. Drops fire a `TREASURE!` beat
+and collect in the **Bag**, where you can equip weapon/armour into five slots
+(`www/js/equipment.js`). Equipping is **cosmetic only** — it changes nothing
+about your stats. The focus is real growth, not item min-maxing.
 
 ---
 
@@ -128,18 +126,19 @@ www/                     the web app (this is what Capacitor wraps)
   assets/fonts/          Press Start 2P, bundled for true offline use
   js/
     store.js             storage: Capacitor Preferences native / localStorage web
-    game.js              engine: state, habit CRUD, completion, XP + level-ups
-    condition.js         cadence-aware decay / stat condition
-    leveling.js          XP -> level curve
+    game.js              engine: state, habit CRUD, completion, XP, migration
+    attributes.js        the six primaries, character level, derived stats
+    condition.js         cadence-aware decay / attribute condition
+    leveling.js          attribute + character XP -> level curves
     cadence.js           cadence periods & due timing
-    skilltree.js         branching tree generation + unlock logic
-    sprites.js           procedural class avatars (adventurer..mage, imp, slime)
+    skilltree.js         branching tree, skill points, XP/decay-resist bonuses
+    sprites.js           the single procedural hero (adventurer..mage, imp, slime)
     items.js             loot table, drop rolls, pixel item icons
-    equipment.js         equip slots + stacking gear bonuses
-    pedometer.js         steps source: native sensor / manual fallback
+    equipment.js         cosmetic equip slots (no bonuses)
+    pedometer.js         steps source: native sensor (live poll) / manual fallback
     notifications.js     local notifications (native) / no-op (web)
     backup.js            JSON export/import
-    views.js             the four screens + editor modals
+    views.js             the five screens + editor modals
     app.js               orchestrator: routing, persistence, reward beats
 android/                 generated Capacitor Android project (build in Studio)
 scripts/                 dev server + tests (not shipped in the app)

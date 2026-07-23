@@ -4,25 +4,26 @@
 // wires listeners against the freshly-rendered nodes.
 
 import { esc, fmtRelative, dayKey } from './util.js';
-import { levelProgress } from './leveling.js';
 import { conditionState, sustainedDays, SUSTAIN_THRESHOLD } from './condition.js';
 import { CADENCE_TYPES, cadenceLabel, isDue, dueAt } from './cadence.js';
 import {
-  addHabit, updateHabit, retireHabit, deleteHabit, completeHabit,
-  addStat, updateStat, deleteStat, defaultState,
+  addHabit, updateHabit, retireHabit, deleteHabit, completeHabit, defaultState,
 } from './game.js';
-import { evaluateTree, unlockNode } from './skilltree.js';
+import {
+  evaluateTree, unlockNode, availableSp, earnedSp,
+} from './skilltree.js';
 import { exportState, parseImport, readFile } from './backup.js';
-import { spriteSvg, TIER_NAMES, spriteFor, heroSvg } from './sprites.js';
+import { heroSpriteSvg, heroTierName } from './sprites.js';
+import {
+  ATTRIBUTES, ATTR, characterSheet, overallCondition,
+} from './attributes.js';
 import {
   hasSensor, stepsToday, addManualSteps, setManualSteps,
 } from './pedometer.js';
 import { itemIconSvg, RARITY, RARITY_ORDER } from './items.js';
 import {
-  SLOTS, SLOT_LABEL, slotForItem, equipItem, unequipSlot, isKeyEquipped, equipmentBonuses,
+  SLOTS, SLOT_LABEL, slotForItem, equipItem, unequipSlot, isKeyEquipped,
 } from './equipment.js';
-
-const PALETTE = ['#e05a5a', '#48c8ff', '#f0c020', '#6ad46a', '#b06af0', '#e0803a', '#5ad0c0', '#f078b0'];
 
 // ---- small shared bits --------------------------------------------------
 
@@ -66,33 +67,31 @@ function doComplete(ctx, habitId, btn) {
 
 export function renderDashboard(container, ctx) {
   const { state } = ctx;
-  const stats = Object.values(state.stats);
+  const sheet = characterSheet(state);
+  const sp = availableSp(state);
+  const overall = overallCondition(state);
   const habits = Object.values(state.habits).filter((h) => !h.retired);
   const due = habits.filter((h) => isDue(h)).sort((a, b) => dueAt(a) - dueAt(b));
 
-  const statsHtml = stats.map((s) => {
-    const p = levelProgress(s.xp);
-    const cState = conditionState(s.condition);
-    const decayCls = cState === 'healthy' ? '' : 'decaying';
-    const { tier } = spriteFor(s);
+  // Primary attributes with their upkeep (condition) dot.
+  const primHtml = ATTRIBUTES.map((a) => {
+    const st = state.stats[a.id];
+    const cs = conditionState(st.condition);
     return `
-      <div class="stat-card ${decayCls}">
-        <div class="stat-row">
-          <div class="stat-avatar" title="${esc(TIER_NAMES[tier])}">${spriteSvg(s, { size: 52 })}</div>
-          <div style="flex:1;min-width:0">
-            <div class="stat-head">
-              <span class="stat-name" style="color:${s.color}">${esc(s.name)}</span>
-              <span class="stat-level">LV ${p.level}</span>
-            </div>
-            ${segBar(p.pct, s.color)}
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-              <span class="bar-caption">${p.into}/${p.span} XP</span>
-              ${condBadge(s.condition)}
-            </div>
-          </div>
-        </div>
+      <div class="attr-row">
+        <span class="attr-glyph" style="color:${a.color}">${a.glyph}</span>
+        <span class="attr-name">${a.name}</span>
+        <span class="attr-cond ${cs}" title="${st.condition}% upkeep"></span>
+        <span class="attr-val">${sheet.primary[a.id]}</span>
       </div>`;
-  }).join('') || '<div class="empty">No stats yet. Add some in Config.</div>';
+  }).join('');
+
+  const der = sheet.derived;
+  const derRows = [
+    ['Attack', der.attack], ['Magic Attack', der.magicAttack],
+    ['Defense', der.defense], ['Magic Defense', der.magicDefense],
+    ['Speed', der.speed], ['Luck', der.luck],
+  ].map(([n, v]) => `<div class="attr-row"><span class="attr-name dim">${n}</span><span class="attr-val">${v}</span></div>`).join('');
 
   const manualDue = due.filter((h) => h.source !== 'steps');
   const dueHtml = manualDue.length ? manualDue.map((h) => habitRow(h, ctx, true)).join('')
@@ -100,9 +99,33 @@ export function renderDashboard(container, ctx) {
 
   container.innerHTML = `
     <div class="window">
-      <div class="window-title">◆ STATUS</div>
-      ${statsHtml}
+      <div class="char-top">
+        <div class="hero-avatar big">${heroSpriteSvg(state, { size: 104 })}</div>
+        <div class="char-meta">
+          <div class="char-name">${esc(heroTierName(state))}</div>
+          <div class="char-level">LV ${sheet.level}</div>
+          ${segBar(sheet.exp.pct, '#f0c020')}
+          <div class="bar-caption">EXP ${sheet.exp.into}/${sheet.exp.span}</div>
+          <div class="vitals">
+            <span>HP <b>${sheet.hp}</b></span>
+            <span>MP <b>${sheet.mp}</b></span>
+            <span>SP <b style="color:${sp > 0 ? 'var(--green)' : 'var(--ink-dim)'}">${sp}</b></span>
+          </div>
+          ${condBadge(overall)}
+        </div>
+      </div>
+      ${sp > 0 ? '<div class="bar-caption" style="margin-top:10px;color:var(--green)">▶ You have skill points to spend in Skills.</div>' : ''}
     </div>
+
+    <div class="window">
+      <div class="window-title">◆ ATTRIBUTES</div>
+      <div class="attr-grid">
+        <div class="attr-col">${primHtml}</div>
+        <div class="attr-col">${derRows}</div>
+      </div>
+      <div class="bar-caption" style="margin-top:10px">Dots show each attribute's upkeep — neglect a habit and its attribute fades, dragging your hero toward a slime.</div>
+    </div>
+
     ${stepsWidget(ctx)}
     <div class="section-label">TODAY'S QUESTS (${manualDue.length})</div>
     ${dueHtml}
@@ -351,18 +374,20 @@ export function renderTree(container, ctx) {
       const reqBits = [];
       if (n.req.minLevel) reqBits.push(`Lv${n.req.minLevel}`);
       if (n.req.sustainedDays) reqBits.push(`${n.req.sustainedDays}d steady`);
+      reqBits.push(`${n.cost} SP`);
       return `
         <div class="node ${n.status}" data-node="${n.status === 'available' ? n.id : ''}"
-             style="left:${p.x}px;top:${p.y}px">
+             title="${esc(n.desc)}" style="left:${p.x}px;top:${p.y}px">
           <div class="n-title">${esc(n.title)}</div>
           <div>${reqBits.join(' · ')}</div>
         </div>`;
     }).join('');
 
     const sd = Math.floor(sustainedDays(stat));
+    const glyph = ATTR[stat.id] ? ATTR[stat.id].glyph : '◆';
     return `
       <div class="window">
-        <div class="tree-stat-label" style="color:${stat.color}">${esc(stat.name)} — ${sd}d steady (need ≥${SUSTAIN_THRESHOLD}% cond.)</div>
+        <div class="tree-stat-label" style="color:${stat.color}">${glyph} ${esc(stat.name)} — ${sd}d steady (need ≥${SUSTAIN_THRESHOLD}% cond.)</div>
         <div class="tree-wrap">
           <div class="tree-canvas" style="width:${W}px;height:${H}px;margin:0 auto">
             <svg class="tree-svg" width="${W}" height="${H}">${lines}</svg>
@@ -372,7 +397,17 @@ export function renderTree(container, ctx) {
       </div>`;
   }).join('');
 
-  container.innerHTML = `<div class="section-label">SKILL TREE — tap glowing nodes to unlock</div>${blocks}`;
+  const sp = availableSp(state);
+  container.innerHTML = `
+    <div class="window">
+      <div class="window-title">◆ SKILL POINTS</div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="char-level" style="color:${sp > 0 ? 'var(--green)' : 'var(--ink-dim)'}">${sp} SP</span>
+        <span class="bar-caption">${earnedSp(state)} earned · 1 per character level</span>
+      </div>
+      <div class="bar-caption" style="margin-top:8px">Spend SP on glowing nodes. Power nodes boost XP; Steadfast/Master nodes resist decay.</div>
+    </div>
+    <div class="section-label">SKILL TREE — tap glowing nodes to unlock</div>${blocks}`;
 
   container.querySelectorAll('.node[data-node]').forEach((el) => {
     if (!el.dataset.node) return;
@@ -394,18 +429,15 @@ export function renderSettings(container, ctx) {
   const s = state.settings;
   const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-  const statRows = Object.values(state.stats).map((st) => `
-    <div class="menu-row" style="cursor:default">
-      <span style="flex:1;color:${st.color}">${esc(st.name)}</span>
-      <button class="btn small" data-editstat="${st.id}">EDIT</button>
-      <button class="btn small danger" data-delstat="${st.id}">✕</button>
-    </div>`).join('');
-
   container.innerHTML = `
     <div class="window">
-      <div class="window-title">◆ STATS</div>
-      ${statRows || '<div class="empty">No stats.</div>'}
-      <button class="btn block" id="add-stat" style="margin-top:10px">＋ ADD STAT</button>
+      <div class="window-title">◆ ATTRIBUTES</div>
+      ${ATTRIBUTES.map((a) => `<div class="menu-row" style="cursor:default">
+        <span class="attr-glyph" style="color:${a.color}">${a.glyph}</span>
+        <span style="flex:1;color:${a.color}">${esc(a.name)}</span>
+        <span class="bar-caption">${esc(a.desc)}</span>
+      </div>`).join('')}
+      <div class="bar-caption" style="margin-top:8px">The six attributes are fixed. Assign each quest to the ones it trains.</div>
     </div>
 
     <div class="window">
@@ -443,15 +475,6 @@ export function renderSettings(container, ctx) {
       <button class="btn danger block" id="reset" style="margin-top:12px">RESET ALL DATA</button>
     </div>
   `;
-
-  // Stats
-  container.querySelector('#add-stat').addEventListener('click', () => statEditor(ctx, null));
-  container.querySelectorAll('[data-editstat]').forEach((b) => b.addEventListener('click', () => statEditor(ctx, b.dataset.editstat)));
-  container.querySelectorAll('[data-delstat]').forEach((b) => b.addEventListener('click', () => {
-    if (confirm('Delete this stat? Habits will be unlinked from it.')) {
-      deleteStat(state, b.dataset.delstat); ctx.save(); ctx.render();
-    }
-  }));
 
   // Reminders — persist on apply.
   container.querySelector('#apply-rem').addEventListener('click', async () => {
@@ -521,7 +544,6 @@ export function renderInventory(container, ctx) {
   const { state } = ctx;
   const items = state.inventory || [];
   const eq = state.equipment || {};
-  const bonus = equipmentBonuses(state);
 
   // Equipment slots around the hero.
   const slotsHtml = SLOTS.map((slot) => {
@@ -531,12 +553,6 @@ export function renderInventory(container, ctx) {
       : `<div class="slot-empty">${SLOT_LABEL[slot]}</div>`;
     return `<div class="gear-slot ${it ? 'filled' : ''}" style="--rc:${it ? RARITY[it.rarity].color : '#2a2a55'}" data-slot="${slot}">${inner}</div>`;
   }).join('');
-
-  const bonusLine = [
-    bonus.xpPct ? `<span style="color:var(--gold)">+${bonus.xpPct}% XP</span>` : '',
-    bonus.decayResist ? `<span style="color:var(--accent)">${Math.round(bonus.decayResist * 100)}% Decay Resist</span>` : '',
-    bonus.luck ? `<span style="color:var(--green)">+${Math.round(bonus.luck * 100)}% Luck</span>` : '',
-  ].filter(Boolean).join('  ·  ') || '<span class="bar-caption">Equip gear for bonuses.</span>';
 
   // Group identical loot; sort by rarity then name.
   const byKey = new Map();
@@ -570,10 +586,10 @@ export function renderInventory(container, ctx) {
     <div class="window">
       <div class="window-title">◆ HERO</div>
       <div class="hero-panel">
-        <div class="hero-avatar">${heroSvg(eq, { size: 108 })}</div>
+        <div class="hero-avatar">${heroSpriteSvg(state, { size: 108 })}</div>
         <div class="gear-slots">${slotsHtml}</div>
       </div>
-      <div class="hero-bonus">${bonusLine}</div>
+      <div class="hero-bonus"><span class="bar-caption">${esc(heroTierName(state))} · gear is cosmetic — your power comes from leveling and skills.</span></div>
     </div>
     <div class="section-label">BAG (${items.length}) — tap gear to equip</div>
     ${grid}
@@ -598,30 +614,4 @@ export function renderInventory(container, ctx) {
     }
     ctx.save(); ctx.render();
   }));
-}
-
-function statEditor(ctx, statId) {
-  const { state } = ctx;
-  const editing = statId ? state.stats[statId] : null;
-  const st = editing || { name: '', color: PALETTE[1] };
-  const swatches = PALETTE.map((c) => `<span class="chip ${st.color === c ? 'on' : ''}" data-color="${c}" style="background:${c};width:26px;height:26px;${st.color === c ? 'color:#fff' : ''}"></span>`).join('');
-  const overlay = modal(`
-    <div class="window-title">${editing ? '◆ EDIT STAT' : '◆ NEW STAT'}</div>
-    <label class="field"><span>NAME</span><input type="text" id="s-name" value="${esc(st.name)}" maxlength="18" /></label>
-    <label class="field"><span>COLOR</span></label>
-    <div class="chips" id="s-colors" style="margin-bottom:14px">${swatches}</div>
-    <div class="btn-row"><button class="btn primary" id="s-save">SAVE</button></div>
-  `);
-  let color = st.color;
-  overlay.querySelectorAll('[data-color]').forEach((c) => c.addEventListener('click', () => {
-    color = c.dataset.color;
-    overlay.querySelectorAll('[data-color]').forEach((x) => { x.classList.remove('on'); x.style.color = ''; });
-    c.classList.add('on'); c.style.color = '#fff';
-  }));
-  overlay.querySelector('#s-save').addEventListener('click', () => {
-    const name = overlay.querySelector('#s-name').value;
-    if (editing) updateStat(state, statId, { name, color });
-    else addStat(state, { name, color });
-    ctx.save(); overlay.remove(); ctx.render();
-  });
 }

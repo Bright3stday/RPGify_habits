@@ -1,165 +1,138 @@
-// Skill tree — branching, not a linear ladder.
+// Skill tree — where progression bonuses now live (moved off of items).
 //
-// Stats are user-defined at setup, so the tree can't be hand-authored against
-// fixed stat names. Instead each stat grows an identical *shape* — a diamond:
+// One diamond per primary attribute:
 //
-//         Novice            (depth 0)
+//         Adept             (depth 0)
 //        /      \
 //   Power       Steadfast   (depth 1, MUTUALLY EXCLUSIVE — pick one)
 //        \      /
 //         Master            (depth 2, needs whichever branch you chose)
 //
-// The two depth-1 nodes are an exclusive choice: taking one permanently locks
-// the other, so progression is a real decision, not a checklist. The Steadfast
-// branch and the Master capstone are gated on *sustained* condition (days spent
-// not decaying), not just accumulated XP — the tree rewards consistency.
+// Power nodes grant +XP toward that attribute; Steadfast/Master nodes grant
+// decay resistance. Unlocking a node costs a Skill Point (earned 1 per
+// character level) plus attribute-level and sustained-consistency requirements.
+// So bonuses come from growing the real habits, not from loot.
 
-import { levelFromXp } from './leveling.js';
-import { sustainedDays } from './condition.js';
+import { levelFromXp, charLevelFromXp } from './leveling.js';
+import { totalXp } from './attributes.js';
+import { DAY_MS } from './util.js';
 
-// Build the full node list for the current set of stats. Pure — derives
-// structure from state.stats; unlock state lives in state.tree.unlocked.
+// Local copy so this module doesn't import condition.js (avoids a cycle:
+// condition.js reads activeEffects() from here).
+function sustainedDays(stat, at) {
+  if (!stat || !stat.healthySince) return 0;
+  return (at - stat.healthySince) / DAY_MS;
+}
+
 export function buildTree(state) {
   const nodes = [];
-  const stats = Object.values(state.stats);
-  stats.forEach((stat, i) => {
+  Object.values(state.stats).forEach((stat, i) => {
     const s = stat.id;
-    const group = `${s}_focus`; // exclusive-choice group id
+    const group = `${s}_focus`;
     nodes.push({
-      id: `${s}_novice`,
-      statId: s,
-      title: 'Novice',
-      desc: `Awaken your ${stat.name}.`,
-      parents: [],
-      parentsMode: 'all',
-      req: { minLevel: 2 },
-      exclusiveGroup: null,
-      effect: { type: 'title', value: `${stat.name} Novice` },
-      lane: 0,
-      depth: 0,
-      statIndex: i,
+      id: `${s}_novice`, statId: s, title: 'Adept', cost: 1,
+      desc: `Awaken your ${stat.name}. +10% ${stat.name} XP.`,
+      parents: [], parentsMode: 'all', req: { minLevel: 2 },
+      exclusiveGroup: null, effect: { type: 'xp', value: 1.1 },
+      earnedTitle: `${stat.name} Adept`, lane: 0, depth: 0, statIndex: i,
     });
     nodes.push({
-      id: `${s}_power`,
-      statId: s,
-      title: 'Path of Power',
-      desc: `Raw growth — +25% XP toward ${stat.name}.`,
-      parents: [`${s}_novice`],
-      parentsMode: 'all',
-      req: { minLevel: 4 },
-      exclusiveGroup: group,
-      effect: { type: 'xpMultiplier', value: 1.25 },
-      lane: -1,
-      depth: 1,
-      statIndex: i,
+      id: `${s}_power`, statId: s, title: 'Path of Power', cost: 1,
+      desc: `Raw growth — +30% ${stat.name} XP.`,
+      parents: [`${s}_novice`], parentsMode: 'all', req: { minLevel: 4 },
+      exclusiveGroup: group, effect: { type: 'xp', value: 1.3 },
+      lane: -1, depth: 1, statIndex: i,
     });
     nodes.push({
-      id: `${s}_steady`,
-      statId: s,
-      title: 'Path of the Steadfast',
-      desc: `Consistency — +15% XP toward ${stat.name}. Requires 5 days without decay.`,
-      parents: [`${s}_novice`],
-      parentsMode: 'all',
-      req: { minLevel: 3, sustainedDays: 5 },
-      exclusiveGroup: group,
-      effect: { type: 'xpMultiplier', value: 1.15 },
-      lane: 1,
-      depth: 1,
-      statIndex: i,
+      id: `${s}_steady`, statId: s, title: 'Path of the Steadfast', cost: 1,
+      desc: `Resilience — +15% decay resistance. Needs 5 days without decay.`,
+      parents: [`${s}_novice`], parentsMode: 'all', req: { minLevel: 3, sustainedDays: 5 },
+      exclusiveGroup: group, effect: { type: 'resist', value: 0.15 },
+      lane: 1, depth: 1, statIndex: i,
     });
     nodes.push({
-      id: `${s}_master`,
-      statId: s,
-      title: 'Master',
-      desc: `Mastery of ${stat.name}. Requires 10 days without decay.`,
-      parents: [`${s}_power`, `${s}_steady`],
-      parentsMode: 'any', // whichever branch you took
+      id: `${s}_master`, statId: s, title: 'Master', cost: 2,
+      desc: `Mastery of ${stat.name}. +10% decay resistance. Needs 10 days without decay.`,
+      parents: [`${s}_power`, `${s}_steady`], parentsMode: 'any',
       req: { minLevel: 7, sustainedDays: 10 },
-      exclusiveGroup: null,
-      effect: { type: 'title', value: `${stat.name} Master` },
-      lane: 0,
-      depth: 2,
-      statIndex: i,
+      exclusiveGroup: null, effect: { type: 'resist', value: 0.1 },
+      earnedTitle: `${stat.name} Master`, lane: 0, depth: 2, statIndex: i,
     });
   });
   return nodes;
 }
 
+// ---- Skill points --------------------------------------------------------
+// One SP earned per character level (beyond 1); each unlocked node spends its
+// cost. Available = earned − spent.
+
+export function earnedSp(state) {
+  return Math.max(0, charLevelFromXp(totalXp(state)) - 1);
+}
+export function spentSp(state) {
+  const unlocked = new Set(state.tree?.unlocked || []);
+  return buildTree(state).reduce((sum, n) => (unlocked.has(n.id) ? sum + n.cost : sum), 0);
+}
+export function availableSp(state) {
+  return earnedSp(state) - spentSp(state);
+}
+
 function parentsSatisfied(node, unlockedSet) {
   if (node.parents.length === 0) return true;
-  if (node.parentsMode === 'any') {
-    return node.parents.some((p) => unlockedSet.has(p));
-  }
+  if (node.parentsMode === 'any') return node.parents.some((p) => unlockedSet.has(p));
   return node.parents.every((p) => unlockedSet.has(p));
 }
 
-// Is a sibling in the same exclusive group already unlocked?
 function lockedOut(node, nodes, unlockedSet) {
   if (!node.exclusiveGroup) return false;
-  return nodes.some(
-    (n) =>
-      n.id !== node.id &&
-      n.exclusiveGroup === node.exclusiveGroup &&
-      unlockedSet.has(n.id),
-  );
+  return nodes.some((n) => n.id !== node.id && n.exclusiveGroup === node.exclusiveGroup && unlockedSet.has(n.id));
 }
 
 function reqMet(node, state, at) {
   const stat = state.stats[node.statId];
   if (!stat) return false;
-  const level = levelFromXp(stat.xp);
-  if (node.req.minLevel && level < node.req.minLevel) return false;
-  if (node.req.minXp && stat.xp < node.req.minXp) return false;
-  if (node.req.sustainedDays && sustainedDays(stat, at) < node.req.sustainedDays) {
-    return false;
-  }
+  if (node.req.minLevel && levelFromXp(stat.xp) < node.req.minLevel) return false;
+  if (node.req.sustainedDays && sustainedDays(stat, at) < node.req.sustainedDays) return false;
+  if (availableSp(state) < node.cost) return false; // need the skill point
   return true;
 }
 
-// Classify every node: 'unlocked' | 'available' | 'locked' | 'lockedout'.
+// 'unlocked' | 'available' | 'locked' | 'lockedout'
 export function evaluateTree(state, at = Date.now()) {
   const nodes = buildTree(state);
   const unlocked = new Set(state.tree?.unlocked || []);
   return nodes.map((node) => {
     let status;
-    if (unlocked.has(node.id)) {
-      status = 'unlocked';
-    } else if (lockedOut(node, nodes, unlocked)) {
-      status = 'lockedout';
-    } else if (parentsSatisfied(node, unlocked) && reqMet(node, state, at)) {
-      status = 'available';
-    } else {
-      status = 'locked';
-    }
+    if (unlocked.has(node.id)) status = 'unlocked';
+    else if (lockedOut(node, nodes, unlocked)) status = 'lockedout';
+    else if (parentsSatisfied(node, unlocked) && reqMet(node, state, at)) status = 'available';
+    else status = 'locked';
     return { ...node, status };
   });
 }
 
-// Attempt to unlock a node by id. Returns the node on success, null otherwise.
 export function unlockNode(state, nodeId, at = Date.now()) {
-  const evaluated = evaluateTree(state, at);
-  const node = evaluated.find((n) => n.id === nodeId);
+  const node = evaluateTree(state, at).find((n) => n.id === nodeId);
   if (!node || node.status !== 'available') return null;
   if (!state.tree) state.tree = { unlocked: [] };
-  if (!state.tree.unlocked.includes(nodeId)) {
-    state.tree.unlocked.push(nodeId);
-  }
+  if (!state.tree.unlocked.includes(nodeId)) state.tree.unlocked.push(nodeId);
   return node;
 }
 
-// Aggregate active effects. Currently: per-stat XP multiplier + earned titles.
+// Aggregate: per-attribute XP multiplier, global decay resistance, titles.
 export function activeEffects(state) {
   const unlocked = new Set(state.tree?.unlocked || []);
-  const nodes = buildTree(state);
-  const xpMultiplier = {}; // statId -> multiplier
+  const xpMultiplier = {};
   const titles = [];
-  for (const node of nodes) {
+  let decayResist = 0;
+  for (const node of buildTree(state)) {
     if (!unlocked.has(node.id)) continue;
-    if (node.effect.type === 'xpMultiplier') {
+    if (node.effect.type === 'xp') {
       xpMultiplier[node.statId] = (xpMultiplier[node.statId] || 1) * node.effect.value;
-    } else if (node.effect.type === 'title') {
-      titles.push(node.effect.value);
+    } else if (node.effect.type === 'resist') {
+      decayResist += node.effect.value;
     }
+    if (node.earnedTitle) titles.push(node.earnedTitle);
   }
-  return { xpMultiplier, titles };
+  return { xpMultiplier, decayResist: Math.min(0.7, decayResist), titles };
 }
