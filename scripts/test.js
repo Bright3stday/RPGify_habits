@@ -7,9 +7,11 @@ import { periodMs, isDue, dueAt } from '../www/js/cadence.js';
 import { habitHealth, statCondition, refreshConditions, sustainedDays } from '../www/js/condition.js';
 import { DAY_MS } from '../www/js/util.js';
 import {
-  defaultState, addHabit, completeHabit, addStat,
+  defaultState, addHabit, completeHabit, addStat, syncStepHabits,
 } from '../www/js/game.js';
 import { evaluateTree, unlockNode, activeEffects } from '../www/js/skilltree.js';
+import { setManualSteps, stepsToday } from '../www/js/pedometer.js';
+import { spriteFor } from '../www/js/sprites.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -69,7 +71,7 @@ test('decay is cadence-scaled: weekly rots slower than daily in real time', () =
 
 test('stat condition averages feeders; no feeders reads full', () => {
   const state = defaultState();
-  const statId = Object.keys(state.stats)[0];
+  const statId = addStat(state, { name: 'Iso', color: '#fff' }).id; // clean stat
   assert.equal(statCondition(state, statId, Date.now()), 100);
   const h = addHabit(state, { name: 'x', statIds: [statId], cadenceType: 'daily' });
   h.lastCompleted = 0; h.createdAt = 0;
@@ -92,7 +94,7 @@ test('completing a habit awards XP and can level up', () => {
 
 test('completion resets decay clock (condition back to full)', () => {
   const state = defaultState();
-  const statId = Object.keys(state.stats)[0];
+  const statId = addStat(state, { name: 'Iso', color: '#fff' }).id; // clean stat
   const h = addHabit(state, { name: 'x', statIds: [statId], cadenceType: 'daily' });
   h.lastCompleted = 0; h.createdAt = 0;
   refreshConditions(state, 10 * DAY_MS);
@@ -143,6 +145,50 @@ test('tree: sustained requirement blocks then allows', () => {
   steady = evaluateTree(state).find((n) => n.id === `${statId}_steady`);
   assert.equal(steady.status, 'available');
   assert.ok(sustainedDays(state.stats[statId]) >= 5);
+});
+
+// ---- Steps: auto-complete + sprite evolution ------------------------------
+test('default state seeds a Daily Steps habit feeding Body', () => {
+  const state = defaultState();
+  const steps = Object.values(state.habits).find((h) => h.source === 'steps');
+  assert.ok(steps, 'a steps habit exists');
+  assert.equal(steps.stepGoal, 8000);
+  const body = Object.values(state.stats).find((s) => s.name === 'Body');
+  assert.ok(steps.statIds.includes(body.id), 'steps habit feeds Body');
+});
+
+test('step habit auto-completes at goal, awards XP, idempotent per day', () => {
+  const state = defaultState();
+  const steps = Object.values(state.habits).find((h) => h.source === 'steps');
+  const body = state.stats[steps.statIds[0]];
+  setManualSteps(state, 5000);
+  assert.equal(syncStepHabits(state).length, 0, 'below goal: no completion');
+  setManualSteps(state, 8200);
+  const fired = syncStepHabits(state);
+  assert.equal(fired.length, 1, 'reaching goal completes it');
+  assert.equal(body.xp, 50);
+  assert.equal(syncStepHabits(state).length, 0, 'same day: does not re-fire');
+  // next day, goal met again -> fires again
+  const tomorrow = Date.now() + 25 * 60 * 60 * 1000;
+  setManualSteps(state, 9000, tomorrow);
+  assert.equal(syncStepHabits(state, tomorrow).length, 1, 'new day re-fires');
+  assert.equal(body.xp, 100);
+});
+
+test('manual steps roll to zero on a new day', () => {
+  const state = defaultState();
+  setManualSteps(state, 6000);
+  assert.equal(stepsToday(state), 6000);
+  assert.equal(stepsToday(state, Date.now() + 25 * 60 * 60 * 1000), 0);
+});
+
+test('sprite devolves to slime when broken, evolves with level', () => {
+  assert.equal(spriteFor({ xp: 2000, condition: 5 }).tier, 'slime');
+  assert.equal(spriteFor({ xp: 2000, condition: 30 }).tier, 'blob');
+  assert.equal(spriteFor({ xp: 50, condition: 100 }).tier, 'average');
+  assert.equal(spriteFor({ xp: 800, condition: 100 }).tier, 'fit');
+  assert.equal(spriteFor({ xp: 2000, condition: 100 }).tier, 'champion');
+  assert.ok(spriteFor({ xp: 800, condition: 55 }).decayed, 'worn athlete looks decayed');
 });
 
 console.log(`\n${passed} checks passed.`);

@@ -20,6 +20,14 @@ export function daysBetween(a, b) {
   return (a - b) / DAY_MS;
 }
 
+// Local calendar-day key (YYYY-MM-DD) — used to bucket steps and detect
+// "already completed today" for daily/steps habits.
+export function dayKey(ts = Date.now()) {
+  const d = new Date(ts);
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
 export function fmtDate(ts) {
   if (!ts) return '—';
   const d = new Date(ts);

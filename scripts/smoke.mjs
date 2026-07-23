@@ -41,7 +41,8 @@ try {
   check(habitCount >= 1, 'habit created and listed');
 
   // Complete it -> should award XP and pop LEVEL UP (120 xp -> level 2).
-  await page.click('.do-btn:not([disabled])');
+  // Use [data-do] so we hit the manual button, not the seeded steps AUTO badge.
+  await page.click('[data-do]:not([disabled])');
   await wait(300);
   const leveled = await page.$('.levelup');
   check(!!leveled, 'completing habit triggers LEVEL UP! beat');
@@ -67,6 +68,24 @@ try {
     check(!!unlockBeat, 'unlocking a node fires SKILL UNLOCKED beat');
     if (unlockBeat) { await page.click('.levelup'); await wait(150); }
   }
+
+  // Steps feature: dashboard shows sprites + a steps widget; logging steps to
+  // the goal auto-completes the seeded Daily Steps habit.
+  await page.click('.tab[data-route="dashboard"]');
+  await wait(150);
+  const spriteCount = await page.$$eval('.stat-avatar .sprite', (els) => els.length);
+  check(spriteCount === 4, `each stat shows an evolving sprite (${spriteCount})`);
+  const hasStepsWidget = await page.$$eval('.window-title', (els) => els.some((e) => /STEPS TODAY/.test(e.textContent)));
+  check(hasStepsWidget, 'steps widget renders on dashboard');
+  // log 3000 x3 = 9000 >= 8000 goal
+  for (let i = 0; i < 3; i += 1) { await page.click('[data-steps-add="3000"]'); await wait(120); }
+  const stepsDone = await page.$$eval('.h-meta, .window', (els) => els.some((e) => /done today ✓|✓/.test(e.textContent)));
+  const bodyLeveledOrDone = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('rpgify.state.v1'));
+    const steps = Object.values(s.habits).find((h) => h.source === 'steps');
+    return !!steps.lastCompleted; // auto-completed today
+  });
+  check(bodyLeveledOrDone, 'reaching step goal auto-completes the Daily Steps habit');
 
   // Settings renders; export produces a download (via CDP not trivial, just check UI).
   await page.click('.tab[data-route="settings"]');

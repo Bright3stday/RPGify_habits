@@ -2,10 +2,11 @@
 // beats (LEVEL UP! flash, XP floaters, toasts) that the views trigger.
 
 import { loadState, saveState } from './store.js';
-import { defaultState } from './game.js';
+import { defaultState, syncStepHabits } from './game.js';
 import { refreshConditions } from './condition.js';
 import { activeEffects } from './skilltree.js';
 import { rescheduleAll } from './notifications.js';
+import { refreshSteps } from './pedometer.js';
 import { esc } from './util.js';
 import {
   renderDashboard, renderHabits, renderTree, renderSettings,
@@ -119,6 +120,20 @@ const ctx = {
   save, render, go, toast, floatXp, levelUpBeat, flashBeat,
   async reschedule() { await rescheduleAll(state.settings); },
   replaceState(next) { state = next; },
+  // Pull today's steps and auto-complete any step-goal habits that hit target.
+  async syncSteps({ silent = false } = {}) {
+    await refreshSteps(state);
+    const fired = syncStepHabits(state);
+    if (fired.length) {
+      await saveState(state);
+      if (!silent) {
+        const levelUps = fired.flatMap((f) => f.levelUps);
+        toast(`👟 ${fired[0].habit.name} complete!`);
+        levelUpBeat(levelUps);
+      }
+    }
+    return fired;
+  },
 };
 
 // ---- Boot ---------------------------------------------------------------
@@ -137,10 +152,14 @@ async function boot() {
     if (tab) go(tab.dataset.route);
   });
 
+  await ctx.syncSteps({ silent: true }); // catch up steps from time away
   render();
-  // Re-render conditions when returning to the app after time away.
-  document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) render();
+  // Re-check steps + conditions when returning to the app after time away.
+  document.addEventListener('visibilitychange', async () => {
+    if (!document.hidden) {
+      await ctx.syncSteps();
+      render();
+    }
   });
 }
 

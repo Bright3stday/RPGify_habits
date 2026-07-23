@@ -52,6 +52,29 @@ A slightly super-linear curve (`www/js/leveling.js`): cumulative XP to reach
 level *L* is `50·L·(L−1)` — early levels come fast (early wins are the hook),
 later ones ask for more.
 
+### Steps & the evolving avatar
+A habit can be **auto (steps)** instead of tap-to-log: it carries a daily step
+goal and **auto-completes the moment you hit it** (awarding XP, resetting decay),
+at most once per day. Steps come from the device's hardware pedometer on Android
+(`www/js/pedometer.js` ⇄ `StepCounterPlugin.java`, using `TYPE_STEP_COUNTER`);
+with no sensor (web, or a phone without one) you log them manually.
+
+Each stat shows a **character avatar that evolves and devolves** (`www/js/sprites.js`):
+
+```
+condition broken  -> SLIME        (a leveled-up stat literally melts into goo)
+condition cracked -> Out of Shape
+healthy, low lvl  -> Adventurer
+healthy, mid lvl  -> Athlete
+healthy, high lvl -> Champion (crown + aura)
+worn condition    -> the current sprite, desaturated (an early warning)
+```
+
+Because step completions feed the Body stat's XP (evolution) and reset its decay
+(condition), **walking levels your avatar up and neglect turns it into a slime** —
+the loss-aversion thesis made literal. Sprites are drawn procedurally as inline
+SVG (no image assets), so they stay crisp and tint on decay.
+
 ### Skill tree — branching, with real choices
 Stats are user-defined, so the tree can't be hand-authored. Instead each stat
 grows the same **diamond** shape (`www/js/skilltree.js`):
@@ -85,6 +108,8 @@ www/                     the web app (this is what Capacitor wraps)
     leveling.js          XP -> level curve
     cadence.js           cadence periods & due timing
     skilltree.js         branching tree generation + unlock logic
+    sprites.js           procedural pixel avatars (slime <-> champion)
+    pedometer.js         steps source: native sensor / manual fallback
     notifications.js     local notifications (native) / no-op (web)
     backup.js            JSON export/import
     views.js             the four screens + editor modals
@@ -142,6 +167,15 @@ variants, and the splash screen are committed under `android/app/src/main/res/`.
 They're generated from a hand-drawn pixel emblem by `scripts/make-icons.mjs`
 (rasterized with headless Chromium) — re-run `node scripts/make-icons.mjs` if
 you tweak the emblem. `cap sync` does not touch these.
+
+### Steps on device
+The step sensor is bridged by a small committed Capacitor plugin
+(`StepCounterPlugin.java`, registered in `MainActivity`) reading
+`TYPE_STEP_COUNTER` — no Google Fit / Health Connect / network. It requests the
+`ACTIVITY_RECOGNITION` runtime permission the first time steps are read. This
+native path can only be exercised on a real device/build; the JS logic,
+auto-complete, and avatar behaviour are covered by the tests above using the
+manual step source.
 
 ### Notifications on device
 The Local Notifications plugin merges the needed permissions

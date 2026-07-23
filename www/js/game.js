@@ -4,11 +4,12 @@
 // keep XP, levels, streaks, conditions and skill-tree effects consistent, and
 // report back the reward beats (XP gained, level-ups) the UI needs to animate.
 
-import { uid, clamp, now } from './util.js';
+import { uid, clamp, now, dayKey } from './util.js';
 import { periodMs } from './cadence.js';
 import { levelFromXp } from './leveling.js';
 import { refreshConditions } from './condition.js';
 import { activeEffects } from './skilltree.js';
+import { stepsToday } from './pedometer.js';
 
 export const SCHEMA_VERSION = 1;
 
@@ -38,8 +39,10 @@ export function defaultState() {
     },
     meta: { lastCheckIn: null },
   };
+  let bodyId = null;
   for (const s of DEFAULT_STATS) {
     const id = uid('stat');
+    if (s.name === 'Body') bodyId = id;
     state.stats[id] = {
       id,
       name: s.name,
@@ -48,6 +51,18 @@ export function defaultState() {
       condition: 100,
       healthySince: now(),
     };
+  }
+  // Showcase the pedometer feature: a step-goal habit feeding Body that
+  // auto-completes on the day you hit your goal.
+  if (bodyId) {
+    addHabit(state, {
+      name: 'Daily Steps',
+      description: 'Auto-completes when you reach your step goal.',
+      statIds: [bodyId],
+      source: 'steps',
+      stepGoal: 8000,
+      xpPerCompletion: 50,
+    });
   }
   refreshConditions(state);
   return state;
@@ -94,7 +109,10 @@ export function addHabit(state, data) {
     name: (data.name || '').trim() || 'New Habit',
     description: data.description || '',
     statIds: Array.isArray(data.statIds) ? data.statIds : [],
-    cadenceType: data.cadenceType || 'daily',
+    // 'manual' = tap to complete; 'steps' = auto-completes at a daily step goal.
+    source: data.source === 'steps' ? 'steps' : 'manual',
+    stepGoal: clamp(Number(data.stepGoal) || 8000, 100, 100000),
+    cadenceType: data.source === 'steps' ? 'daily' : (data.cadenceType || 'daily'),
     cadenceN: data.cadenceN || 2,
     xpPerCompletion: clamp(Number(data.xpPerCompletion) || 20, 1, 1000),
     lastCompleted: null,
@@ -117,6 +135,9 @@ export function updateHabit(state, id, patch) {
   if (patch.xpPerCompletion != null) {
     h.xpPerCompletion = clamp(Number(patch.xpPerCompletion) || 1, 1, 1000);
   }
+  if (patch.source != null) h.source = patch.source === 'steps' ? 'steps' : 'manual';
+  if (patch.stepGoal != null) h.stepGoal = clamp(Number(patch.stepGoal) || 8000, 100, 100000);
+  if (h.source === 'steps') h.cadenceType = 'daily';
 }
 
 export function retireHabit(state, id, retired = true) {
@@ -170,4 +191,21 @@ export function completeHabit(state, id, at = now()) {
 
   refreshConditions(state, at);
   return { awards, levelUps };
+}
+
+// Auto-complete step-goal habits when today's step count reaches their goal.
+// Idempotent per day: a habit already completed today is skipped. Returns any
+// completions (with their level-ups) so the UI can fire reward beats.
+export function syncStepHabits(state, at = now()) {
+  const steps = stepsToday(state, at);
+  const fired = [];
+  for (const h of Object.values(state.habits)) {
+    if (h.retired || h.source !== 'steps') continue;
+    const doneToday = h.lastCompleted && dayKey(h.lastCompleted) === dayKey(at);
+    if (steps >= (h.stepGoal || 8000) && !doneToday) {
+      const r = completeHabit(state, h.id, at);
+      if (r) fired.push({ habit: h, steps, ...r });
+    }
+  }
+  return fired;
 }

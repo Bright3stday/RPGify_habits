@@ -3,7 +3,7 @@
 // ceremony. Views are pure render-on-demand: each sets container.innerHTML and
 // wires listeners against the freshly-rendered nodes.
 
-import { esc, fmtRelative } from './util.js';
+import { esc, fmtRelative, dayKey } from './util.js';
 import { levelProgress } from './leveling.js';
 import { conditionState, sustainedDays, SUSTAIN_THRESHOLD } from './condition.js';
 import { CADENCE_TYPES, cadenceLabel, isDue, dueAt } from './cadence.js';
@@ -13,6 +13,10 @@ import {
 } from './game.js';
 import { evaluateTree, unlockNode } from './skilltree.js';
 import { exportState, parseImport, readFile } from './backup.js';
+import { spriteSvg, TIER_NAMES, spriteFor } from './sprites.js';
+import {
+  hasSensor, stepsToday, addManualSteps, setManualSteps,
+} from './pedometer.js';
 
 const PALETTE = ['#e05a5a', '#48c8ff', '#f0c020', '#6ad46a', '#b06af0', '#e0803a', '#5ad0c0', '#f078b0'];
 
@@ -66,21 +70,28 @@ export function renderDashboard(container, ctx) {
     const p = levelProgress(s.xp);
     const cState = conditionState(s.condition);
     const decayCls = cState === 'healthy' ? '' : 'decaying';
+    const { tier } = spriteFor(s);
     return `
       <div class="stat-card ${decayCls}">
-        <div class="stat-head">
-          <span class="stat-name" style="color:${s.color}">${esc(s.name)}</span>
-          <span class="stat-level">LV ${p.level}</span>
-        </div>
-        ${segBar(p.pct, s.color)}
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
-          <span class="bar-caption">${p.into}/${p.span} XP</span>
-          ${condBadge(s.condition)}
+        <div class="stat-row">
+          <div class="stat-avatar" title="${esc(TIER_NAMES[tier])}">${spriteSvg(s, { size: 52 })}</div>
+          <div style="flex:1;min-width:0">
+            <div class="stat-head">
+              <span class="stat-name" style="color:${s.color}">${esc(s.name)}</span>
+              <span class="stat-level">LV ${p.level}</span>
+            </div>
+            ${segBar(p.pct, s.color)}
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-top:6px">
+              <span class="bar-caption">${p.into}/${p.span} XP</span>
+              ${condBadge(s.condition)}
+            </div>
+          </div>
         </div>
       </div>`;
   }).join('') || '<div class="empty">No stats yet. Add some in Config.</div>';
 
-  const dueHtml = due.length ? due.map((h) => habitRow(h, ctx, true)).join('')
+  const manualDue = due.filter((h) => h.source !== 'steps');
+  const dueHtml = manualDue.length ? manualDue.map((h) => habitRow(h, ctx, true)).join('')
     : '<div class="empty">Nothing due right now.<br/>Rest, hero.</div>';
 
   container.innerHTML = `
@@ -88,12 +99,63 @@ export function renderDashboard(container, ctx) {
       <div class="window-title">◆ STATUS</div>
       ${statsHtml}
     </div>
-    <div class="section-label">TODAY'S QUESTS (${due.length})</div>
+    ${stepsWidget(ctx)}
+    <div class="section-label">TODAY'S QUESTS (${manualDue.length})</div>
     ${dueHtml}
   `;
 
   container.querySelectorAll('[data-do]').forEach((btn) => {
     btn.addEventListener('click', () => doComplete(ctx, btn.dataset.do, btn));
+  });
+  wireSteps(container, ctx);
+}
+
+// Steps panel: today's count vs goal for each step-habit, plus manual logging
+// when no hardware pedometer is present (web, or a phone without the sensor).
+function stepsWidget(ctx) {
+  const { state } = ctx;
+  const stepHabits = Object.values(state.habits).filter((h) => !h.retired && h.source === 'steps');
+  if (!stepHabits.length) return '';
+  const steps = stepsToday(state);
+  const rows = stepHabits.map((h) => {
+    const goal = h.stepGoal || 8000;
+    const pct = Math.min(1, steps / goal);
+    const done = h.lastCompleted && dayKey(h.lastCompleted) === dayKey();
+    return `
+      <div style="margin-bottom:10px">
+        <div style="display:flex;justify-content:space-between;font-size:9px;margin-bottom:5px">
+          <span>👟 ${esc(h.name)}</span>
+          <span style="color:${done ? '#6ad46a' : '#f4f4fb'}">${steps.toLocaleString()} / ${goal.toLocaleString()}${done ? ' ✓' : ''}</span>
+        </div>
+        ${segBar(pct, '#6ad46a')}
+      </div>`;
+  }).join('');
+  const manual = hasSensor()
+    ? '<div class="bar-caption" style="margin-top:6px">Auto-counted from your device pedometer.</div>'
+    : `<div class="btn-row" style="margin-top:10px">
+         <button class="btn small" data-steps-add="1000">+1000</button>
+         <button class="btn small" data-steps-add="3000">+3000</button>
+         <button class="btn small" data-steps-set>SET</button>
+       </div>
+       <div class="bar-caption" style="margin-top:6px">No step sensor here — log steps manually. On an Android phone with a pedometer this fills in automatically.</div>`;
+  return `<div class="window"><div class="window-title">◆ STEPS TODAY</div>${rows}${manual}</div>`;
+}
+
+function wireSteps(container, ctx) {
+  container.querySelectorAll('[data-steps-add]').forEach((b) => b.addEventListener('click', async () => {
+    addManualSteps(ctx.state, Number(b.dataset.stepsAdd));
+    await ctx.save();
+    await ctx.syncSteps();
+    ctx.render();
+  }));
+  const setBtn = container.querySelector('[data-steps-set]');
+  if (setBtn) setBtn.addEventListener('click', async () => {
+    const v = prompt('Set today\'s step count:', String(stepsToday(ctx.state)));
+    if (v == null) return;
+    setManualSteps(ctx.state, Number(v) || 0);
+    await ctx.save();
+    await ctx.syncSteps();
+    ctx.render();
   });
 }
 
@@ -103,21 +165,30 @@ export function renderDashboard(container, ctx) {
 
 function habitRow(h, ctx, compact = false) {
   const { state } = ctx;
+  const isSteps = h.source === 'steps';
   const due = isDue(h);
   const pills = h.statIds.map((id) => {
     const s = state.stats[id];
     return s ? `<span class="stat-pill" style="color:${s.color};border-color:${s.color}">${esc(s.name)}</span>` : '';
   }).join('');
-  const cls = h.retired ? 'retired' : (due ? '' : 'done');
+  const doneToday = h.lastCompleted && dayKey(h.lastCompleted) === dayKey();
+  const cls = h.retired ? 'retired' : (isSteps ? (doneToday ? 'done' : '') : (due ? '' : 'done'));
   const editBtn = compact ? '' : `<button class="btn small" data-edit="${h.id}">EDIT</button>`;
+  const meta = isSteps
+    ? `👟 Goal ${(h.stepGoal || 8000).toLocaleString()} · ${h.xpPerCompletion} XP · ${doneToday ? 'done today ✓' : `${stepsToday(state).toLocaleString()} steps`}`
+    : `${cadenceLabel(h)} · ${h.xpPerCompletion} XP · streak ${h.streak || 0} · ${fmtRelative(h.lastCompleted)}`;
+  // Step habits complete automatically — show an AUTO badge, not a DO button.
+  const action = isSteps
+    ? `<div class="do-btn auto" title="Auto-completes at your step goal">${doneToday ? '✓' : 'AUTO'}</div>`
+    : `<button class="do-btn" data-do="${h.id}" ${(!due || h.retired) ? 'disabled' : ''}>${h.retired ? '—' : (due ? 'DO' : 'OK')}</button>`;
   return `
     <div class="habit ${cls}">
       <div class="h-main">
         <div class="h-name">${esc(h.name)}</div>
-        <div class="h-meta">${cadenceLabel(h)} · ${h.xpPerCompletion} XP · streak ${h.streak || 0} · ${fmtRelative(h.lastCompleted)}</div>
+        <div class="h-meta">${meta}</div>
         <div class="h-stats">${pills}${editBtn}</div>
       </div>
-      <button class="do-btn" data-do="${h.id}" ${(!due || h.retired) ? 'disabled' : ''}>${h.retired ? '—' : (due ? 'DO' : 'OK')}</button>
+      ${action}
     </div>`;
 }
 
@@ -145,7 +216,8 @@ function habitEditor(ctx, habitId) {
   const { state } = ctx;
   const editing = habitId ? state.habits[habitId] : null;
   const h = editing || {
-    name: '', description: '', statIds: [], cadenceType: 'daily', cadenceN: 2, xpPerCompletion: 20,
+    name: '', description: '', statIds: [], cadenceType: 'daily', cadenceN: 2,
+    xpPerCompletion: 20, source: 'manual', stepGoal: 8000,
   };
   const cadenceOpts = CADENCE_TYPES.map((c) => `<option value="${c.type}" ${h.cadenceType === c.type ? 'selected' : ''}>${c.label}</option>`).join('');
   const statChips = Object.values(state.stats).map((s) => `
@@ -157,10 +229,16 @@ function habitEditor(ctx, habitId) {
     <label class="field"><span>DESCRIPTION</span><textarea id="f-desc" maxlength="140">${esc(h.description)}</textarea></label>
     <label class="field"><span>FEEDS STATS (tap)</span></label>
     <div class="chips" id="f-stats" style="margin-bottom:12px">${statChips || '<span class="bar-caption">No stats — add some in Config.</span>'}</div>
-    <div style="display:flex;gap:10px">
+    <label class="field"><span>TYPE</span></label>
+    <div class="chips" id="f-src" style="margin-bottom:12px">
+      <span class="chip ${h.source !== 'steps' ? 'on' : ''}" data-src="manual">✋ Tap to log</span>
+      <span class="chip ${h.source === 'steps' ? 'on' : ''}" data-src="steps">👟 Auto (steps)</span>
+    </div>
+    <div style="display:flex;gap:10px" id="f-cad-row">
       <label class="field" style="flex:1"><span>CADENCE</span><select id="f-cad">${cadenceOpts}</select></label>
       <label class="field" style="width:90px" id="f-n-wrap"><span>EVERY N</span><input type="number" id="f-n" min="1" max="365" value="${h.cadenceN || 2}" /></label>
     </div>
+    <label class="field" id="f-goal-wrap"><span>STEP GOAL / DAY</span><input type="number" id="f-goal" min="100" max="100000" step="500" value="${h.stepGoal || 8000}" /></label>
     <label class="field"><span>XP PER COMPLETION</span><input type="number" id="f-xp" min="1" max="1000" value="${h.xpPerCompletion}" /></label>
     <div class="btn-row" style="margin-top:8px">
       <button class="btn primary" id="f-save">SAVE</button>
@@ -176,6 +254,22 @@ function habitEditor(ctx, habitId) {
   syncN();
   cadSel.addEventListener('change', syncN);
 
+  // Source toggle: manual (cadence) vs steps (daily goal).
+  let source = h.source === 'steps' ? 'steps' : 'manual';
+  const cadRow = overlay.querySelector('#f-cad-row');
+  const goalWrap = overlay.querySelector('#f-goal-wrap');
+  const syncSrc = () => {
+    const steps = source === 'steps';
+    cadRow.style.display = steps ? 'none' : 'flex';
+    goalWrap.style.display = steps ? 'block' : 'none';
+  };
+  syncSrc();
+  overlay.querySelectorAll('[data-src]').forEach((chip) => chip.addEventListener('click', () => {
+    source = chip.dataset.src;
+    overlay.querySelectorAll('[data-src]').forEach((c) => c.classList.toggle('on', c.dataset.src === source));
+    syncSrc();
+  }));
+
   overlay.querySelectorAll('[data-stat]').forEach((chip) => {
     chip.addEventListener('click', () => {
       const id = chip.dataset.stat;
@@ -190,6 +284,8 @@ function habitEditor(ctx, habitId) {
       name: overlay.querySelector('#f-name').value,
       description: overlay.querySelector('#f-desc').value,
       statIds: [...chosen],
+      source,
+      stepGoal: overlay.querySelector('#f-goal').value,
       cadenceType: cadSel.value,
       cadenceN: overlay.querySelector('#f-n').value,
       xpPerCompletion: overlay.querySelector('#f-xp').value,
@@ -197,8 +293,8 @@ function habitEditor(ctx, habitId) {
     if (editing) updateHabit(state, habitId, data);
     else addHabit(state, data);
     ctx.save();
-    overlay.remove();
-    ctx.render();
+    // A steps habit may already be past goal today -> reflect immediately.
+    ctx.syncSteps({ silent: true }).then(() => { overlay.remove(); ctx.render(); });
   });
 
   overlay.querySelector('#f-retire')?.addEventListener('click', () => {
