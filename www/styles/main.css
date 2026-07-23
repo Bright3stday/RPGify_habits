@@ -357,6 +357,35 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .lu-icon { image-rendering: pixelated; margin: 4px 0; }
 .lu-icon svg { image-rendering: pixelated; }
 
+.loot-cell.equippable { cursor: pointer; }
+.loot-cell.equipped { box-shadow: 0 0 0 2px var(--shadow), 0 0 8px var(--rc); }
+.equip-badge {
+  position: absolute; top: 2px; left: 4px;
+  font-size: 7px; color: #1c3a1c; background: var(--green);
+  padding: 1px 3px; border: 1px solid var(--shadow);
+}
+
+/* Hero paper-doll */
+.hero-panel { display: flex; gap: 12px; align-items: center; }
+.hero-avatar {
+  flex: none; width: 116px; height: 116px;
+  display: flex; align-items: center; justify-content: center;
+  background: #0c0c26; border: var(--px) solid var(--shadow);
+  box-shadow: inset 2px 2px 0 #000; image-rendering: pixelated;
+}
+.hero-avatar svg { image-rendering: pixelated; }
+.gear-slots { flex: 1; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.gear-slot {
+  min-height: 40px; padding: 4px;
+  background: #0c0c26; border: 2px solid var(--rc);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center;
+}
+.gear-slot.filled { cursor: pointer; }
+.gear-slot .slot-name { font-size: 5px; margin-top: 2px; line-height: 1.3; }
+.gear-slot .slot-empty { font-size: 6px; color: var(--ink-dim); }
+.hero-bonus { margin-top: 12px; font-size: 8px; line-height: 1.8; text-align: center; }
+
 /* ---- Bottom tab bar (JRPG menu) ---------------------------------------- */
 
 .tabbar {

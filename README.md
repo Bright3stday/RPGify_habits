@@ -30,7 +30,7 @@ scheduled locally.
 | **Status** (dashboard) | Every stat at a glance — level, segmented XP bar, condition badge (`STEADY` / `FADING` / `CRACKED` / `BROKEN`), plus today's due quests. |
 | **Quests** (habits) | Add / edit / retire habits. Set cadence (daily / every N days / weekly), XP per completion, and which stat(s) each feeds. |
 | **Skills** | The branching skill tree, one diamond per stat. Tap a glowing node to unlock. |
-| **Bag** | Loot collected from completions, grouped by item and sorted by rarity. |
+| **Bag** | Your Hero paper-doll + gear slots, and the loot collected from completions. Tap gear to equip. |
 | **Config** | Define your own stats, configure reminders (weekly check-in + water/posture nudges), and export/import your save. |
 
 ---
@@ -83,8 +83,22 @@ Completing a quest doesn't just give XP — it can **drop treasure** (`www/js/it
 Every completion rolls a loot table of FF-flavored weapons, armour, treasure and
 consumables across five rarities (Common → Legendary); a longer streak improves
 both the drop chance and the rarity odds, so **consistency literally pays out**.
-Drops fire a `TREASURE!` beat and collect in the **Bag** screen. Items are pure
-collectibles (no equip bonuses) — the reward is the reward.
+Drops fire a `TREASURE!` beat and collect in the **Bag** screen.
+
+### Equipment & bonuses
+Loot isn't just for show — equip it (`www/js/equipment.js`). Five slots
+(Weapon, Head, Body, Off-hand, Accessory) feed a **Hero** paper-doll that
+visibly wears your gear, and each piece grants a stacking bonus:
+
+| Slot | Bonus |
+|------|-------|
+| Weapon, Head | **+XP %** on every completion (stacks with skill-tree multipliers) |
+| Body, Off-hand | **decay resistance** — condition drops slower (capped, never immune) |
+| Accessory (gems) | **loot luck** — better drop chance and rarity |
+
+Rarer items give bigger bonuses. The bonuses are wired into the real loop:
+XP is multiplied in `completeHabit`, decay is softened in `statCondition`, and
+luck feeds `rollLoot` — so kitting out your hero measurably changes the game.
 
 ### Skill tree — branching, with real choices
 Stats are user-defined, so the tree can't be hand-authored. Instead each stat
@@ -121,6 +135,7 @@ www/                     the web app (this is what Capacitor wraps)
     skilltree.js         branching tree generation + unlock logic
     sprites.js           procedural class avatars (adventurer..mage, imp, slime)
     items.js             loot table, drop rolls, pixel item icons
+    equipment.js         equip slots + stacking gear bonuses
     pedometer.js         steps source: native sensor / manual fallback
     notifications.js     local notifications (native) / no-op (web)
     backup.js            JSON export/import

@@ -12,6 +12,7 @@
 
 import { periodMs } from './cadence.js';
 import { clamp } from './util.js';
+import { equipmentBonuses } from './equipment.js';
 
 // Condition stays pristine for one full grace period past due, then falls to
 // zero over this many further periods.
@@ -45,7 +46,11 @@ export function statCondition(state, statId, at = Date.now()) {
   );
   if (feeders.length === 0) return 100;
   const sum = feeders.reduce((acc, h) => acc + habitHealth(h, at), 0);
-  return Math.round(sum / feeders.length);
+  const raw = sum / feeders.length;
+  // Equipped body armour / shields soften the loss (never full immunity).
+  const resist = equipmentBonuses(state).decayResist;
+  const resisted = 100 - (100 - raw) * (1 - resist);
+  return Math.round(resisted);
 }
 
 // Discrete visual bucket for a condition value.

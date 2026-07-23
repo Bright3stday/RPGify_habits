@@ -11,6 +11,7 @@ import { refreshConditions } from './condition.js';
 import { activeEffects } from './skilltree.js';
 import { stepsToday } from './pedometer.js';
 import { rollLoot } from './items.js';
+import { equipmentBonuses, emptyEquipment } from './equipment.js';
 
 export const SCHEMA_VERSION = 1;
 
@@ -30,6 +31,7 @@ export function defaultState() {
     habits: {},
     tree: { unlocked: [] },
     inventory: [], // loot collected from completions
+    equipment: emptyEquipment(),
     reminders: {},
     settings: {
       activeHours: { start: 9, end: 21 }, // 9am–9pm
@@ -169,6 +171,7 @@ export function completeHabit(state, id, at = now()) {
   if (!h || h.retired) return null;
 
   const { xpMultiplier } = activeEffects(state);
+  const equip = equipmentBonuses(state);
   const awards = [];
   const levelUps = [];
 
@@ -176,7 +179,7 @@ export function completeHabit(state, id, at = now()) {
     const stat = state.stats[statId];
     if (!stat) continue;
     const before = levelFromXp(stat.xp);
-    const mult = xpMultiplier[statId] || 1;
+    const mult = (xpMultiplier[statId] || 1) * equip.xpMult; // tree × gear
     const gain = Math.round(h.xpPerCompletion * mult);
     stat.xp += gain;
     const after = levelFromXp(stat.xp);
@@ -197,9 +200,9 @@ export function completeHabit(state, id, at = now()) {
   h.history.push(at);
   if (h.history.length > 200) h.history = h.history.slice(-200);
 
-  // Loot roll — happens before the streak is consumed elsewhere; uses the
-  // streak we just updated so consistency improves drops.
-  const loot = rollLoot(h);
+  // Loot roll — uses the streak we just updated (consistency improves drops)
+  // plus any luck from equipped accessories.
+  const loot = rollLoot(h, Math.random, { luck: equip.luck });
   if (loot) addLoot(state, loot);
 
   refreshConditions(state, at);

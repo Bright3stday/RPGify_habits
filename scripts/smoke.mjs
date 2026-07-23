@@ -93,11 +93,14 @@ try {
   const hasExport = await page.$('#export');
   check(!!hasExport, 'settings screen renders with data controls');
 
-  // Bag / loot: the screen renders, and an injected item shows in the grid.
+  // Bag / Hero: the screen renders with the hero paper-doll + gear slots.
   await page.click('.tab[data-route="bag"]');
   await wait(150);
-  const bagTitle = await page.$$eval('.window-title', (els) => els.some((e) => /BAG/.test(e.textContent)));
-  check(bagTitle, 'Bag screen renders');
+  const heroPanel = await page.$('.hero-avatar');
+  const slotCount = await page.$$eval('.gear-slot', (els) => els.length);
+  check(!!heroPanel && slotCount === 5, `Hero screen renders with 5 gear slots (${slotCount})`);
+
+  // Inject a legendary weapon, then equip it from the bag.
   await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem('rpgify.state.v1'));
     s.inventory = s.inventory || [];
@@ -110,6 +113,15 @@ try {
   await wait(150);
   const lootCells = await page.$$eval('.loot-cell', (els) => els.length);
   check(lootCells >= 1, `loot item renders in the bag (${lootCells})`);
+  await page.click('[data-equip="excalibur"]');
+  await wait(200);
+  const equipped = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('rpgify.state.v1'));
+    return s.equipment && s.equipment.weapon && s.equipment.weapon.key === 'excalibur';
+  });
+  check(equipped, 'equipping loot fills the weapon slot');
+  const bonusShown = await page.$$eval('.hero-bonus', (els) => els.some((e) => /XP/.test(e.textContent)));
+  check(bonusShown, 'equipped gear shows an XP bonus');
 
   // Persistence: reload and confirm the habit survived.
   await page.reload({ waitUntil: 'networkidle' });

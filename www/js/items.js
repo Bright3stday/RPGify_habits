@@ -66,12 +66,14 @@ function pickRarity(luck, rnd) {
 }
 
 // Roll loot for a completion. Returns an item instance or null (no drop).
-// `rnd` is injectable for tests.
-export function rollLoot(habit = {}, rnd = Math.random) {
+// `rnd` is injectable for tests; `opts.luck` (0..~0.4) from equipped gear stacks
+// with the streak's own luck to raise drop chance and rarity.
+export function rollLoot(habit = {}, rnd = Math.random, opts = {}) {
   const streak = habit.streak || 0;
-  const dropChance = 0.35 + Math.min(0.2, streak * 0.01);
+  const gearLuck = opts.luck || 0;
+  const dropChance = 0.35 + Math.min(0.2, streak * 0.01) + gearLuck * 0.5;
   if (rnd() > dropChance) return null;
-  const luck = Math.min(0.3, streak * 0.02);
+  const luck = Math.min(0.5, streak * 0.02 + gearLuck);
   let rarity = pickRarity(luck, rnd);
   let pool = LOOT_TABLE.filter((i) => i.rarity === rarity);
   while (pool.length === 0) { // safety, shouldn't happen

@@ -13,11 +13,14 @@ import {
 } from './game.js';
 import { evaluateTree, unlockNode } from './skilltree.js';
 import { exportState, parseImport, readFile } from './backup.js';
-import { spriteSvg, TIER_NAMES, spriteFor } from './sprites.js';
+import { spriteSvg, TIER_NAMES, spriteFor, heroSvg } from './sprites.js';
 import {
   hasSensor, stepsToday, addManualSteps, setManualSteps,
 } from './pedometer.js';
 import { itemIconSvg, RARITY, RARITY_ORDER } from './items.js';
+import {
+  SLOTS, SLOT_LABEL, slotForItem, equipItem, unequipSlot, isKeyEquipped, equipmentBonuses,
+} from './equipment.js';
 
 const PALETTE = ['#e05a5a', '#48c8ff', '#f0c020', '#6ad46a', '#b06af0', '#e0803a', '#5ad0c0', '#f078b0'];
 
@@ -515,12 +518,31 @@ function hourOpts(sel) {
 // ========================================================================
 
 export function renderInventory(container, ctx) {
-  const items = ctx.state.inventory || [];
-  // Group identical items, keep the newest timestamp for sorting freshness.
+  const { state } = ctx;
+  const items = state.inventory || [];
+  const eq = state.equipment || {};
+  const bonus = equipmentBonuses(state);
+
+  // Equipment slots around the hero.
+  const slotsHtml = SLOTS.map((slot) => {
+    const it = eq[slot];
+    const inner = it
+      ? `<div class="loot-ico">${itemIconSvg(it, { size: 30 })}</div><div class="slot-name" style="color:${RARITY[it.rarity].color}">${esc(it.name)}</div>`
+      : `<div class="slot-empty">${SLOT_LABEL[slot]}</div>`;
+    return `<div class="gear-slot ${it ? 'filled' : ''}" style="--rc:${it ? RARITY[it.rarity].color : '#2a2a55'}" data-slot="${slot}">${inner}</div>`;
+  }).join('');
+
+  const bonusLine = [
+    bonus.xpPct ? `<span style="color:var(--gold)">+${bonus.xpPct}% XP</span>` : '',
+    bonus.decayResist ? `<span style="color:var(--accent)">${Math.round(bonus.decayResist * 100)}% Decay Resist</span>` : '',
+    bonus.luck ? `<span style="color:var(--green)">+${Math.round(bonus.luck * 100)}% Luck</span>` : '',
+  ].filter(Boolean).join('  ·  ') || '<span class="bar-caption">Equip gear for bonuses.</span>';
+
+  // Group identical loot; sort by rarity then name.
   const byKey = new Map();
   for (const it of items) {
     const g = byKey.get(it.key);
-    if (g) { g.count += 1; g.ts = Math.max(g.ts, it.ts || 0); }
+    if (g) g.count += 1;
     else byKey.set(it.key, { ...it, count: 1 });
   }
   const groups = [...byKey.values()].sort((a, b) => {
@@ -528,28 +550,54 @@ export function renderInventory(container, ctx) {
     return r !== 0 ? r : a.name.localeCompare(b.name);
   });
 
-  const counts = RARITY_ORDER.map((r) => {
-    const n = groups.filter((g) => g.rarity === r).reduce((a, g) => a + g.count, 0);
-    return n ? `<span style="color:${RARITY[r].color}">${n} ${RARITY[r].label}</span>` : '';
-  }).filter(Boolean).join('  ·  ');
-
-  const grid = groups.length ? `<div class="loot-grid">${groups.map((g) => `
-    <div class="loot-cell" style="--rc:${RARITY[g.rarity].color}" title="${esc(g.name)} — ${RARITY[g.rarity].label} ${esc(g.type)}">
-      <div class="loot-ico">${itemIconSvg(g, { size: 44 })}</div>
-      ${g.count > 1 ? `<span class="loot-count">×${g.count}</span>` : ''}
-      <div class="loot-name" style="color:${RARITY[g.rarity].color}">${esc(g.name)}</div>
-      <div class="loot-type">${esc(g.type)}</div>
-    </div>`).join('')}</div>`
+  const grid = groups.length ? `<div class="loot-grid">${groups.map((g) => {
+    const equippable = !!slotForItem(g);
+    const on = isKeyEquipped(state, g.key);
+    return `
+      <div class="loot-cell ${equippable ? 'equippable' : ''} ${on ? 'equipped' : ''}"
+           style="--rc:${RARITY[g.rarity].color}" ${equippable ? `data-equip="${g.key}"` : ''}
+           title="${esc(g.name)} — ${RARITY[g.rarity].label} ${esc(g.type)}${equippable ? (on ? ' (equipped — tap to remove)' : ' (tap to equip)') : ''}">
+        ${on ? '<span class="equip-badge">E</span>' : ''}
+        <div class="loot-ico">${itemIconSvg(g, { size: 44 })}</div>
+        ${g.count > 1 ? `<span class="loot-count">×${g.count}</span>` : ''}
+        <div class="loot-name" style="color:${RARITY[g.rarity].color}">${esc(g.name)}</div>
+        <div class="loot-type">${esc(g.type)}</div>
+      </div>`;
+  }).join('')}</div>`
     : '<div class="empty">No loot yet.<br/>Complete quests to find treasure.</div>';
 
   container.innerHTML = `
     <div class="window">
-      <div class="window-title">◆ BAG (${items.length})</div>
-      ${counts ? `<div class="bar-caption" style="margin-bottom:12px">${counts}</div>` : ''}
-      ${grid}
+      <div class="window-title">◆ HERO</div>
+      <div class="hero-panel">
+        <div class="hero-avatar">${heroSvg(eq, { size: 108 })}</div>
+        <div class="gear-slots">${slotsHtml}</div>
+      </div>
+      <div class="hero-bonus">${bonusLine}</div>
     </div>
-    <div class="bar-caption">Every quest completion has a chance to drop loot. Longer streaks improve your odds — and the rarity.</div>
+    <div class="section-label">BAG (${items.length}) — tap gear to equip</div>
+    ${grid}
   `;
+
+  // Unequip by tapping a filled slot.
+  container.querySelectorAll('.gear-slot.filled').forEach((el) => el.addEventListener('click', () => {
+    unequipSlot(state, el.dataset.slot);
+    ctx.save(); ctx.render();
+  }));
+  // Equip / unequip by tapping a loot cell.
+  container.querySelectorAll('[data-equip]').forEach((el) => el.addEventListener('click', () => {
+    const key = el.dataset.equip;
+    const item = groups.find((g) => g.key === key);
+    if (isKeyEquipped(state, key)) {
+      const slot = SLOTS.find((s) => eq[s] && eq[s].key === key);
+      if (slot) unequipSlot(state, slot);
+      ctx.toast(`Unequipped ${item.name}`);
+    } else {
+      const slot = equipItem(state, item);
+      if (slot) ctx.toast(`Equipped ${item.name}`);
+    }
+    ctx.save(); ctx.render();
+  }));
 }
 
 function statEditor(ctx, statId) {

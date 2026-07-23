@@ -198,6 +198,70 @@ export function spriteFor(stat) {
   return { tier, decayed: cond < 75 && tier !== 'slime' && tier !== 'imp' };
 }
 
+// ---- Hero paper-doll: a neutral body that wears equipped gear -----------
+
+function heroBase() {
+  const p = new Px();
+  p.disc(8, 3, 2, SKIN);
+  p.rect(6, 1, 5, 1, HAIR);
+  p.put(7, 3, EYE); p.put(9, 3, EYE);
+  p.rect(6, 6, 4, 5, '#3a5a8a');    // plain tunic
+  p.rect(5, 6, 1, 4, SKIN); p.rect(10, 6, 1, 4, SKIN); // arms
+  p.rect(6, 11, 2, 4, LEATHER); p.rect(8, 11, 2, 4, LEATHER); // legs
+  p.rect(6, 15, 2, 1, EYE); p.rect(8, 15, 2, 1, EYE);
+  return p;
+}
+function wearHead(p, c) {
+  p.rect(6, 1, 5, 3, c);
+  p.rect(6, 1, 5, 1, STEELL);
+  p.rect(5, 3, 6, 1, c);
+  p.rect(7, 3, 3, 1, EYE);          // visor slit
+}
+function wearBody(p, c) {
+  p.rect(5, 6, 6, 1, STEELL);       // pauldrons
+  p.rect(6, 6, 4, 5, c);
+  p.put(6, 7, WHITE);
+  p.put(8, 8, GOLD);                // emblem
+}
+function wearOffhand(p, c) {
+  p.rect(3, 6, 3, 5, c);            // shield on left
+  p.rect(3, 6, 3, 1, WHITE);
+  p.rect(4, 7, 1, 3, GOLD); p.rect(3, 8, 3, 1, GOLD); // cross
+}
+function wearWeapon(p, item) {
+  const c = item.color;
+  if (item.shape === 'axe') {
+    p.rect(12, 3, 1, 9, LEATHER);   // haft
+    p.rect(9, 3, 3, 3, c); p.put(9, 3, WHITE); // head
+  } else {
+    const top = item.shape === 'dagger' ? 5 : 2;
+    p.rect(12, top, 1, 11 - top, c); p.put(12, top, WHITE); // blade
+    p.rect(11, 11, 3, 1, GOLD);     // guard
+    p.put(12, 12, LEATHER);         // grip
+  }
+  p.put(11, 10, SKIN);              // hand
+}
+
+// Render the hero wearing the given equipment ({weapon,head,body,offhand,
+// accessory} of item snapshots or null).
+export function heroSvg(equipment = {}, { size = 96 } = {}) {
+  const p = heroBase();
+  if (equipment.body) wearBody(p, equipment.body.color);
+  if (equipment.offhand) wearOffhand(p, equipment.offhand.color);
+  if (equipment.weapon) wearWeapon(p, equipment.weapon);
+  if (equipment.head) wearHead(p, equipment.head.color);
+  const acc = equipment.accessory;
+  const rects = p.cells()
+    .map(([x, y, c]) => `<rect x="${x}" y="${y}" width="1" height="1" fill="${c}"/>`)
+    .join('');
+  const glow = acc
+    ? `<defs><filter id="ha"><feGaussianBlur stdDeviation="1.1"/></filter></defs>
+       <circle cx="8" cy="8" r="7" fill="${acc.color}" opacity="0.3" filter="url(#ha)"/>`
+    : '';
+  return `<svg class="sprite" viewBox="-1 -1 18 18" width="${size}" height="${size}"
+    shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">${glow}${rects}</svg>`;
+}
+
 // Render a stat's sprite as inline SVG markup.
 export function spriteSvg(stat, { size = 48 } = {}) {
   const { tier, decayed } = spriteFor(stat);

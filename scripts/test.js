@@ -13,6 +13,9 @@ import { evaluateTree, unlockNode, activeEffects } from '../www/js/skilltree.js'
 import { setManualSteps, stepsToday } from '../www/js/pedometer.js';
 import { spriteFor } from '../www/js/sprites.js';
 import { rollLoot, RARITY_ORDER } from '../www/js/items.js';
+import {
+  equipItem, equipmentBonuses, slotForItem,
+} from '../www/js/equipment.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -214,6 +217,44 @@ test('addLoot appends to inventory', () => {
   const before = state.inventory.length;
   addLoot(state, { key: 'potion', name: 'Potion', type: 'Item', shape: 'potion', rarity: 'common', color: '#e05a5a', id: 'x' });
   assert.equal(state.inventory.length, before + 1);
+});
+
+// ---- Equipment ------------------------------------------------------------
+test('equipment: slot mapping + bonus aggregation', () => {
+  assert.equal(slotForItem({ shape: 'sword', type: 'Weapon' }), 'weapon');
+  assert.equal(slotForItem({ shape: 'armor', type: 'Armour' }), 'body');
+  assert.equal(slotForItem({ shape: 'shield', type: 'Armour' }), 'offhand');
+  assert.equal(slotForItem({ shape: 'gem', type: 'Treasure' }), 'accessory');
+  assert.equal(slotForItem({ shape: 'potion', type: 'Item' }), null);
+  const s = defaultState();
+  equipItem(s, { key: 'excalibur', name: 'Excalibur', type: 'Weapon', shape: 'sword', rarity: 'legendary', color: '#f0d840' });
+  const b = equipmentBonuses(s);
+  assert.equal(b.xpPct, 25);
+  assert.ok(Math.abs(b.xpMult - 1.25) < 1e-9);
+});
+
+test('equipment: equipped weapon boosts completion XP', () => {
+  const s = defaultState();
+  const st = addStat(s, { name: 'T', color: '#fff' }).id;
+  const h = addHabit(s, { name: 'x', statIds: [st], xpPerCompletion: 40 });
+  completeHabit(s, h.id);
+  const base = s.stats[st].xp; // 40, no gear
+  equipItem(s, { key: 'iron_sword', name: 'Iron Sword', type: 'Weapon', shape: 'sword', rarity: 'common', color: '#c8c8d8' }); // +5%
+  s.habits[h.id].lastCompleted = null; // allow re-complete
+  completeHabit(s, h.id);
+  assert.equal(s.stats[st].xp - base, Math.round(40 * 1.05)); // 42
+});
+
+test('equipment: body armour resists decay (higher condition)', () => {
+  const s = defaultState();
+  const st = addStat(s, { name: 'T', color: '#fff' }).id;
+  const h = addHabit(s, { name: 'x', statIds: [st], cadenceType: 'daily' });
+  h.lastCompleted = 0; h.createdAt = 0;
+  const at = 2.6 * DAY_MS; // past grace, mid-decay
+  const before = statCondition(s, st, at);
+  equipItem(s, { key: 'knights_plate', name: "Knight's Plate", type: 'Armour', shape: 'armor', rarity: 'epic', color: '#d4d4e4' });
+  const after = statCondition(s, st, at);
+  assert.ok(after > before, `armour raises condition (${before} -> ${after})`);
 });
 
 console.log(`\n${passed} checks passed.`);
