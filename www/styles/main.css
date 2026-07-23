@@ -331,6 +331,32 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .node.lockedout { color: #6a4a4a; opacity: 0.5; text-decoration: line-through; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 2px var(--shadow), 0 0 10px var(--accent); } }
 
+/* ---- Loot / inventory --------------------------------------------------- */
+
+.loot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  gap: 10px;
+}
+.loot-cell {
+  position: relative;
+  text-align: center;
+  padding: 8px 4px 6px;
+  background: #0c0c26;
+  border: var(--px) solid var(--rc, var(--line));
+  box-shadow: 0 0 0 2px var(--shadow);
+}
+.loot-ico { display: flex; justify-content: center; image-rendering: pixelated; margin-bottom: 4px; }
+.loot-ico svg { image-rendering: pixelated; }
+.loot-count {
+  position: absolute; top: 2px; right: 4px;
+  font-size: 8px; color: var(--ink);
+}
+.loot-name { font-size: 6px; line-height: 1.4; margin-top: 2px; }
+.loot-type { font-size: 5px; color: var(--ink-dim); margin-top: 2px; }
+.lu-icon { image-rendering: pixelated; margin: 4px 0; }
+.lu-icon svg { image-rendering: pixelated; }
+
 /* ---- Bottom tab bar (JRPG menu) ---------------------------------------- */
 
 .tabbar {

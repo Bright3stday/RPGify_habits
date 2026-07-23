@@ -17,6 +17,7 @@ import { spriteSvg, TIER_NAMES, spriteFor } from './sprites.js';
 import {
   hasSensor, stepsToday, addManualSteps, setManualSteps,
 } from './pedometer.js';
+import { itemIconSvg, RARITY, RARITY_ORDER } from './items.js';
 
 const PALETTE = ['#e05a5a', '#48c8ff', '#f0c020', '#6ad46a', '#b06af0', '#e0803a', '#5ad0c0', '#f078b0'];
 
@@ -52,7 +53,7 @@ function doComplete(ctx, habitId, btn) {
     const r = btn.getBoundingClientRect();
     ctx.floatXp(`+${total} XP`, r.left, r.top);
   }
-  ctx.levelUpBeat(result.levelUps);
+  ctx.reward(result); // level-ups + any loot beat
   ctx.render();
 }
 
@@ -507,6 +508,48 @@ function hourOpts(sel) {
     out += `<option value="${h}" ${h === sel ? 'selected' : ''}>${label}</option>`;
   }
   return out;
+}
+
+// ========================================================================
+// BAG (inventory / loot)
+// ========================================================================
+
+export function renderInventory(container, ctx) {
+  const items = ctx.state.inventory || [];
+  // Group identical items, keep the newest timestamp for sorting freshness.
+  const byKey = new Map();
+  for (const it of items) {
+    const g = byKey.get(it.key);
+    if (g) { g.count += 1; g.ts = Math.max(g.ts, it.ts || 0); }
+    else byKey.set(it.key, { ...it, count: 1 });
+  }
+  const groups = [...byKey.values()].sort((a, b) => {
+    const r = RARITY_ORDER.indexOf(a.rarity) - RARITY_ORDER.indexOf(b.rarity);
+    return r !== 0 ? r : a.name.localeCompare(b.name);
+  });
+
+  const counts = RARITY_ORDER.map((r) => {
+    const n = groups.filter((g) => g.rarity === r).reduce((a, g) => a + g.count, 0);
+    return n ? `<span style="color:${RARITY[r].color}">${n} ${RARITY[r].label}</span>` : '';
+  }).filter(Boolean).join('  ·  ');
+
+  const grid = groups.length ? `<div class="loot-grid">${groups.map((g) => `
+    <div class="loot-cell" style="--rc:${RARITY[g.rarity].color}" title="${esc(g.name)} — ${RARITY[g.rarity].label} ${esc(g.type)}">
+      <div class="loot-ico">${itemIconSvg(g, { size: 44 })}</div>
+      ${g.count > 1 ? `<span class="loot-count">×${g.count}</span>` : ''}
+      <div class="loot-name" style="color:${RARITY[g.rarity].color}">${esc(g.name)}</div>
+      <div class="loot-type">${esc(g.type)}</div>
+    </div>`).join('')}</div>`
+    : '<div class="empty">No loot yet.<br/>Complete quests to find treasure.</div>';
+
+  container.innerHTML = `
+    <div class="window">
+      <div class="window-title">◆ BAG (${items.length})</div>
+      ${counts ? `<div class="bar-caption" style="margin-bottom:12px">${counts}</div>` : ''}
+      ${grid}
+    </div>
+    <div class="bar-caption">Every quest completion has a chance to drop loot. Longer streaks improve your odds — and the rarity.</div>
+  `;
 }
 
 function statEditor(ctx, statId) {

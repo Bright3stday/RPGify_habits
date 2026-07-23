@@ -10,6 +10,7 @@ import { levelFromXp } from './leveling.js';
 import { refreshConditions } from './condition.js';
 import { activeEffects } from './skilltree.js';
 import { stepsToday } from './pedometer.js';
+import { rollLoot } from './items.js';
 
 export const SCHEMA_VERSION = 1;
 
@@ -28,6 +29,7 @@ export function defaultState() {
     stats: {},
     habits: {},
     tree: { unlocked: [] },
+    inventory: [], // loot collected from completions
     reminders: {},
     settings: {
       activeHours: { start: 9, end: 21 }, // 9am–9pm
@@ -145,6 +147,12 @@ export function retireHabit(state, id, retired = true) {
   if (h) h.retired = retired;
 }
 
+// Append a loot item to the inventory (tolerating pre-loot saves).
+export function addLoot(state, item) {
+  if (!state.inventory) state.inventory = [];
+  state.inventory.push(item);
+}
+
 export function deleteHabit(state, id) {
   delete state.habits[id];
   // Detach reminders that pointed at it.
@@ -189,8 +197,13 @@ export function completeHabit(state, id, at = now()) {
   h.history.push(at);
   if (h.history.length > 200) h.history = h.history.slice(-200);
 
+  // Loot roll — happens before the streak is consumed elsewhere; uses the
+  // streak we just updated so consistency improves drops.
+  const loot = rollLoot(h);
+  if (loot) addLoot(state, loot);
+
   refreshConditions(state, at);
-  return { awards, levelUps };
+  return { awards, levelUps, loot };
 }
 
 // Auto-complete step-goal habits when today's step count reaches their goal.

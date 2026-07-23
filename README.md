@@ -30,6 +30,7 @@ scheduled locally.
 | **Status** (dashboard) | Every stat at a glance — level, segmented XP bar, condition badge (`STEADY` / `FADING` / `CRACKED` / `BROKEN`), plus today's due quests. |
 | **Quests** (habits) | Add / edit / retire habits. Set cadence (daily / every N days / weekly), XP per completion, and which stat(s) each feeds. |
 | **Skills** | The branching skill tree, one diamond per stat. Tap a glowing node to unlock. |
+| **Bag** | Loot collected from completions, grouped by item and sorted by rarity. |
 | **Config** | Define your own stats, configure reminders (weekly check-in + water/posture nudges), and export/import your save. |
 
 ---
@@ -59,21 +60,31 @@ at most once per day. Steps come from the device's hardware pedometer on Android
 (`www/js/pedometer.js` ⇄ `StepCounterPlugin.java`, using `TYPE_STEP_COUNTER`);
 with no sensor (web, or a phone without one) you log them manually.
 
-Each stat shows a **character avatar that evolves and devolves** (`www/js/sprites.js`):
+Each stat shows a **Final Fantasy–style class avatar that evolves and devolves**
+(`www/js/sprites.js`):
 
 ```
-condition broken  -> SLIME        (a leveled-up stat literally melts into goo)
-condition cracked -> Out of Shape
-healthy, low lvl  -> Adventurer
-healthy, mid lvl  -> Athlete
-healthy, high lvl -> Champion (crown + aura)
-worn condition    -> the current sprite, desaturated (an early warning)
+healthy, level 1-2 -> Adventurer
+healthy, level 3-4 -> Warrior   (leather + sword)
+healthy, level 5-6 -> Knight    (plate, shield, plumed helm)
+healthy, level 7+  -> Mage      (robe, staff, arcane aura)
+condition worn     -> the current class, desaturated (early warning)
+condition cracked  -> Imp       (devolved into a lesser monster)
+condition broken   -> Slime     (a leveled-up class literally melts into goo)
 ```
 
 Because step completions feed the Body stat's XP (evolution) and reset its decay
-(condition), **walking levels your avatar up and neglect turns it into a slime** —
-the loss-aversion thesis made literal. Sprites are drawn procedurally as inline
-SVG (no image assets), so they stay crisp and tint on decay.
+(condition), **walking levels your class up and neglect devolves it into a
+slime** — the loss-aversion thesis made literal. Sprites are drawn procedurally
+as inline SVG (no image assets), so they stay crisp and tint on decay.
+
+### Loot
+Completing a quest doesn't just give XP — it can **drop treasure** (`www/js/items.js`).
+Every completion rolls a loot table of FF-flavored weapons, armour, treasure and
+consumables across five rarities (Common → Legendary); a longer streak improves
+both the drop chance and the rarity odds, so **consistency literally pays out**.
+Drops fire a `TREASURE!` beat and collect in the **Bag** screen. Items are pure
+collectibles (no equip bonuses) — the reward is the reward.
 
 ### Skill tree — branching, with real choices
 Stats are user-defined, so the tree can't be hand-authored. Instead each stat
@@ -108,7 +119,8 @@ www/                     the web app (this is what Capacitor wraps)
     leveling.js          XP -> level curve
     cadence.js           cadence periods & due timing
     skilltree.js         branching tree generation + unlock logic
-    sprites.js           procedural pixel avatars (slime <-> champion)
+    sprites.js           procedural class avatars (adventurer..mage, imp, slime)
+    items.js             loot table, drop rolls, pixel item icons
     pedometer.js         steps source: native sensor / manual fallback
     notifications.js     local notifications (native) / no-op (web)
     backup.js            JSON export/import

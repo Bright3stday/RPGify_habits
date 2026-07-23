@@ -7,15 +7,17 @@ import { refreshConditions } from './condition.js';
 import { activeEffects } from './skilltree.js';
 import { rescheduleAll } from './notifications.js';
 import { refreshSteps } from './pedometer.js';
+import { RARITY, itemIconSvg } from './items.js';
 import { esc } from './util.js';
 import {
-  renderDashboard, renderHabits, renderTree, renderSettings,
+  renderDashboard, renderHabits, renderTree, renderSettings, renderInventory,
 } from './views.js';
 
 const ROUTES = {
   dashboard: renderDashboard,
   habits: renderHabits,
   tree: renderTree,
+  bag: renderInventory,
   settings: renderSettings,
 };
 
@@ -66,31 +68,47 @@ function floatXp(text, x, y) {
   setTimeout(() => f.remove(), 900);
 }
 
-// Full-screen JRPG flash beat. `onDone` chains follow-up beats.
-function flashBeat(title, line, color, onDone) {
+// Full-screen JRPG flash beat. `onDone` chains the next beat in the queue.
+function flashBeat({ title, line, color, icon }, onDone) {
   const overlay = document.createElement('div');
   overlay.className = 'levelup';
   overlay.innerHTML = `
     <div class="lu-title">${esc(title)}</div>
+    ${icon ? `<div class="lu-icon">${icon}</div>` : ''}
     <div class="lu-line" style="color:${color || '#fff'}">${line}</div>
     <div class="lu-hint">▼  tap to continue</div>`;
-  const dismiss = () => {
-    overlay.remove();
-    if (onDone) onDone();
-  };
+  const dismiss = () => { overlay.remove(); if (onDone) onDone(); };
   overlay.addEventListener('click', dismiss);
   document.body.appendChild(overlay);
   beep();
 }
 
-// Chain one or more level-ups through the flash beat.
-function levelUpBeat(levelUps) {
-  if (!levelUps || !levelUps.length) return;
-  const lu = levelUps[0];
-  const rest = levelUps.slice(1);
-  flashBeat('LEVEL UP!', `${esc(lu.statName)}  Lv.${lu.from} → Lv.${lu.to}`, lu.color,
-    () => levelUpBeat(rest));
+function playBeats(beats) {
+  if (!beats || !beats.length) return;
+  const [first, ...rest] = beats;
+  flashBeat(first, () => playBeats(rest));
 }
+
+// Turn a completion result into a queue of beats: level-ups first, then loot.
+function beatsFor({ levelUps = [], loot = null } = {}) {
+  const beats = levelUps.map((lu) => ({
+    title: 'LEVEL UP!',
+    line: `${esc(lu.statName)}  Lv.${lu.from} → Lv.${lu.to}`,
+    color: lu.color,
+  }));
+  const loots = Array.isArray(loot) ? loot : (loot ? [loot] : []);
+  for (const it of loots) {
+    beats.push({
+      title: 'TREASURE!',
+      line: `${RARITY[it.rarity].label} · ${esc(it.name)}`,
+      color: RARITY[it.rarity].color,
+      icon: itemIconSvg(it, { size: 64 }),
+    });
+  }
+  return beats;
+}
+
+function reward(result) { playBeats(beatsFor(result)); }
 
 // Tiny WebAudio "jingle" so the beat has an old-school chime. Best-effort.
 function beep() {
@@ -117,7 +135,9 @@ function beep() {
 
 const ctx = {
   get state() { return state; },
-  save, render, go, toast, floatXp, levelUpBeat, flashBeat,
+  save, render, go, toast, floatXp, reward,
+  // Positional wrapper kept for the skill-tree unlock beat.
+  flashBeat(title, line, color, onDone) { flashBeat({ title, line, color }, onDone); },
   async reschedule() { await rescheduleAll(state.settings); },
   replaceState(next) { state = next; },
   // Pull today's steps and auto-complete any step-goal habits that hit target.
@@ -127,9 +147,11 @@ const ctx = {
     if (fired.length) {
       await saveState(state);
       if (!silent) {
-        const levelUps = fired.flatMap((f) => f.levelUps);
         toast(`👟 ${fired[0].habit.name} complete!`);
-        levelUpBeat(levelUps);
+        reward({
+          levelUps: fired.flatMap((f) => f.levelUps),
+          loot: fired.map((f) => f.loot).filter(Boolean),
+        });
       }
     }
     return fired;

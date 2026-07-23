@@ -93,6 +93,24 @@ try {
   const hasExport = await page.$('#export');
   check(!!hasExport, 'settings screen renders with data controls');
 
+  // Bag / loot: the screen renders, and an injected item shows in the grid.
+  await page.click('.tab[data-route="bag"]');
+  await wait(150);
+  const bagTitle = await page.$$eval('.window-title', (els) => els.some((e) => /BAG/.test(e.textContent)));
+  check(bagTitle, 'Bag screen renders');
+  await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('rpgify.state.v1'));
+    s.inventory = s.inventory || [];
+    s.inventory.push({ key: 'excalibur', name: 'Excalibur', type: 'Weapon', shape: 'sword', rarity: 'legendary', color: '#f0d840', id: 't1', ts: Date.now() });
+    localStorage.setItem('rpgify.state.v1', JSON.stringify(s));
+  });
+  await page.reload({ waitUntil: 'networkidle' });
+  await wait(200);
+  await page.click('.tab[data-route="bag"]');
+  await wait(150);
+  const lootCells = await page.$$eval('.loot-cell', (els) => els.length);
+  check(lootCells >= 1, `loot item renders in the bag (${lootCells})`);
+
   // Persistence: reload and confirm the habit survived.
   await page.reload({ waitUntil: 'networkidle' });
   await wait(300);

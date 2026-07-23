@@ -7,11 +7,12 @@ import { periodMs, isDue, dueAt } from '../www/js/cadence.js';
 import { habitHealth, statCondition, refreshConditions, sustainedDays } from '../www/js/condition.js';
 import { DAY_MS } from '../www/js/util.js';
 import {
-  defaultState, addHabit, completeHabit, addStat, syncStepHabits,
+  defaultState, addHabit, completeHabit, addStat, syncStepHabits, addLoot,
 } from '../www/js/game.js';
 import { evaluateTree, unlockNode, activeEffects } from '../www/js/skilltree.js';
 import { setManualSteps, stepsToday } from '../www/js/pedometer.js';
 import { spriteFor } from '../www/js/sprites.js';
+import { rollLoot, RARITY_ORDER } from '../www/js/items.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -182,13 +183,37 @@ test('manual steps roll to zero on a new day', () => {
   assert.equal(stepsToday(state, Date.now() + 25 * 60 * 60 * 1000), 0);
 });
 
-test('sprite devolves to slime when broken, evolves with level', () => {
-  assert.equal(spriteFor({ xp: 2000, condition: 5 }).tier, 'slime');
-  assert.equal(spriteFor({ xp: 2000, condition: 30 }).tier, 'blob');
-  assert.equal(spriteFor({ xp: 50, condition: 100 }).tier, 'average');
-  assert.equal(spriteFor({ xp: 800, condition: 100 }).tier, 'fit');
-  assert.equal(spriteFor({ xp: 2000, condition: 100 }).tier, 'champion');
-  assert.ok(spriteFor({ xp: 800, condition: 55 }).decayed, 'worn athlete looks decayed');
+test('sprite: FF-class ladder + monster devolution', () => {
+  assert.equal(spriteFor({ xp: 2000, condition: 5 }).tier, 'slime');   // broken
+  assert.equal(spriteFor({ xp: 2000, condition: 30 }).tier, 'imp');    // cracked
+  assert.equal(spriteFor({ xp: 50, condition: 100 }).tier, 'adventurer'); // L1
+  assert.equal(spriteFor({ xp: 700, condition: 100 }).tier, 'warrior');   // L4
+  assert.equal(spriteFor({ xp: 1600, condition: 100 }).tier, 'knight');   // L6
+  assert.equal(spriteFor({ xp: 3000, condition: 100 }).tier, 'mage');     // L8
+  assert.ok(spriteFor({ xp: 1600, condition: 55 }).decayed, 'worn knight looks decayed');
+});
+
+// ---- Loot -----------------------------------------------------------------
+test('loot: drops within chance, no drop above it', () => {
+  const item = rollLoot({ streak: 0 }, () => 0);
+  assert.ok(item && item.rarity === 'common' && item.id, 'rnd=0 -> common drop');
+  assert.equal(rollLoot({ streak: 0 }, () => 0.99), null, 'high rnd -> no drop');
+});
+
+test('loot: high rarity roll yields legendary', () => {
+  let n = 0;
+  const rnd = () => { n += 1; return n === 1 ? 0 : 0.999; }; // drop, then max rarity/pick
+  const item = rollLoot({ streak: 30 }, rnd);
+  assert.ok(item, 'drops');
+  assert.equal(item.rarity, 'legendary');
+  assert.ok(RARITY_ORDER.includes(item.rarity));
+});
+
+test('addLoot appends to inventory', () => {
+  const state = defaultState();
+  const before = state.inventory.length;
+  addLoot(state, { key: 'potion', name: 'Potion', type: 'Item', shape: 'potion', rarity: 'common', color: '#e05a5a', id: 'x' });
+  assert.equal(state.inventory.length, before + 1);
 });
 
 console.log(`\n${passed} checks passed.`);
