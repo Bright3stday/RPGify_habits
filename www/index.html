@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <meta name="theme-color" content="#0e0e24" />
+  <title>RPGify Habits</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230e0e24'/%3E%3Crect x='3' y='2' width='10' height='2' fill='%23f0c020'/%3E%3Crect x='2' y='4' width='2' height='9' fill='%2348c8ff'/%3E%3Crect x='12' y='4' width='2' height='9' fill='%2348c8ff'/%3E%3Crect x='6' y='6' width='4' height='4' fill='%236ad46a'/%3E%3C/svg%3E" />
+  <link rel="stylesheet" href="styles/main.css" />
+</head>
+<body>
+  <header class="topbar">
+    <h1>RPGify</h1>
+    <div class="title-badge" id="title-badge">Adventurer</div>
+  </header>
+
+  <main id="app"><!-- views render here --></main>
+
+  <nav class="tabbar" id="tabbar">
+    <div class="tab active" data-route="dashboard"><span class="ico">🛡️</span>Status</div>
+    <div class="tab" data-route="habits"><span class="ico">📋</span>Quests</div>
+    <div class="tab" data-route="tree"><span class="ico">🌳</span>Skills</div>
+    <div class="tab" data-route="settings"><span class="ico">⚙️</span>Config</div>
+  </nav>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

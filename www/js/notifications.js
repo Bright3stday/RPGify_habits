@@ -1,0 +1,111 @@
+// Local notifications — all on-device, no server, no push infrastructure.
+//
+// On a native Capacitor build this drives @capacitor/local-notifications.
+// On plain web the plugin is absent; we degrade to a no-op (with a one-time
+// console note) because the browser can't reliably fire scheduled local
+// notifications without a service worker, which is out of scope for the
+// Android-first target.
+
+const CHANNEL = 'rpgify';
+
+// Stable id ranges so re-scheduling one category never clobbers another.
+const ID_BASE = { water: 100000, posture: 200000, checkin: 300000 };
+
+function plugin() {
+  const c = typeof window !== 'undefined' ? window.Capacitor : undefined;
+  return c && c.Plugins && c.Plugins.LocalNotifications;
+}
+
+let warned = false;
+function warnWebOnce() {
+  if (!warned) {
+    warned = true;
+    console.info('[notifications] Native plugin unavailable — reminders are a no-op on web. They work in the Android build.');
+  }
+}
+
+export async function ensurePermission() {
+  const p = plugin();
+  if (!p) { warnWebOnce(); return false; }
+  try {
+    let res = await p.checkPermissions();
+    if (res.display !== 'granted') res = await p.requestPermissions();
+    return res.display === 'granted';
+  } catch (e) {
+    console.warn('notification permission error', e);
+    return false;
+  }
+}
+
+// Random integer minute [0,59].
+function randMinute() {
+  return Math.floor(Math.random() * 60);
+}
+
+// Build the schedule for general nudges (water/posture) across the next
+// `days` days, one per active hour with a random minute, honouring perHour.
+function generalSchedule(kind, cfg, activeHours, days = 3) {
+  const out = [];
+  const now = new Date();
+  for (let d = 0; d < days; d += 1) {
+    for (let h = activeHours.start; h < activeHours.end; h += 1) {
+      const count = Math.max(1, Math.min(4, cfg.perHour || 1));
+      for (let k = 0; k < count; k += 1) {
+        const when = new Date(now);
+        when.setDate(now.getDate() + d);
+        when.setHours(h, randMinute(), 0, 0);
+        if (when <= now) continue;
+        out.push({
+          id: ID_BASE[kind] + d * 100 + h * 4 + k,
+          title: kind === 'water' ? '💧 Hydrate' : '🪑 Posture check',
+          body: kind === 'water' ? 'Drink some water.' : 'Sit up straight, roll your shoulders.',
+          schedule: { at: when, allowWhileIdle: true },
+          channelId: CHANNEL,
+        });
+      }
+    }
+  }
+  return out;
+}
+
+// Weekly check-in nudge (review your habits).
+function checkInSchedule(cfg) {
+  if (!cfg?.enabled) return [];
+  return [{
+    id: ID_BASE.checkin,
+    title: '📜 Weekly Review',
+    body: 'Review your habits — keep, adjust cadence, or retire each one.',
+    schedule: { on: { weekday: (cfg.weekday ?? 0) + 1, hour: cfg.hour ?? 9, minute: 0 } },
+    channelId: CHANNEL,
+  }];
+}
+
+// Cancel everything we manage and reschedule from the current settings.
+export async function rescheduleAll(settings) {
+  const p = plugin();
+  if (!p) { warnWebOnce(); return; }
+  try {
+    const pending = await p.getPending();
+    if (pending?.notifications?.length) {
+      await p.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });
+    }
+    const notifications = [];
+    const { general, activeHours, checkIn } = settings;
+    if (general?.water?.enabled) {
+      notifications.push(...generalSchedule('water', general.water, activeHours));
+    }
+    if (general?.posture?.enabled) {
+      notifications.push(...generalSchedule('posture', general.posture, activeHours));
+    }
+    notifications.push(...checkInSchedule(checkIn));
+    if (notifications.length) {
+      await p.schedule({ notifications });
+    }
+  } catch (e) {
+    console.warn('reschedule error', e);
+  }
+}
+
+export function notificationsSupported() {
+  return !!plugin();
+}
