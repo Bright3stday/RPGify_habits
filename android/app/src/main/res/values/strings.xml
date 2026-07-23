@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">RPGify Habits</string>
+    <string name="title_activity_main">RPGify Habits</string>
+    <string name="package_name">com.rpgifyhabits.app</string>
+    <string name="custom_url_scheme">com.rpgifyhabits.app</string>
+</resources>
