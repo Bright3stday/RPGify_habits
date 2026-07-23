@@ -136,6 +136,13 @@ assets into the native project.
 > be fetched. The Capacitor project is complete and builds normally in Android
 > Studio / any machine with the SDK.
 
+### App icon & splash
+The launcher icon (a glowing 8-bit sword in the app palette), round/adaptive
+variants, and the splash screen are committed under `android/app/src/main/res/`.
+They're generated from a hand-drawn pixel emblem by `scripts/make-icons.mjs`
+(rasterized with headless Chromium) — re-run `node scripts/make-icons.mjs` if
+you tweak the emblem. `cap sync` does not touch these.
+
 ### Notifications on device
 The Local Notifications plugin merges the needed permissions
 (`POST_NOTIFICATIONS`, boot receiver, etc.) at build time. On Android 13+ the
