@@ -123,6 +123,9 @@ try {
   await wait(150);
   const hasExport = await page.$('#export');
   check(!!hasExport, 'settings screen renders with data controls');
+  const hasDoom = await page.$$eval('.window-title', (els) => els.some((e) => /DOOMSCROLL MIRROR/.test(e.textContent)));
+  const dsToggle = await page.$('#ds-on');
+  check(hasDoom && !!dsToggle, 'doomscroll mirror config renders');
 
   // Bag / Hero: the screen renders with the hero paper-doll + gear slots.
   await page.click('.tab[data-route="bag"]');

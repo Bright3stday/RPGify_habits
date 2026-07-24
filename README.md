@@ -92,6 +92,30 @@ pedometer (`www/js/pedometer.js` ⇄ `StepCounterPlugin.java`, `TYPE_STEP_COUNTE
 and the app polls live while open, so goals complete on their own; with no
 sensor (web) you log them manually.
 
+### Doomscroll reflection alert
+A deliberately **disruptive** nudge with a deliberately **non-judgemental**
+message. When a chosen app has been in the foreground for a continuous session
+past your per-app threshold, it fires a real notification that only *observes*
+— "28 minutes on Instagram", optionally with a hunched pixel avatar — never
+instructs, scolds, or warns. No streak-broken framing, no red styling.
+
+- **Native Android foreground service** (`DoomscrollService.java`) polls
+  UsageStats ~every 5 min (chosen over WorkManager's 15-min floor for tighter
+  detection; costs a persistent notice + more battery — an accepted tradeoff).
+  It requires the special **Usage Access** permission (granted in system
+  settings via the plugin) and is fully **opt-in** (you pick which apps count).
+- **Per continuous session**, not cumulative-per-day: switching away resets it,
+  the next open counts from zero. Duration uses real event timestamps
+  (second-accurate); the poll interval only bounds how *soon* a crossing is
+  noticed (worst case ~5 min).
+- **Retrigger** is configurable: once per session, or every N further minutes.
+- **YouTube caveat**: UsageStats can't tell Shorts from long-form, so this first
+  pass just lets you give YouTube a much longer threshold (or leave it off).
+  No heuristic/accessibility content-inspection — a deliberate non-goal for now.
+- The session/threshold/copy logic lives in `www/js/doomscroll.js` and is
+  unit-tested; `DoomscrollService.java` mirrors it. **Non-goals:** no blocking
+  or app limits (it alerts, never restricts) and no evaluative language anywhere.
+
 ### Mastery tree — self-authored, honestly confirmed (`www/js/skilltree.js`)
 The tree is **yours to write**. Inside each attribute-tree you author nodes,
 each with a self-defined *"cleared" criteria* (what mastery means to you, not an
@@ -148,6 +172,7 @@ www/                     the web app (this is what Capacitor wraps)
     items.js             loot table, drop rolls, pixel item icons
     equipment.js         cosmetic equip slots (no bonuses)
     pedometer.js         steps source: native sensor (live poll) / manual fallback
+    doomscroll.js        doomscroll session/threshold/copy logic + native bridge
     notifications.js     local notifications (native) / no-op (web)
     backup.js            JSON export/import
     views.js             the five screens + editor modals

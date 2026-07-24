@@ -13,6 +13,7 @@ import { stepsToday } from './pedometer.js';
 import { rollLoot } from './items.js';
 import { emptyEquipment } from './equipment.js';
 import { ATTRIBUTES, scoreOf } from './attributes.js';
+import { defaultDoomscroll } from './doomscroll.js';
 
 export const SCHEMA_VERSION = 3;
 
@@ -34,6 +35,7 @@ export function defaultState() {
         posture: { enabled: false, perHour: 1 },
       },
       checkIn: { enabled: true, weekday: 0, hour: 9 }, // Sunday 9am
+      doomscroll: defaultDoomscroll(),
     },
     meta: { lastCheckIn: null },
   };
@@ -111,6 +113,8 @@ export function migrate(state) {
   for (const h of Object.values(state.habits || {})) {
     if (h.completions == null) h.completions = h.history ? h.history.length : 0;
   }
+  if (!state.settings) state.settings = {};
+  if (!state.settings.doomscroll) state.settings.doomscroll = defaultDoomscroll();
   state.version = SCHEMA_VERSION;
   refreshConditions(state);
   return state;

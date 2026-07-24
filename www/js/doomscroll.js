@@ -1,0 +1,134 @@
+// Doomscroll reflection alert.
+//
+// A deliberately disruptive nudge with a deliberately non-judgemental message.
+// The timing interrupts (mid-scroll); the copy only *observes* — "28 minutes on
+// Instagram" — never instructs, scolds, or warns. No streak-broken framing, no
+// red styling. A factual mirror at a moment meant to break the trance.
+//
+// The real detection loop runs in a native Android foreground service
+// (DoomscrollService.java) polling UsageStats — the webview isn't alive when the
+// app is backgrounded, so JS can't do it. THIS module holds (1) a thin bridge to
+// that native plugin and (2) the pure session/threshold/copy logic that the
+// service mirrors, so the important behaviour is unit-tested here.
+
+// ---- native bridge -------------------------------------------------------
+
+function plugin() {
+  const c = typeof window !== 'undefined' ? window.Capacitor : undefined;
+  return c && c.Plugins && c.Plugins.Doomscroll;
+}
+
+export function isNativeAvailable() {
+  return !!plugin();
+}
+
+export async function hasUsageAccess() {
+  const p = plugin();
+  if (!p) return false;
+  try { return !!(await p.hasUsageAccess()).granted; } catch { return false; }
+}
+
+// Opens the system "Usage access" settings screen (a special-access permission
+// that can't be requested with a normal dialog).
+export async function openUsageAccessSettings() {
+  const p = plugin();
+  if (p) { try { await p.openUsageAccessSettings(); } catch { /* ignore */ } }
+}
+
+// Installed, launchable, non-system apps the user can choose to watch.
+export async function getInstalledApps() {
+  const p = plugin();
+  if (!p) return [];
+  try { return (await p.getInstalledApps()).apps || []; } catch { return []; }
+}
+
+export async function startMonitoring(config) {
+  const p = plugin();
+  if (!p) return false;
+  try { await p.startMonitoring(sanitizeConfig(config)); return true; } catch { return false; }
+}
+
+export async function stopMonitoring() {
+  const p = plugin();
+  if (p) { try { await p.stopMonitoring(); } catch { /* ignore */ } }
+}
+
+export async function isMonitoring() {
+  const p = plugin();
+  if (!p) return false;
+  try { return !!(await p.isMonitoring()).active; } catch { return false; }
+}
+
+// ---- config --------------------------------------------------------------
+
+export function defaultDoomscroll() {
+  return {
+    enabled: false,
+    pollMinutes: 5, // foreground-service poll cadence
+    // apps: [{ package, label, thresholdMin }]
+    apps: [],
+    // retrigger within the same continuous session
+    retrigger: { mode: 'once', everyMin: 15 }, // 'once' | 'every'
+  };
+}
+
+export function sanitizeConfig(cfg) {
+  const d = defaultDoomscroll();
+  const c = cfg || {};
+  return {
+    enabled: !!c.enabled,
+    pollMinutes: clampInt(c.pollMinutes, 1, 30, d.pollMinutes),
+    apps: (Array.isArray(c.apps) ? c.apps : []).map((a) => ({
+      package: String(a.package || ''),
+      label: String(a.label || a.package || ''),
+      thresholdMin: clampInt(a.thresholdMin, 1, 600, 20),
+    })).filter((a) => a.package),
+    retrigger: {
+      mode: c.retrigger && c.retrigger.mode === 'every' ? 'every' : 'once',
+      everyMin: clampInt(c.retrigger && c.retrigger.everyMin, 1, 240, 15),
+    },
+  };
+}
+
+function clampInt(v, lo, hi, dflt) {
+  const n = Math.round(Number(v));
+  if (!Number.isFinite(n)) return dflt;
+  return Math.max(lo, Math.min(hi, n));
+}
+
+// ---- pure detection logic (mirrored by DoomscrollService.java) -----------
+
+// Reconstruct the CURRENT continuous foreground session from ordered UsageStats
+// events. Each event: { package, type: 'foreground'|'background', timestamp }.
+// A session is per-continuous-use: any switch to another app ends it, and the
+// next open starts counting from zero. Returns { package, start, elapsedMs } for
+// the app currently in the foreground, or null if it isn't a watched app.
+export function currentSession(events, watched, now) {
+  const set = watched instanceof Set ? watched : new Set(watched);
+  let fg = null;
+  let start = 0;
+  for (const e of events) { // assumed ascending by timestamp
+    if (e.type === 'foreground') { fg = e.package; start = e.timestamp; }
+    else if (e.type === 'background' && e.package === fg) { fg = null; }
+  }
+  if (fg && set.has(fg)) return { package: fg, start, elapsedMs: Math.max(0, now - start) };
+  return null;
+}
+
+// Decide whether this poll should fire an alert, given the session's elapsed
+// minutes, the app threshold, when we last alerted THIS session (minutes, or
+// null), and the retrigger config. Eligibility (crossing the threshold) is
+// necessary but the caller still owns actually posting + recording lastAlertMin.
+export function shouldAlert({ elapsedMin, thresholdMin, lastAlertMin, retrigger }) {
+  if (elapsedMin < thresholdMin) return false;
+  if (lastAlertMin == null) return true; // first crossing this session
+  if (!retrigger || retrigger.mode !== 'every') return false; // once-per-session
+  return elapsedMin - lastAlertMin >= retrigger.everyMin;
+}
+
+// Observation-only notification copy. Factual mirror, nothing else. Kept free of
+// any instructional / evaluative language on purpose (asserted in tests).
+export function observationCopy(appLabel, elapsedMin) {
+  const mins = Math.max(1, Math.round(elapsedMin));
+  return `${mins} ${mins === 1 ? 'minute' : 'minutes'} on ${appLabel}`;
+}

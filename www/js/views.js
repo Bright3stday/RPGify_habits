@@ -24,6 +24,10 @@ import {
 } from './pedometer.js';
 import { itemIconSvg, RARITY, RARITY_ORDER } from './items.js';
 import {
+  isNativeAvailable as doomNative, hasUsageAccess, openUsageAccessSettings,
+  getInstalledApps, startMonitoring, stopMonitoring, sanitizeConfig, observationCopy,
+} from './doomscroll.js';
+import {
   SLOTS, SLOT_LABEL, slotForItem, equipItem, unequipSlot, isKeyEquipped,
 } from './equipment.js';
 
@@ -596,6 +600,8 @@ export function renderSettings(container, ctx) {
       <div class="bar-caption" style="margin-top:8px">Reminders fire on-device only (Android build). Water/posture nudges land at a random minute within each active hour, so the first can be up to an hour away — use TEST to confirm they work now.</div>
     </div>
 
+    ${doomscrollSection(state)}
+
     <div class="window">
       <div class="window-title">◆ GROWTH POINTS</div>
       <div style="display:flex;gap:10px">
@@ -649,6 +655,8 @@ export function renderSettings(container, ctx) {
     ctx.render();
   });
 
+  wireDoomscroll(container, ctx);
+
   // Fire a test notification ~5s out to verify permission + channel + display.
   container.querySelector('#test-rem').addEventListener('click', async () => {
     const { testNotification } = await import('./notifications.js');
@@ -689,6 +697,132 @@ export function renderSettings(container, ctx) {
       ctx.render();
     }
   });
+}
+
+// ---- Doomscroll mirror (Config section) ---------------------------------
+
+function doomscrollSection(state) {
+  const d = state.settings.doomscroll;
+  const apps = d.apps || [];
+  const appRows = apps.length ? apps.map((a, i) => `
+    <div class="menu-row" style="cursor:default">
+      <span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">${esc(a.label)}</span>
+      <input type="number" class="ds-th" data-i="${i}" min="1" max="600" value="${a.thresholdMin}" style="width:58px" />
+      <span class="bar-caption">min</span>
+      <button class="btn small danger" data-dsrm="${i}">✕</button>
+    </div>`).join('') : '<div class="bar-caption" style="padding:6px 2px">No apps chosen yet.</div>';
+  return `
+    <div class="window">
+      <div class="window-title">◆ DOOMSCROLL MIRROR</div>
+      <label class="field"><span>ENABLE <input type="checkbox" id="ds-on" ${d.enabled ? 'checked' : ''}></span></label>
+      <div class="bar-caption" id="ds-access">Checking usage access…</div>
+      <button class="btn small block" id="ds-grant" style="margin:8px 0">GRANT USAGE ACCESS</button>
+      <div class="section-label" style="margin-left:0">WATCHED APPS · alert after N continuous min</div>
+      ${appRows}
+      <button class="btn small block" id="ds-add" style="margin-top:8px">＋ CHOOSE APPS</button>
+      <div class="bar-caption" style="margin-top:8px">YouTube can't distinguish Shorts from long-form — give it a much longer threshold, or leave it off.</div>
+      <div style="display:flex;gap:10px;margin-top:6px">
+        <label class="field" style="flex:1"><span>RE-ALERT</span><select id="ds-rt">
+          <option value="once" ${d.retrigger.mode === 'once' ? 'selected' : ''}>Once per session</option>
+          <option value="every" ${d.retrigger.mode === 'every' ? 'selected' : ''}>Every N minutes</option>
+        </select></label>
+        <label class="field" style="width:84px" id="ds-everywrap"><span>N MIN</span><input type="number" id="ds-every" min="1" max="240" value="${d.retrigger.everyMin}"></label>
+      </div>
+      <button class="btn primary block" id="ds-apply">APPLY</button>
+      <div class="bar-caption" style="margin-top:8px">Disruptive timing, calm message — e.g. “${esc(observationCopy('Instagram', 28))}”. It only notices; it never tells you what to do. Runs as a foreground service (a persistent notice, more battery), checking ~every 5 min.</div>
+    </div>`;
+}
+
+function wireDoomscroll(container, ctx) {
+  const { state } = ctx;
+  const d = state.settings.doomscroll;
+  const everyWrap = container.querySelector('#ds-everywrap');
+  const rtSel = container.querySelector('#ds-rt');
+  const syncRt = () => { everyWrap.style.display = rtSel.value === 'every' ? 'block' : 'none'; };
+  rtSel.addEventListener('change', syncRt); syncRt();
+
+  container.querySelectorAll('.ds-th').forEach((inp) => inp.addEventListener('change', () => {
+    const i = Number(inp.dataset.i);
+    if (d.apps[i]) d.apps[i].thresholdMin = Math.max(1, Math.min(600, Number(inp.value) || 20));
+  }));
+  container.querySelectorAll('[data-dsrm]').forEach((b) => b.addEventListener('click', () => {
+    d.apps.splice(Number(b.dataset.dsrm), 1); ctx.save(); ctx.render();
+  }));
+
+  (async () => {
+    const el = container.querySelector('#ds-access');
+    if (!doomNative()) { el.textContent = 'Usage access is Android-only (no effect on web).'; return; }
+    const ok = await hasUsageAccess();
+    el.textContent = ok ? 'Usage access granted ✓' : 'Usage access not granted yet — tap below.';
+    el.style.color = ok ? 'var(--green)' : 'var(--ink-dim)';
+  })();
+
+  container.querySelector('#ds-grant').addEventListener('click', async () => {
+    await openUsageAccessSettings();
+    ctx.toast('Enable "Usage access" for RPGify, then return.', 2600);
+  });
+  container.querySelector('#ds-add').addEventListener('click', () => appPicker(ctx));
+  container.querySelector('#ds-apply').addEventListener('click', async () => {
+    d.enabled = container.querySelector('#ds-on').checked;
+    d.retrigger.mode = rtSel.value;
+    d.retrigger.everyMin = Math.max(1, Math.min(240, Number(container.querySelector('#ds-every').value) || 15));
+    state.settings.doomscroll = sanitizeConfig(d);
+    await ctx.save();
+    if (!doomNative()) { ctx.toast('Saved. Monitoring runs in the Android app.'); return; }
+    if (state.settings.doomscroll.enabled) {
+      if (!(await hasUsageAccess())) { ctx.toast('Grant usage access first.'); return; }
+      const { ensurePermission } = await import('./notifications.js');
+      await ensurePermission();
+      await startMonitoring(state.settings.doomscroll);
+      ctx.toast('Focus monitor started.');
+    } else {
+      await stopMonitoring();
+      ctx.toast('Focus monitor stopped.');
+    }
+  });
+}
+
+async function appPicker(ctx) {
+  const { state } = ctx;
+  const d = state.settings.doomscroll;
+  const overlay = modal('<div class="window-title">◆ CHOOSE APPS</div><div id="ap-body"><div class="bar-caption">Loading…</div></div>');
+  const body = overlay.querySelector('#ap-body');
+
+  if (!doomNative()) {
+    body.innerHTML = `
+      <div class="bar-caption">The installed-app list needs the Android build + Usage Access. Add one manually:</div>
+      <label class="field"><span>APP NAME</span><input type="text" id="ap-label" placeholder="Instagram"></label>
+      <label class="field"><span>PACKAGE</span><input type="text" id="ap-pkg" placeholder="com.instagram.android"></label>
+      <button class="btn primary block" id="ap-manual">ADD</button>`;
+    overlay.querySelector('#ap-manual').addEventListener('click', () => {
+      const pkg = overlay.querySelector('#ap-pkg').value.trim();
+      const label = overlay.querySelector('#ap-label').value.trim() || pkg;
+      if (pkg && !d.apps.some((a) => a.package === pkg)) d.apps.push({ package: pkg, label, thresholdMin: 20 });
+      overlay.remove(); ctx.render();
+    });
+    return;
+  }
+
+  const apps = (await getInstalledApps()).sort((a, b) => a.label.localeCompare(b.label));
+  const chosen = new Set(d.apps.map((a) => a.package));
+  body.innerHTML = `
+    <input type="text" id="ap-search" placeholder="search…" style="margin-bottom:8px" />
+    <div id="ap-list" style="max-height:52vh;overflow:auto"></div>
+    <button class="btn primary block" id="ap-done" style="margin-top:8px">DONE</button>`;
+  const list = overlay.querySelector('#ap-list');
+  const draw = (q = '') => {
+    list.innerHTML = apps.filter((a) => a.label.toLowerCase().includes(q)).slice(0, 250).map((a) => `
+      <div class="menu-row" style="cursor:pointer" data-pkg="${esc(a.package)}" data-label="${esc(a.label)}">
+        <span style="flex:1">${esc(a.label)}</span><span style="color:var(--green)">${chosen.has(a.package) ? '✓' : ''}</span></div>`).join('');
+    list.querySelectorAll('[data-pkg]').forEach((row) => row.addEventListener('click', () => {
+      const pkg = row.dataset.pkg;
+      if (chosen.has(pkg)) { chosen.delete(pkg); d.apps = d.apps.filter((a) => a.package !== pkg); } else { chosen.add(pkg); d.apps.push({ package: pkg, label: row.dataset.label, thresholdMin: 20 }); }
+      draw(overlay.querySelector('#ap-search').value.toLowerCase());
+    }));
+  };
+  draw();
+  overlay.querySelector('#ap-search').addEventListener('input', (e) => draw(e.target.value.toLowerCase()));
+  overlay.querySelector('#ap-done').addEventListener('click', () => { ctx.save(); overlay.remove(); ctx.render(); });
 }
 
 function hourOpts(sel) {

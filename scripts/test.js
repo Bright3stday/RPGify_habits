@@ -25,6 +25,9 @@ import {
 import { rollLoot, RARITY_ORDER } from '../www/js/items.js';
 import { equipItem, slotForItem } from '../www/js/equipment.js';
 import { spreadMinutes } from '../www/js/notifications.js';
+import {
+  currentSession, shouldAlert, observationCopy, sanitizeConfig,
+} from '../www/js/doomscroll.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -261,6 +264,65 @@ test('spreadMinutes: nudges are ordered, in-range, and never clump', () => {
   }
   // extremes: rnd->0 hugs bucket starts, rnd->~1 hugs bucket ends; still spaced
   assert.deepEqual(spreadMinutes(2, () => 0), [6, 36]);
+});
+
+// ---- Doomscroll reflection alert -----------------------------------------
+const MIN = 60000;
+test('doomscroll currentSession: continuous session, resets on switch-away', () => {
+  const watched = ['com.ig', 'com.tt'];
+  let s = currentSession([{ package: 'com.ig', type: 'foreground', timestamp: 0 }], watched, 25 * MIN);
+  assert.ok(s && s.package === 'com.ig' && Math.round(s.elapsedMs / MIN) === 25);
+  // switching to another app ends the session (now foreground is unwatched)
+  s = currentSession([
+    { package: 'com.ig', type: 'foreground', timestamp: 0 },
+    { package: 'com.other', type: 'foreground', timestamp: 10 * MIN },
+  ], watched, 25 * MIN);
+  assert.equal(s, null);
+  // backgrounding ends it too
+  s = currentSession([
+    { package: 'com.ig', type: 'foreground', timestamp: 0 },
+    { package: 'com.ig', type: 'background', timestamp: 5 * MIN },
+  ], watched, 25 * MIN);
+  assert.equal(s, null);
+  // re-open counts from zero
+  s = currentSession([
+    { package: 'com.ig', type: 'foreground', timestamp: 0 },
+    { package: 'com.ig', type: 'background', timestamp: 5 * MIN },
+    { package: 'com.ig', type: 'foreground', timestamp: 20 * MIN },
+  ], watched, 25 * MIN);
+  assert.ok(s && Math.round(s.elapsedMs / MIN) === 5);
+});
+
+test('doomscroll shouldAlert: threshold + once/every retrigger', () => {
+  const once = { mode: 'once' };
+  const every = { mode: 'every', everyMin: 15 };
+  assert.equal(shouldAlert({ elapsedMin: 10, thresholdMin: 20, lastAlertMin: null, retrigger: once }), false);
+  assert.equal(shouldAlert({ elapsedMin: 20, thresholdMin: 20, lastAlertMin: null, retrigger: once }), true);
+  assert.equal(shouldAlert({ elapsedMin: 40, thresholdMin: 20, lastAlertMin: 20, retrigger: once }), false);
+  assert.equal(shouldAlert({ elapsedMin: 34, thresholdMin: 20, lastAlertMin: 20, retrigger: every }), false);
+  assert.equal(shouldAlert({ elapsedMin: 35, thresholdMin: 20, lastAlertMin: 20, retrigger: every }), true);
+});
+
+test('doomscroll copy is a factual mirror — no instructional/evaluative words', () => {
+  const c = observationCopy('Instagram', 28);
+  assert.ok(c.includes('28') && c.includes('Instagram'));
+  const banned = ['should', 'stop', 'put down', 'too', 'enough', 'limit', 'warning', 'break', 'quit', 'distract', 'wast'];
+  const lc = c.toLowerCase();
+  banned.forEach((w) => assert.ok(!lc.includes(w), `copy must not contain "${w}": ${c}`));
+});
+
+test('doomscroll sanitizeConfig clamps and filters', () => {
+  const c = sanitizeConfig({
+    enabled: 1, pollMinutes: 999,
+    apps: [{ package: 'a', label: 'A', thresholdMin: 9999 }, { label: 'nopkg' }],
+    retrigger: { mode: 'weird', everyMin: 0 },
+  });
+  assert.equal(c.enabled, true);
+  assert.equal(c.pollMinutes, 30);
+  assert.equal(c.apps.length, 1);
+  assert.equal(c.apps[0].thresholdMin, 600);
+  assert.equal(c.retrigger.mode, 'once');
+  assert.equal(c.retrigger.everyMin, 1);
 });
 
 console.log(`\n${passed} checks passed.`);
