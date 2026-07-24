@@ -411,6 +411,34 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .gear-slot .slot-empty { font-size: 6px; color: var(--ink-dim); }
 .hero-bonus { margin-top: 12px; font-size: 8px; line-height: 1.8; text-align: center; }
 
+/* ---- Mastery nodes (user-authored) ------------------------------------- */
+
+.mnode {
+  border: var(--px) solid var(--panel-2);
+  box-shadow: 0 0 0 2px var(--shadow);
+  background: #12122e;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+.mnode.eligible { border-color: var(--accent); box-shadow: 0 0 0 2px var(--shadow), 0 0 8px #48c8ff55; }
+.mnode.unlocked { border-color: var(--gold); }
+.mnode.locked { opacity: 0.7; }
+.mnode-head { display: flex; align-items: center; gap: 8px; }
+.mnode-title { flex: 1; font-size: 10px; color: var(--ink); }
+.mnode.unlocked .mnode-title { color: var(--gold); }
+.mnode-status {
+  font-size: 6px; padding: 2px 5px; border: 2px solid var(--shadow);
+  text-transform: uppercase; letter-spacing: 1px;
+}
+.mnode.eligible .mnode-status { color: var(--accent); }
+.mnode.unlocked .mnode-status { color: var(--gold); }
+.mnode.locked .mnode-status { color: var(--ink-dim); }
+.mnode-crit { font-size: 8px; color: var(--ink); margin: 8px 0 6px; line-height: 1.7; opacity: 0.9; }
+.mnode-req { font-size: 7px; color: var(--ink-dim); line-height: 1.6; }
+.mnode-confirm { display: block; font-size: 8px; color: var(--ink); margin: 10px 0 8px; cursor: pointer; }
+.mnode-confirm input { margin-right: 6px; }
+.mnode-done { font-size: 8px; color: var(--green); margin-top: 8px; }
+
 /* ---- Bottom tab bar (JRPG menu) ---------------------------------------- */
 
 .tabbar {

@@ -3,8 +3,9 @@
 An **offline-first habit tracker framed as a Final Fantasy character sheet**.
 Real-life habits train six primary attributes (Strength, Magic, Vitality,
 Spirit, Luck, Speed); those raise your **character level**, derived stats
-(Attack, Defense, HP, MP…), and **skill points** you spend on a branching skill
-tree. You are a single hero who levels up by doing beneficial things — and
+(Attack, Defense, HP, MP…). You spend time-granted **Growth Points** on a
+self-authored **mastery tree**. You are a single hero who levels up by doing
+beneficial things — and
 visibly **decays** (down to a slime) when you neglect them.
 
 Power comes from **growing real habits → leveling → skills**, not from
@@ -32,9 +33,9 @@ scheduled locally.
 
 | Screen | What it does |
 |--------|--------------|
-| **Status** | The character sheet: your hero sprite, Level + EXP, HP/MP/SP, the six primary attributes (each with an upkeep dot), and derived stats (Attack, Magic Attack, Defense, Magic Defense…). Plus today's steps and due quests. |
+| **Status** | The character sheet: your hero sprite, Level + EXP, HP/MP/GP, the six primary attributes (each with an upkeep dot), and derived stats (Attack, Magic Attack, Defense, Magic Defense…). Plus today's steps and due quests. |
 | **Quests** (habits) | Add / edit / retire habits. Set cadence (daily / every N days / weekly), XP per completion, and which attribute(s) each trains. |
-| **Skills** | Skill points + a branching diamond per attribute. Power nodes boost XP; Steadfast/Master nodes grant decay resistance. Tap a glowing node to spend an SP. |
+| **Skills** | Your Growth Points balance + a mastery tree per attribute. Author nodes with your own "cleared" criteria, dependency edges, and optional rewards; when a node is eligible, confirm it and spend a point to unlock. |
 | **Bag** | Your hero + cosmetic gear slots, and the loot collected from completions. Tap gear to equip (looks only — no bonuses). |
 | **Config** | The (fixed) attribute list, reminders (weekly check-in + water/posture nudges), and export/import your save. |
 
@@ -62,7 +63,8 @@ its *condition* (upkeep) decays with neglect.
 The sum of all attribute XP drives your **character level** (a steeper curve,
 `www/js/leveling.js`), and everything on the status screen is derived from the
 primaries + level, JRPG-style: Attack = STR·2 + Lv, Defense = VIT + Lv/2, HP
-from VIT, MP from MAG/SPR, etc. Each character level grants **1 skill point**.
+from VIT, MP from MAG/SPR, etc. (Unlocking mastery is gated by time-granted
+Growth Points, not by character level — see below.)
 
 ### One hero, who levels and devolves
 A single hero sprite (`www/js/sprites.js`) — *you* — driven by character level
@@ -90,22 +92,32 @@ pedometer (`www/js/pedometer.js` ⇄ `StepCounterPlugin.java`, `TYPE_STEP_COUNTE
 and the app polls live while open, so goals complete on their own; with no
 sensor (web) you log them manually.
 
-### Skill tree — where the bonuses live
-One **diamond** per attribute (`www/js/skilltree.js`):
+### Mastery tree — self-authored, honestly confirmed (`www/js/skilltree.js`)
+The tree is **yours to write**. Inside each attribute-tree you author nodes,
+each with a self-defined *"cleared" criteria* (what mastery means to you, not an
+app-prescribed label). A node's lifecycle:
 
 ```
-        Adept
-       /      \
-   Power     Steadfast     <- MUTUALLY EXCLUSIVE: pick one, the other locks
-       \      /
-        Master
+locked   -> eligible : your threshold is met (attribute level OR practice count)
+                       and its prerequisites are satisfied
+eligible -> unlocked : you confirm you genuinely met it AND spend a Growth Point
 ```
 
-Unlocking a node **spends a skill point** and requires attribute level +
-*sustained* consistency (days above 70% condition). Power nodes grant **+XP%**
-for that attribute; Steadfast/Master nodes grant **decay resistance** (applied
-in `statCondition`, capped, never full immunity). This is the *only* source of
-bonuses — they come from growing habits and leveling, never from items.
+Reaching eligibility is never enough on its own — the point spend (plus an
+honest "I genuinely met this" toggle) is the real gate. Dependency **edges** are
+optional and per-tree: a domain can be a flat list or a sequential chain, and
+prerequisites can be strict AND **or** "any N of parents" (non-linear). Each
+node can optionally carry a reward (+X% attribute XP, or +Y% decay resistance)
+that applies once unlocked.
+
+### Growth Points — the scarce currency (`skilltree.js`)
+You earn a small fixed number of **Growth Points** per period (default **3 /
+week**, configurable to monthly in Config). They **roll over** but are **capped
+at 2× one period's grant**, so a busy stretch isn't punished and you can't hoard
+indefinitely. Spending one point is what converts an eligible node to unlocked.
+When several nodes across different trees are eligible at once, limited points
+**force a choice** — that trade-off is the intended mechanic. Points accrue on
+app open (`grantDue`) and show on the character sheet (GP) and the Skills header.
 
 ### Loot & gear (cosmetic)
 Completing a quest can **drop treasure** (`www/js/items.js`) — FF-flavored
@@ -131,7 +143,7 @@ www/                     the web app (this is what Capacitor wraps)
     condition.js         cadence-aware decay / attribute condition
     leveling.js          attribute + character XP -> level curves
     cadence.js           cadence periods & due timing
-    skilltree.js         branching tree, skill points, XP/decay-resist bonuses
+    skilltree.js         user-authored mastery nodes + Growth Points currency
     sprites.js           the single procedural hero (adventurer..mage, imp, slime)
     items.js             loot table, drop rolls, pixel item icons
     equipment.js         cosmetic equip slots (no bonuses)

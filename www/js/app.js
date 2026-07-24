@@ -4,7 +4,7 @@
 import { loadState, saveState } from './store.js';
 import { defaultState, syncStepHabits, migrate } from './game.js';
 import { refreshConditions } from './condition.js';
-import { activeEffects } from './skilltree.js';
+import { activeEffects, grantDue } from './skilltree.js';
 import { rescheduleAll } from './notifications.js';
 import { refreshSteps } from './pedometer.js';
 import { RARITY, itemIconSvg } from './items.js';
@@ -169,6 +169,7 @@ async function boot() {
   } else {
     await saveState(state); // persist any migration
   }
+  grantDue(state); // accrue any Growth Points due since last open
   refreshConditions(state);
 
   document.getElementById('tabbar').addEventListener('click', (e) => {

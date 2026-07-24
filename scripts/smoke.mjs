@@ -68,20 +68,39 @@ try {
   });
   check(grew, 'character gained XP after completion');
 
-  // Skill tree renders nodes; novice should be available now.
+  // Mastery tree: Growth Points header + authoring a node -> eligible -> spend.
   await page.click('.tab[data-route="tree"]');
   await wait(150);
-  const nodeCount = await page.$$eval('.node', (els) => els.length);
-  check(nodeCount >= 16, `skill tree renders nodes (${nodeCount})`);
-  const available = await page.$('.node.available');
-  check(!!available, 'at least one node is available to unlock');
-  if (available) {
-    await available.click();
-    await wait(200);
-    const unlockBeat = await page.$('.levelup');
-    check(!!unlockBeat, 'unlocking a node fires SKILL UNLOCKED beat');
-    await dismissBeats();
-  }
+  const gpHeader = await page.$$eval('.window-title', (els) => els.some((e) => /GROWTH POINTS/.test(e.textContent)));
+  check(gpHeader, 'mastery tree shows Growth Points header');
+  const gpBefore = await page.evaluate(() => JSON.parse(localStorage.getItem('rpgify.state.v1')).growth.points);
+
+  // Author a Strength node with a trivially-met practice threshold.
+  await page.click('[data-addnode="str"]');
+  await page.fill('#n-title', 'Test Mastery');
+  await page.fill('#n-crit', 'Self-defined criteria.');
+  await page.fill('#n-tv', '1'); // practice >= 1 (str already has completions)
+  await page.click('#n-save');
+  await wait(200);
+  const eligibleEl = await page.$('.mnode.eligible');
+  check(!!eligibleEl, 'authored node becomes eligible when its threshold is met');
+
+  // Eligibility alone shouldn't unlock — must confirm + spend a point.
+  const spendDisabled = await page.$eval('[data-spend]', (b) => b.disabled);
+  check(spendDisabled, 'spend button is disabled until you confirm');
+  await page.check('[data-confirm]');
+  await wait(80);
+  await page.click('[data-spend]');
+  await wait(200);
+  const unlockBeat = await page.$('.levelup');
+  check(!!unlockBeat, 'spending a point fires MASTERY UNLOCKED beat');
+  await dismissBeats();
+  const afterSpend = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('rpgify.state.v1'));
+    const n = Object.values(s.tree.nodes).find((x) => x.title === 'Test Mastery');
+    return { unlocked: !!(n && n.unlocked), points: s.growth.points };
+  });
+  check(afterSpend.unlocked && afterSpend.points === gpBefore - 1, 'node unlocked and one Growth Point spent');
 
   // Steps feature: dashboard shows sprites + a steps widget; logging steps to
   // the goal auto-completes the seeded Daily Steps habit.

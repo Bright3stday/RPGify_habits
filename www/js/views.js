@@ -4,13 +4,15 @@
 // wires listeners against the freshly-rendered nodes.
 
 import { esc, fmtRelative, dayKey } from './util.js';
-import { conditionState, sustainedDays, SUSTAIN_THRESHOLD } from './condition.js';
+import { levelFromXp } from './leveling.js';
+import { conditionState } from './condition.js';
 import { CADENCE_TYPES, cadenceLabel, isDue, dueAt } from './cadence.js';
 import {
   addHabit, updateHabit, retireHabit, deleteHabit, completeHabit, defaultState,
 } from './game.js';
 import {
-  evaluateTree, unlockNode, availableSp, earnedSp,
+  nodeStatus, nodesForStat, addNode, updateNode, deleteNode, unlockNode,
+  eligibleNodes, growthInfo, practiceCount, nodeDepth,
 } from './skilltree.js';
 import { exportState, parseImport, readFile } from './backup.js';
 import { heroSpriteSvg, heroTierName } from './sprites.js';
@@ -68,7 +70,7 @@ function doComplete(ctx, habitId, btn) {
 export function renderDashboard(container, ctx) {
   const { state } = ctx;
   const sheet = characterSheet(state);
-  const sp = availableSp(state);
+  const gp = growthInfo(state);
   const overall = overallCondition(state);
   const habits = Object.values(state.habits).filter((h) => !h.retired);
   const due = habits.filter((h) => isDue(h)).sort((a, b) => dueAt(a) - dueAt(b));
@@ -109,12 +111,12 @@ export function renderDashboard(container, ctx) {
           <div class="vitals">
             <span>HP <b>${sheet.hp}</b></span>
             <span>MP <b>${sheet.mp}</b></span>
-            <span>SP <b style="color:${sp > 0 ? 'var(--green)' : 'var(--ink-dim)'}">${sp}</b></span>
+            <span>GP <b style="color:${gp.points > 0 ? 'var(--green)' : 'var(--ink-dim)'}">${gp.points}/${gp.cap}</b></span>
           </div>
           ${condBadge(overall)}
         </div>
       </div>
-      ${sp > 0 ? '<div class="bar-caption" style="margin-top:10px;color:var(--green)">▶ You have skill points to spend in Skills.</div>' : ''}
+      ${gp.points > 0 ? '<div class="bar-caption" style="margin-top:10px;color:var(--green)">▶ You have Growth Points to spend in Skills.</div>' : ''}
     </div>
 
     <div class="window">
@@ -336,87 +338,213 @@ function habitEditor(ctx, habitId) {
 }
 
 // ========================================================================
-// SKILL TREE
+// MASTERY TREE (user-authored nodes + Growth Points)
 // ========================================================================
 
 export function renderTree(container, ctx) {
   const { state } = ctx;
-  const nodes = evaluateTree(state);
-  const stats = Object.values(state.stats);
+  const gi = growthInfo(state);
+  const eligible = eligibleNodes(state);
 
-  if (!stats.length) {
-    container.innerHTML = '<div class="empty">No stats yet. Add some in Config to grow a skill tree.</div>';
-    return;
-  }
+  const tradeoff = eligible.length
+    ? (gi.points >= 1
+      ? `<div class="bar-caption" style="color:var(--gold);margin-top:6px">▶ ${eligible.length} node${eligible.length > 1 ? 's' : ''} eligible and ${gi.points} point${gi.points > 1 ? 's' : ''} to spend — choose where they go.</div>`
+      : `<div class="bar-caption" style="margin-top:6px">${eligible.length} eligible · no Growth Points yet (next in ${Math.ceil(gi.nextInDays)}d).</div>`)
+    : '';
 
-  const blocks = stats.map((stat) => {
-    const sNodes = nodes.filter((n) => n.statId === stat.id);
-    const W = 300;
-    const H = 340;
-    const cx = W / 2;
-    const posOf = (n) => ({ x: cx + n.lane * 92, y: 55 + n.depth * 115 });
-
-    // edges
-    let lines = '';
-    for (const n of sNodes) {
-      const to = posOf(n);
-      for (const pid of n.parents) {
-        const parent = sNodes.find((p) => p.id === pid);
-        if (!parent) continue;
-        const from = posOf(parent);
-        const lit = n.status === 'unlocked' || parent.status === 'unlocked';
-        lines += `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="${lit ? '#f0c020' : '#3a3a66'}" stroke-width="3" />`;
-      }
-    }
-
-    const nodeEls = sNodes.map((n) => {
-      const p = posOf(n);
-      const reqBits = [];
-      if (n.req.minLevel) reqBits.push(`Lv${n.req.minLevel}`);
-      if (n.req.sustainedDays) reqBits.push(`${n.req.sustainedDays}d steady`);
-      reqBits.push(`${n.cost} SP`);
-      return `
-        <div class="node ${n.status}" data-node="${n.status === 'available' ? n.id : ''}"
-             title="${esc(n.desc)}" style="left:${p.x}px;top:${p.y}px">
-          <div class="n-title">${esc(n.title)}</div>
-          <div>${reqBits.join(' · ')}</div>
-        </div>`;
-    }).join('');
-
-    const sd = Math.floor(sustainedDays(stat));
-    const glyph = ATTR[stat.id] ? ATTR[stat.id].glyph : '◆';
-    return `
-      <div class="window">
-        <div class="tree-stat-label" style="color:${stat.color}">${glyph} ${esc(stat.name)} — ${sd}d steady (need ≥${SUSTAIN_THRESHOLD}% cond.)</div>
-        <div class="tree-wrap">
-          <div class="tree-canvas" style="width:${W}px;height:${H}px;margin:0 auto">
-            <svg class="tree-svg" width="${W}" height="${H}">${lines}</svg>
-            ${nodeEls}
-          </div>
-        </div>
-      </div>`;
-  }).join('');
-
-  const sp = availableSp(state);
   container.innerHTML = `
     <div class="window">
-      <div class="window-title">◆ SKILL POINTS</div>
+      <div class="window-title">◆ GROWTH POINTS</div>
       <div style="display:flex;justify-content:space-between;align-items:center">
-        <span class="char-level" style="color:${sp > 0 ? 'var(--green)' : 'var(--ink-dim)'}">${sp} SP</span>
-        <span class="bar-caption">${earnedSp(state)} earned · 1 per character level</span>
+        <span class="char-level" style="color:${gi.points > 0 ? 'var(--green)' : 'var(--ink-dim)'}">${gi.points} / ${gi.cap} GP</span>
+        <span class="bar-caption">+${gi.perPeriod} ${gi.period} · next in ${Math.ceil(gi.nextInDays)}d</span>
       </div>
-      <div class="bar-caption" style="margin-top:8px">Spend SP on glowing nodes. Power nodes boost XP; Steadfast/Master nodes resist decay.</div>
+      <div class="bar-caption" style="margin-top:8px">Reaching a node's threshold makes it <b>eligible</b>; spend 1 Growth Point (and confirm you truly met it) to <b>unlock</b>. Points cap at ${gi.cap} and roll over.</div>
+      ${tradeoff}
     </div>
-    <div class="section-label">SKILL TREE — tap glowing nodes to unlock</div>${blocks}`;
+    ${ATTRIBUTES.map((a) => treeBlock(ctx, a)).join('')}
+  `;
 
-  container.querySelectorAll('.node[data-node]').forEach((el) => {
-    if (!el.dataset.node) return;
-    el.addEventListener('click', () => {
-      const node = unlockNode(state, el.dataset.node);
-      if (!node) return;
+  wireTree(container, ctx);
+}
+
+function treeBlock(ctx, attr) {
+  const { state } = ctx;
+  const all = state.tree.nodes;
+  const list = nodesForStat(state, attr.id)
+    .sort((x, y) => nodeDepth(x, all) - nodeDepth(y, all) || x.createdAt - y.createdAt);
+  const level = levelFromXp(state.stats[attr.id].xp);
+  const practice = practiceCount(state, attr.id);
+  const cards = list.length
+    ? list.map((n) => nodeCard(ctx, attr, n, level, practice)).join('')
+    : '<div class="bar-caption" style="padding:8px 2px">No mastery nodes yet — add one.</div>';
+  return `
+    <div class="window">
+      <div class="tree-stat-label" style="color:${attr.color}">${attr.glyph} ${esc(attr.name)} — Lv ${level} · ${practice} practice</div>
+      ${cards}
+      <button class="btn small block" data-addnode="${attr.id}" style="margin-top:8px">＋ ADD MASTERY NODE</button>
+    </div>`;
+}
+
+function rewardText(reward, attr) {
+  if (!reward) return '';
+  return reward.type === 'xp'
+    ? `+${Math.round((reward.value - 1) * 100)}% ${attr.abbr} XP`
+    : `+${Math.round(reward.value * 100)}% decay resist`;
+}
+
+function nodeCard(ctx, attr, n, level, practice) {
+  const { state } = ctx;
+  const status = nodeStatus(state, n);
+  const all = state.tree.nodes;
+  const reqBits = [];
+  if (n.thresholdType === 'practice') reqBits.push(`${Math.min(practice, n.thresholdValue)}/${n.thresholdValue} practice`);
+  else reqBits.push(`Lv ${level}/${n.thresholdValue}`);
+  if (n.parents && n.parents.length) {
+    const names = n.parents.map((pid) => (all[pid] ? all[pid].title : '?')).join(', ');
+    reqBits.push(n.requireMode === 'any' ? `any ${n.anyCount} of: ${names}` : `after: ${names}`);
+  }
+  const reward = rewardText(n.reward, attr);
+  let action = '';
+  if (status === 'eligible') {
+    action = `
+      <label class="mnode-confirm"><input type="checkbox" data-confirm="${n.id}"> I genuinely met this</label>
+      <button class="btn small primary" data-spend="${n.id}" disabled>Spend 1 GP ▸ Unlock</button>`;
+  } else if (status === 'unlocked') {
+    action = `<div class="mnode-done">✓ Unlocked${reward ? ` · <span style="color:var(--gold)">${reward}</span>` : ''}</div>`;
+  }
+  return `
+    <div class="mnode ${status}" style="--ac:${attr.color}">
+      <div class="mnode-head">
+        <span class="mnode-title">${esc(n.title)}</span>
+        <span class="mnode-status">${status}</span>
+        <button class="btn small" data-editnode="${n.id}">✎</button>
+      </div>
+      ${n.criteria ? `<div class="mnode-crit">“${esc(n.criteria)}”</div>` : ''}
+      <div class="mnode-req">${reqBits.join(' · ')}${reward && status !== 'unlocked' ? ` · reward ${reward}` : ''}</div>
+      ${action}
+    </div>`;
+}
+
+function wireTree(container, ctx) {
+  const { state } = ctx;
+  const points = growthInfo(state).points;
+  container.querySelectorAll('[data-addnode]').forEach((b) => b.addEventListener('click', () => nodeEditor(ctx, b.dataset.addnode, null)));
+  container.querySelectorAll('[data-editnode]').forEach((b) => b.addEventListener('click', () => {
+    const n = state.tree.nodes[b.dataset.editnode];
+    if (n) nodeEditor(ctx, n.statId, n.id);
+  }));
+  container.querySelectorAll('[data-confirm]').forEach((cb) => cb.addEventListener('change', () => {
+    const btn = container.querySelector(`[data-spend="${cb.dataset.confirm}"]`);
+    if (btn) btn.disabled = !(cb.checked && points >= 1);
+  }));
+  container.querySelectorAll('[data-spend]').forEach((btn) => btn.addEventListener('click', () => {
+    const res = unlockNode(state, btn.dataset.spend);
+    if (res.ok) {
       ctx.save();
-      ctx.flashBeat('SKILL UNLOCKED!', esc(node.title), state.stats[node.statId]?.color, () => ctx.render());
-    });
+      ctx.flashBeat('MASTERY UNLOCKED!', esc(res.node.title), state.stats[res.node.statId]?.color, () => ctx.render());
+    } else if (res.reason === 'no-points') {
+      ctx.toast('No Growth Points to spend.');
+    } else {
+      ctx.toast('Not eligible right now.');
+    }
+  }));
+}
+
+function nodeEditor(ctx, statId, nodeId) {
+  const { state } = ctx;
+  const attr = ATTR[statId];
+  const editing = nodeId ? state.tree.nodes[nodeId] : null;
+  const n = editing || {
+    title: '', criteria: '', thresholdType: 'practice', thresholdValue: 10,
+    parents: [], requireMode: 'all', anyCount: 1, reward: null,
+  };
+  const others = nodesForStat(state, statId).filter((x) => x.id !== nodeId);
+  const parentChips = others.length
+    ? others.map((o) => `<span class="chip ${n.parents.includes(o.id) ? 'on' : ''}" data-parent="${o.id}">${esc(o.title)}</span>`).join('')
+    : '<span class="bar-caption">No other nodes in this tree yet.</span>';
+  const rt = n.reward ? n.reward.type : 'none';
+  const rpct = n.reward ? (n.reward.type === 'xp' ? Math.round((n.reward.value - 1) * 100) : Math.round(n.reward.value * 100)) : 15;
+
+  const overlay = modal(`
+    <div class="window-title">${editing ? '◆ EDIT NODE' : `◆ NEW ${esc(attr.name.toUpperCase())} NODE`}</div>
+    <label class="field"><span>TITLE</span><input type="text" id="n-title" value="${esc(n.title)}" maxlength="40" /></label>
+    <label class="field"><span>WHAT "CLEARED" MEANS — your own words</span><textarea id="n-crit" maxlength="200">${esc(n.criteria)}</textarea></label>
+    <div style="display:flex;gap:10px">
+      <label class="field" style="flex:1"><span>ELIGIBLE WHEN</span><select id="n-tt">
+        <option value="practice" ${n.thresholdType === 'practice' ? 'selected' : ''}>Practice count ≥</option>
+        <option value="level" ${n.thresholdType === 'level' ? 'selected' : ''}>${esc(attr.name)} level ≥</option>
+      </select></label>
+      <label class="field" style="width:84px"><span>VALUE</span><input type="number" id="n-tv" min="1" max="100000" value="${n.thresholdValue}" /></label>
+    </div>
+    <label class="field"><span>DEPENDS ON (optional)</span></label>
+    <div class="chips" id="n-parents" style="margin-bottom:10px">${parentChips}</div>
+    <div style="display:flex;gap:10px" id="n-mode-row">
+      <label class="field" style="flex:1"><span>REQUIRE</span><select id="n-mode">
+        <option value="all" ${n.requireMode === 'all' ? 'selected' : ''}>All of them</option>
+        <option value="any" ${n.requireMode === 'any' ? 'selected' : ''}>Any N of them</option>
+      </select></label>
+      <label class="field" style="width:84px" id="n-anywrap"><span>N</span><input type="number" id="n-any" min="1" max="20" value="${n.anyCount}" /></label>
+    </div>
+    <div style="display:flex;gap:10px">
+      <label class="field" style="flex:1"><span>REWARD (optional)</span><select id="n-rt">
+        <option value="none" ${rt === 'none' ? 'selected' : ''}>None</option>
+        <option value="xp" ${rt === 'xp' ? 'selected' : ''}>+% ${esc(attr.abbr)} XP</option>
+        <option value="resist" ${rt === 'resist' ? 'selected' : ''}>+% decay resist</option>
+      </select></label>
+      <label class="field" style="width:84px" id="n-rpwrap"><span>%</span><input type="number" id="n-rp" min="1" max="100" value="${rpct}" /></label>
+    </div>
+    <div class="btn-row" style="margin-top:8px">
+      <button class="btn primary" id="n-save">SAVE</button>
+      ${editing ? '<button class="btn danger" id="n-del">DELETE</button>' : ''}
+    </div>
+  `);
+
+  const chosen = new Set(n.parents);
+  const modeRow = overlay.querySelector('#n-mode-row');
+  const anyWrap = overlay.querySelector('#n-anywrap');
+  const modeSel = overlay.querySelector('#n-mode');
+  const syncMode = () => {
+    modeRow.style.display = chosen.size ? 'flex' : 'none';
+    anyWrap.style.display = (chosen.size && modeSel.value === 'any') ? 'block' : 'none';
+  };
+  overlay.querySelectorAll('[data-parent]').forEach((chip) => chip.addEventListener('click', () => {
+    const id = chip.dataset.parent;
+    if (chosen.has(id)) { chosen.delete(id); chip.classList.remove('on'); } else { chosen.add(id); chip.classList.add('on'); }
+    syncMode();
+  }));
+  modeSel.addEventListener('change', syncMode);
+  syncMode();
+
+  const rtSel = overlay.querySelector('#n-rt');
+  const rpWrap = overlay.querySelector('#n-rpwrap');
+  const syncReward = () => { rpWrap.style.display = rtSel.value === 'none' ? 'none' : 'block'; };
+  rtSel.addEventListener('change', syncReward);
+  syncReward();
+
+  overlay.querySelector('#n-save').addEventListener('click', () => {
+    const rtv = rtSel.value;
+    const pct = Number(overlay.querySelector('#n-rp').value) || 0;
+    let reward = null;
+    if (rtv === 'xp') reward = { type: 'xp', value: 1 + pct / 100 };
+    else if (rtv === 'resist') reward = { type: 'resist', value: pct / 100 };
+    const data = {
+      statId,
+      title: overlay.querySelector('#n-title').value,
+      criteria: overlay.querySelector('#n-crit').value,
+      thresholdType: overlay.querySelector('#n-tt').value,
+      thresholdValue: overlay.querySelector('#n-tv').value,
+      parents: [...chosen],
+      requireMode: modeSel.value,
+      anyCount: overlay.querySelector('#n-any').value,
+      reward,
+    };
+    if (editing) updateNode(state, nodeId, data);
+    else addNode(state, data);
+    ctx.save(); overlay.remove(); ctx.render();
+  });
+  overlay.querySelector('#n-del')?.addEventListener('click', () => {
+    if (confirm('Delete this mastery node?')) { deleteNode(state, nodeId); ctx.save(); overlay.remove(); ctx.render(); }
   });
 }
 
@@ -469,6 +597,19 @@ export function renderSettings(container, ctx) {
     </div>
 
     <div class="window">
+      <div class="window-title">◆ GROWTH POINTS</div>
+      <div style="display:flex;gap:10px">
+        <label class="field" style="flex:1"><span>GRANT EVERY</span><select id="gp-period">
+          <option value="weekly" ${state.growth.period === 'weekly' ? 'selected' : ''}>Week</option>
+          <option value="monthly" ${state.growth.period === 'monthly' ? 'selected' : ''}>Month</option>
+        </select></label>
+        <label class="field" style="width:96px"><span>POINTS</span><input type="number" id="gp-per" min="1" max="10" value="${state.growth.perPeriod}"></label>
+      </div>
+      <button class="btn primary block" id="gp-apply">APPLY</button>
+      <div class="bar-caption" style="margin-top:8px">You currently hold ${growthInfo(state).points}/${growthInfo(state).cap} GP. Balance caps at 2× the per-period grant and rolls over.</div>
+    </div>
+
+    <div class="window">
       <div class="window-title">◆ DATA</div>
       <div class="btn-row">
         <button class="btn" id="export">⬇ EXPORT</button>
@@ -495,6 +636,17 @@ export function renderSettings(container, ctx) {
     await ensurePermission();
     await ctx.reschedule();
     ctx.toast('Reminders applied.');
+  });
+
+  // Growth Points config.
+  container.querySelector('#gp-apply').addEventListener('click', async () => {
+    state.growth.period = container.querySelector('#gp-period').value === 'monthly' ? 'monthly' : 'weekly';
+    state.growth.perPeriod = Math.max(1, Math.min(10, Number(container.querySelector('#gp-per').value) || 3));
+    // Re-cap the current balance to the new 2x cap.
+    state.growth.points = Math.min(state.growth.points, 2 * state.growth.perPeriod);
+    await ctx.save();
+    ctx.toast('Growth Points updated.');
+    ctx.render();
   });
 
   // Fire a test notification ~5s out to verify permission + channel + display.

@@ -1,138 +1,190 @@
-// Skill tree — where progression bonuses now live (moved off of items).
+// Mastery tree — user-authored nodes, honest self-confirmation, and a scarce
+// Growth-Point currency that forces trade-offs.
 //
-// One diamond per primary attribute:
+// You author each node inside an attribute "tree" (domain): a title, a
+// self-defined "cleared" criteria (what mastery means to YOU, not the app), an
+// eligibility threshold (attribute level or practice count), optional dependency
+// edges (strict AND, or "any N of parents"), and an optional reward.
 //
-//         Adept             (depth 0)
-//        /      \
-//   Power       Steadfast   (depth 1, MUTUALLY EXCLUSIVE — pick one)
-//        \      /
-//         Master            (depth 2, needs whichever branch you chose)
+// Lifecycle:  locked  ->  eligible (threshold + prerequisites met)
+//                     ->  unlocked (you confirm you genuinely met it AND spend
+//                                   one Growth Point)
 //
-// Power nodes grant +XP toward that attribute; Steadfast/Master nodes grant
-// decay resistance. Unlocking a node costs a Skill Point (earned 1 per
-// character level) plus attribute-level and sustained-consistency requirements.
-// So bonuses come from growing the real habits, not from loot.
+// Growth Points accrue on a period (weekly/monthly), roll over, and are capped
+// at 2x one period's grant — so a busy stretch isn't punished, but you can't
+// hoard indefinitely. Reaching eligibility is never enough on its own; the
+// point spend is the real gate, and when several nodes are eligible at once you
+// must choose. That choice is the mechanic.
 
-import { levelFromXp, charLevelFromXp } from './leveling.js';
-import { totalXp } from './attributes.js';
-import { DAY_MS } from './util.js';
+import { levelFromXp } from './leveling.js';
+import { uid, clamp, now, DAY_MS } from './util.js';
 
-// Local copy so this module doesn't import condition.js (avoids a cycle:
-// condition.js reads activeEffects() from here).
-function sustainedDays(stat, at) {
-  if (!stat || !stat.healthySince) return 0;
-  return (at - stat.healthySince) / DAY_MS;
+// ---- Growth Points --------------------------------------------------------
+
+export function defaultGrowth(at = now()) {
+  return { points: 3, perPeriod: 3, period: 'weekly', lastGrant: at };
 }
 
-export function buildTree(state) {
-  const nodes = [];
-  Object.values(state.stats).forEach((stat, i) => {
-    const s = stat.id;
-    const group = `${s}_focus`;
-    nodes.push({
-      id: `${s}_novice`, statId: s, title: 'Adept', cost: 1,
-      desc: `Awaken your ${stat.name}. +10% ${stat.name} XP.`,
-      parents: [], parentsMode: 'all', req: { minLevel: 2 },
-      exclusiveGroup: null, effect: { type: 'xp', value: 1.1 },
-      earnedTitle: `${stat.name} Adept`, lane: 0, depth: 0, statIndex: i,
-    });
-    nodes.push({
-      id: `${s}_power`, statId: s, title: 'Path of Power', cost: 1,
-      desc: `Raw growth — +30% ${stat.name} XP.`,
-      parents: [`${s}_novice`], parentsMode: 'all', req: { minLevel: 4 },
-      exclusiveGroup: group, effect: { type: 'xp', value: 1.3 },
-      lane: -1, depth: 1, statIndex: i,
-    });
-    nodes.push({
-      id: `${s}_steady`, statId: s, title: 'Path of the Steadfast', cost: 1,
-      desc: `Resilience — +15% decay resistance. Needs 5 days without decay.`,
-      parents: [`${s}_novice`], parentsMode: 'all', req: { minLevel: 3, sustainedDays: 5 },
-      exclusiveGroup: group, effect: { type: 'resist', value: 0.15 },
-      lane: 1, depth: 1, statIndex: i,
-    });
-    nodes.push({
-      id: `${s}_master`, statId: s, title: 'Master', cost: 2,
-      desc: `Mastery of ${stat.name}. +10% decay resistance. Needs 10 days without decay.`,
-      parents: [`${s}_power`, `${s}_steady`], parentsMode: 'any',
-      req: { minLevel: 7, sustainedDays: 10 },
-      exclusiveGroup: null, effect: { type: 'resist', value: 0.1 },
-      earnedTitle: `${stat.name} Master`, lane: 0, depth: 2, statIndex: i,
-    });
-  });
-  return nodes;
+export function periodMsOf(period) {
+  return period === 'monthly' ? 30 * DAY_MS : 7 * DAY_MS;
 }
 
-// ---- Skill points --------------------------------------------------------
-// One SP earned per character level (beyond 1); each unlocked node spends its
-// cost. Available = earned − spent.
-
-export function earnedSp(state) {
-  return Math.max(0, charLevelFromXp(totalXp(state)) - 1);
-}
-export function spentSp(state) {
-  const unlocked = new Set(state.tree?.unlocked || []);
-  return buildTree(state).reduce((sum, n) => (unlocked.has(n.id) ? sum + n.cost : sum), 0);
-}
-export function availableSp(state) {
-  return earnedSp(state) - spentSp(state);
+export function growthCap(g) {
+  return 2 * (g.perPeriod || 3);
 }
 
-function parentsSatisfied(node, unlockedSet) {
-  if (node.parents.length === 0) return true;
-  if (node.parentsMode === 'any') return node.parents.some((p) => unlockedSet.has(p));
-  return node.parents.every((p) => unlockedSet.has(p));
+// Grant any points due since the last grant, capped at 2x a period. Mutates.
+export function grantDue(state, at = now()) {
+  if (!state.growth) state.growth = defaultGrowth(at);
+  const g = state.growth;
+  if (g.lastGrant == null) { g.lastGrant = at; return; }
+  const pm = periodMsOf(g.period);
+  const elapsed = Math.floor((at - g.lastGrant) / pm);
+  if (elapsed >= 1) {
+    g.points = Math.min(growthCap(g), (g.points || 0) + elapsed * g.perPeriod);
+    g.lastGrant += elapsed * pm;
+  }
 }
 
-function lockedOut(node, nodes, unlockedSet) {
-  if (!node.exclusiveGroup) return false;
-  return nodes.some((n) => n.id !== node.id && n.exclusiveGroup === node.exclusiveGroup && unlockedSet.has(n.id));
+export function growthInfo(state, at = now()) {
+  const g = state.growth || defaultGrowth(at);
+  const pm = periodMsOf(g.period);
+  return {
+    points: g.points || 0,
+    cap: growthCap(g),
+    perPeriod: g.perPeriod,
+    period: g.period,
+    nextGrantAt: g.lastGrant + pm,
+    nextInDays: Math.max(0, (g.lastGrant + pm - at) / DAY_MS),
+  };
 }
 
-function reqMet(node, state, at) {
-  const stat = state.stats[node.statId];
-  if (!stat) return false;
-  if (node.req.minLevel && levelFromXp(stat.xp) < node.req.minLevel) return false;
-  if (node.req.sustainedDays && sustainedDays(stat, at) < node.req.sustainedDays) return false;
-  if (availableSp(state) < node.cost) return false; // need the skill point
-  return true;
+// ---- Nodes ---------------------------------------------------------------
+
+function nodes(state) {
+  if (!state.tree) state.tree = { nodes: {} };
+  if (!state.tree.nodes) state.tree.nodes = {};
+  return state.tree.nodes;
 }
 
-// 'unlocked' | 'available' | 'locked' | 'lockedout'
-export function evaluateTree(state, at = Date.now()) {
-  const nodes = buildTree(state);
-  const unlocked = new Set(state.tree?.unlocked || []);
-  return nodes.map((node) => {
-    let status;
-    if (unlocked.has(node.id)) status = 'unlocked';
-    else if (lockedOut(node, nodes, unlocked)) status = 'lockedout';
-    else if (parentsSatisfied(node, unlocked) && reqMet(node, state, at)) status = 'available';
-    else status = 'locked';
-    return { ...node, status };
-  });
+export function nodesForStat(state, statId) {
+  return Object.values(nodes(state)).filter((n) => n.statId === statId);
 }
 
-export function unlockNode(state, nodeId, at = Date.now()) {
-  const node = evaluateTree(state, at).find((n) => n.id === nodeId);
-  if (!node || node.status !== 'available') return null;
-  if (!state.tree) state.tree = { unlocked: [] };
-  if (!state.tree.unlocked.includes(nodeId)) state.tree.unlocked.push(nodeId);
-  return node;
+// Practice = total completions logged against habits that train this attribute.
+export function practiceCount(state, statId) {
+  return Object.values(state.habits || {})
+    .filter((h) => h.statIds && h.statIds.includes(statId))
+    .reduce((a, h) => a + (h.completions != null ? h.completions : (h.history ? h.history.length : 0)), 0);
 }
 
-// Aggregate: per-attribute XP multiplier, global decay resistance, titles.
+function thresholdMet(state, node) {
+  if (node.thresholdType === 'practice') {
+    return practiceCount(state, node.statId) >= node.thresholdValue;
+  }
+  return levelFromXp(state.stats[node.statId]?.xp || 0) >= node.thresholdValue;
+}
+
+// Parents can be strict AND, or "any N of parents" (non-linear).
+function parentsSatisfied(node, all) {
+  if (!node.parents || node.parents.length === 0) return true;
+  const met = node.parents.filter((pid) => all[pid] && all[pid].unlocked).length;
+  if (node.requireMode === 'any') return met >= Math.max(1, node.anyCount || 1);
+  return met === node.parents.length;
+}
+
+// 'unlocked' | 'eligible' | 'locked'
+export function nodeStatus(state, node) {
+  if (node.unlocked) return 'unlocked';
+  if (parentsSatisfied(node, nodes(state)) && thresholdMet(state, node)) return 'eligible';
+  return 'locked';
+}
+
+export function addNode(state, data) {
+  const id = uid('node');
+  nodes(state)[id] = {
+    id,
+    statId: data.statId,
+    title: (data.title || 'Mastery').trim() || 'Mastery',
+    criteria: (data.criteria || '').trim(),
+    thresholdType: data.thresholdType === 'practice' ? 'practice' : 'level',
+    thresholdValue: clamp(Number(data.thresholdValue) || 1, 1, 100000),
+    parents: Array.isArray(data.parents) ? data.parents : [],
+    requireMode: data.requireMode === 'any' ? 'any' : 'all',
+    anyCount: clamp(Number(data.anyCount) || 1, 1, 20),
+    reward: data.reward && data.reward.type ? data.reward : null,
+    confirmed: false,
+    unlocked: false,
+    createdAt: now(),
+  };
+  return nodes(state)[id];
+}
+
+export function updateNode(state, id, patch) {
+  const n = nodes(state)[id];
+  if (!n) return;
+  if (patch.title != null) n.title = patch.title.trim() || n.title;
+  if (patch.criteria != null) n.criteria = patch.criteria.trim();
+  if (patch.thresholdType != null) n.thresholdType = patch.thresholdType === 'practice' ? 'practice' : 'level';
+  if (patch.thresholdValue != null) n.thresholdValue = clamp(Number(patch.thresholdValue) || 1, 1, 100000);
+  if (patch.parents != null) n.parents = patch.parents.filter((p) => p !== id);
+  if (patch.requireMode != null) n.requireMode = patch.requireMode === 'any' ? 'any' : 'all';
+  if (patch.anyCount != null) n.anyCount = clamp(Number(patch.anyCount) || 1, 1, 20);
+  if (patch.reward !== undefined) n.reward = patch.reward && patch.reward.type ? patch.reward : null;
+}
+
+export function deleteNode(state, id) {
+  delete nodes(state)[id];
+  for (const n of Object.values(nodes(state))) {
+    if (n.parents) n.parents = n.parents.filter((p) => p !== id);
+  }
+}
+
+// Confirm + spend one Growth Point to unlock an eligible node.
+// Returns { ok, node? , reason? }. The UI gates this behind a self-attestation.
+export function unlockNode(state, nodeId, at = now()) {
+  const node = nodes(state)[nodeId];
+  if (!node) return { ok: false, reason: 'missing' };
+  if (node.unlocked) return { ok: false, reason: 'already' };
+  if (nodeStatus(state, node) !== 'eligible') return { ok: false, reason: 'not-eligible' };
+  grantDue(state, at);
+  if ((state.growth.points || 0) < 1) return { ok: false, reason: 'no-points' };
+  state.growth.points -= 1;
+  node.unlocked = true;
+  node.confirmed = true;
+  node.unlockedAt = at;
+  return { ok: true, node };
+}
+
+// Every node currently eligible (for the forced cross-tree trade-off UI).
+export function eligibleNodes(state) {
+  return Object.values(nodes(state)).filter((n) => !n.unlocked && nodeStatus(state, n) === 'eligible');
+}
+
+// Aggregate rewards from unlocked nodes: per-attribute XP multiplier + global
+// decay resistance + earned titles.
 export function activeEffects(state) {
-  const unlocked = new Set(state.tree?.unlocked || []);
   const xpMultiplier = {};
   const titles = [];
   let decayResist = 0;
-  for (const node of buildTree(state)) {
-    if (!unlocked.has(node.id)) continue;
-    if (node.effect.type === 'xp') {
-      xpMultiplier[node.statId] = (xpMultiplier[node.statId] || 1) * node.effect.value;
-    } else if (node.effect.type === 'resist') {
-      decayResist += node.effect.value;
+  for (const node of Object.values(nodes(state))) {
+    if (!node.unlocked) continue;
+    titles.push(node.title);
+    if (node.reward) {
+      if (node.reward.type === 'xp') {
+        xpMultiplier[node.statId] = (xpMultiplier[node.statId] || 1) * node.reward.value;
+      } else if (node.reward.type === 'resist') {
+        decayResist += node.reward.value;
+      }
     }
-    if (node.earnedTitle) titles.push(node.earnedTitle);
   }
   return { xpMultiplier, decayResist: Math.min(0.7, decayResist), titles };
+}
+
+// Layered layout depth for rendering a DAG (longest path from a root).
+export function nodeDepth(node, all, seen = new Set()) {
+  if (!node.parents || node.parents.length === 0) return 0;
+  if (seen.has(node.id)) return 0; // guard against cycles
+  seen.add(node.id);
+  return 1 + Math.max(0, ...node.parents.map((pid) => (all[pid] ? nodeDepth(all[pid], all, seen) : -1)));
 }

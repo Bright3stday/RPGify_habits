@@ -14,7 +14,8 @@ import {
   defaultState, addHabit, completeHabit, addStat, syncStepHabits, addLoot,
 } from '../www/js/game.js';
 import {
-  evaluateTree, unlockNode, activeEffects, availableSp, earnedSp,
+  addNode, nodeStatus, unlockNode, eligibleNodes, activeEffects,
+  grantDue, growthInfo, growthCap, practiceCount,
 } from '../www/js/skilltree.js';
 import { setManualSteps, stepsToday } from '../www/js/pedometer.js';
 import { heroTierOf } from '../www/js/sprites.js';
@@ -131,47 +132,79 @@ test('default Daily Steps habit trains Strength and auto-completes', () => {
   assert.equal(syncStepHabits(s).length, 0); // idempotent per day
 });
 
-// ---- Skill tree (SP-gated, bonuses) --------------------------------------
-test('skill points: earned per character level, spent on nodes', () => {
+// ---- Mastery tree: authored nodes, eligibility, growth points ------------
+test('growth points: accrue per period, cap at 2x, roll over', () => {
   const s = defaultState();
-  assert.equal(availableSp(s), 0);
-  s.stats.str.xp = 120; // total 120 -> char level 2 -> 1 SP
-  assert.equal(earnedSp(s), 1);
-  assert.equal(availableSp(s), 1);
-  const novice = evaluateTree(s).find((n) => n.id === 'str_novice');
-  assert.equal(novice.status, 'available'); // level>=2, has SP
-  unlockNode(s, 'str_novice');
-  assert.equal(availableSp(s), 0); // SP spent
+  s.growth = { points: 0, perPeriod: 3, period: 'weekly', lastGrant: 0 };
+  grantDue(s, 6 * DAY_MS); // < 1 week -> nothing
+  assert.equal(s.growth.points, 0);
+  grantDue(s, 8 * DAY_MS); // 1 week -> +3
+  assert.equal(s.growth.points, 3);
+  grantDue(s, 60 * DAY_MS); // many weeks at once, but capped at 2x = 6
+  assert.equal(s.growth.points, growthCap(s.growth));
+  assert.equal(growthInfo(s).cap, 6);
 });
 
-test('tree: no SP means a met-requirement node is still locked', () => {
+test('node lifecycle: locked -> eligible (threshold) -> unlock spends a point', () => {
   const s = defaultState();
-  s.stats.str.xp = 100; // attr level 2 but total 100 -> char level 1 -> 0 SP
-  const novice = evaluateTree(s).find((n) => n.id === 'str_novice');
-  assert.equal(novice.status, 'locked');
+  const n = addNode(s, { statId: 'mag', title: 'T', thresholdType: 'level', thresholdValue: 3 });
+  assert.equal(nodeStatus(s, n), 'locked');       // MAG level 1
+  s.stats.mag.xp = 300;                            // -> level 3
+  assert.equal(nodeStatus(s, n), 'eligible');
+  s.growth.points = 0;
+  assert.equal(unlockNode(s, n.id).reason, 'no-points'); // eligibility alone isn't enough
+  s.growth.points = 1;
+  const res = unlockNode(s, n.id);
+  assert.ok(res.ok && s.tree.nodes[n.id].unlocked);
+  assert.equal(s.growth.points, 0);               // point spent
 });
 
-test('tree: exclusive branch locks its sibling; XP effect applies', () => {
+test('practice threshold uses uncapped completion count', () => {
   const s = defaultState();
-  s.stats.str.xp = 700; // attr level 4; total 700 -> char level ~3 -> 2 SP
-  unlockNode(s, 'str_novice');
-  const power = unlockNode(s, 'str_power');
-  assert.ok(power, 'power unlocks');
-  assert.equal(evaluateTree(s).find((n) => n.id === 'str_steady').status, 'lockedout');
+  const h = addHabit(s, { name: 'read', statIds: ['mag'], xpPerCompletion: 5 });
+  const n = addNode(s, { statId: 'mag', title: 'P', thresholdType: 'practice', thresholdValue: 3 });
+  completeHabit(s, h.id); completeHabit(s, h.id);
+  assert.equal(practiceCount(s, 'mag'), 2);
+  assert.equal(nodeStatus(s, n), 'locked');
+  completeHabit(s, h.id);
+  assert.equal(nodeStatus(s, n), 'eligible');
+});
+
+test('any-N parents: non-linear prerequisites', () => {
+  const s = defaultState();
+  const a = addNode(s, { statId: 'str', title: 'A', thresholdType: 'level', thresholdValue: 1 });
+  const b = addNode(s, { statId: 'str', title: 'B', thresholdType: 'level', thresholdValue: 1 });
+  const c = addNode(s, { statId: 'str', title: 'C', thresholdType: 'level', thresholdValue: 1 });
+  const gate = addNode(s, {
+    statId: 'str', title: 'Gate', thresholdType: 'level', thresholdValue: 1,
+    parents: [a.id, b.id, c.id], requireMode: 'any', anyCount: 2,
+  });
+  s.growth.points = 9;
+  assert.equal(nodeStatus(s, gate), 'locked');    // 0 parents unlocked
+  unlockNode(s, a.id);
+  assert.equal(nodeStatus(s, gate), 'locked');    // 1 of 3
+  unlockNode(s, b.id);
+  assert.equal(nodeStatus(s, gate), 'eligible');  // 2 of 3 -> satisfied
+});
+
+test('optional reward: unlocked node grants XP mult + decay resist', () => {
+  const s = defaultState();
+  s.stats.str.xp = 300; s.growth.points = 5;
+  const xpNode = addNode(s, { statId: 'str', title: 'X', thresholdType: 'level', thresholdValue: 1, reward: { type: 'xp', value: 1.2 } });
+  const rNode = addNode(s, { statId: 'str', title: 'R', thresholdType: 'level', thresholdValue: 1, reward: { type: 'resist', value: 0.2 } });
+  unlockNode(s, xpNode.id); unlockNode(s, rNode.id);
   const eff = activeEffects(s);
-  assert.ok(eff.xpMultiplier.str > 1, 'str gains an XP multiplier');
+  assert.ok(Math.abs(eff.xpMultiplier.str - 1.2) < 1e-9);
+  assert.ok(Math.abs(eff.decayResist - 0.2) < 1e-9);
 });
 
-test('tree: Steadfast node grants decay resistance (condition rises)', () => {
+test('eligibleNodes lists cross-tree candidates for the forced trade-off', () => {
   const s = defaultState();
-  const h = addHabit(s, { name: 'x', statIds: ['str'], cadenceType: 'daily' });
-  h.lastCompleted = 0; h.createdAt = 0;
-  const at = 2.6 * DAY_MS;
-  const before = statCondition(s, 'str', at);
-  s.tree.unlocked.push('str_steady'); // directly grant the resist effect
-  const after = statCondition(s, 'str', at);
-  assert.ok(after > before, `decay resist raises condition (${before} -> ${after})`);
-  assert.ok(activeEffects(s).decayResist > 0);
+  s.stats.str.xp = 1000; s.stats.mag.xp = 1000; // both high level
+  const a = addNode(s, { statId: 'str', title: 'A', thresholdType: 'level', thresholdValue: 2 });
+  const b = addNode(s, { statId: 'mag', title: 'B', thresholdType: 'level', thresholdValue: 2 });
+  const ids = eligibleNodes(s).map((n) => n.id);
+  assert.ok(ids.includes(a.id) && ids.includes(b.id));
 });
 
 // ---- Hero sprite ----------------------------------------------------------

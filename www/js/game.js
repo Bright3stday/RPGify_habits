@@ -8,13 +8,13 @@ import { uid, clamp, now, dayKey } from './util.js';
 import { periodMs } from './cadence.js';
 import { levelFromXp } from './leveling.js';
 import { refreshConditions } from './condition.js';
-import { activeEffects } from './skilltree.js';
+import { activeEffects, addNode, defaultGrowth } from './skilltree.js';
 import { stepsToday } from './pedometer.js';
 import { rollLoot } from './items.js';
 import { emptyEquipment } from './equipment.js';
 import { ATTRIBUTES, scoreOf } from './attributes.js';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 export function defaultState() {
   const state = {
@@ -22,7 +22,8 @@ export function defaultState() {
     createdAt: now(),
     stats: {},          // the six fixed primary attributes, keyed by attribute id
     habits: {},
-    tree: { unlocked: [] },
+    tree: { nodes: {} }, // user-authored mastery nodes
+    growth: defaultGrowth(), // Growth Points currency
     inventory: [],      // cosmetic loot collected from completions
     equipment: emptyEquipment(), // cosmetic only — no stat bonuses
     reminders: {},
@@ -52,8 +53,30 @@ export function defaultState() {
     stepGoal: 8000,
     xpPerCompletion: 50,
   });
+  seedExampleNodes(state);
   refreshConditions(state);
   return state;
+}
+
+// A couple of example mastery nodes so the tree isn't empty — one sequential
+// pair (Strength) and one flat node (Magic). Fully editable/deletable.
+function seedExampleNodes(state) {
+  const a = addNode(state, {
+    statId: 'str', title: 'Build the Habit',
+    criteria: 'Log 15 strength sessions and mean it.',
+    thresholdType: 'practice', thresholdValue: 15,
+  });
+  addNode(state, {
+    statId: 'str', title: 'Grow Stronger',
+    criteria: 'Reach Strength level 5 with real, progressive effort.',
+    thresholdType: 'level', thresholdValue: 5,
+    parents: [a.id], requireMode: 'all', // sequential: needs the first
+  });
+  addNode(state, {
+    statId: 'mag', title: 'Curiosity',
+    criteria: 'Finish a book or a course module.',
+    thresholdType: 'practice', thresholdValue: 10,
+  });
 }
 
 // Luck attribute -> loot luck (0..~0.3). Growing Luck improves your drops.
@@ -61,26 +84,33 @@ export function luckFactor(state) {
   return clamp((scoreOf(state, 'lck') - 8) * 0.015, 0, 0.3);
 }
 
-// Migrate an older save to the current schema. v1 used free-form stat
-// categories; v2 uses the six fixed attributes. We keep the player's habits and
-// (cosmetic) loot, point habits at Strength as a starting attribute, and reset
-// the skill tree (its old node ids referenced the removed categories).
+// Migrate an older save to the current schema.
+//   v1: free-form stat categories -> v2: the six fixed attributes.
+//   v2: the auto-generated skill tree (unlocked ids) -> v3: user-authored
+//       mastery nodes + Growth Points.
+// Habits and cosmetic loot are preserved; the old tree (fixed-node bonuses) is
+// reset since its node ids no longer mean anything.
 export function migrate(state) {
   if (!state) return state;
-  const isV2 = state.stats && state.stats.str && state.stats.spd;
-  if (isV2) { state.version = SCHEMA_VERSION; return state; }
-  state.stats = {};
-  for (const a of ATTRIBUTES) {
-    state.stats[a.id] = {
-      id: a.id, name: a.name, color: a.color, xp: 0, condition: 100, healthySince: now(),
-    };
+  const hasAttrs = state.stats && state.stats.str && state.stats.spd;
+  if (!hasAttrs) {
+    state.stats = {};
+    for (const a of ATTRIBUTES) {
+      state.stats[a.id] = {
+        id: a.id, name: a.name, color: a.color, xp: 0, condition: 100, healthySince: now(),
+      };
+    }
+    for (const h of Object.values(state.habits || {})) {
+      h.statIds = ['str']; // reassignable by the user afterwards
+    }
   }
-  for (const h of Object.values(state.habits || {})) {
-    h.statIds = ['str']; // reassignable by the user afterwards
-  }
-  state.tree = { unlocked: [] };
+  if (!state.tree || !state.tree.nodes) state.tree = { nodes: {} };
+  if (!state.growth) state.growth = defaultGrowth();
   if (!state.equipment) state.equipment = emptyEquipment();
   if (!state.inventory) state.inventory = [];
+  for (const h of Object.values(state.habits || {})) {
+    if (h.completions == null) h.completions = h.history ? h.history.length : 0;
+  }
   state.version = SCHEMA_VERSION;
   refreshConditions(state);
   return state;
@@ -135,6 +165,7 @@ export function addHabit(state, data) {
     xpPerCompletion: clamp(Number(data.xpPerCompletion) || 20, 1, 1000),
     lastCompleted: null,
     streak: 0,
+    completions: 0, // uncapped count, for mastery "practice" thresholds
     createdAt: now(),
     retired: false,
     history: [],
@@ -210,6 +241,7 @@ export function completeHabit(state, id, at = now()) {
     h.streak = 1;
   }
   h.lastCompleted = at;
+  h.completions = (h.completions || 0) + 1;
   h.history.push(at);
   if (h.history.length > 200) h.history = h.history.slice(-200);
 
