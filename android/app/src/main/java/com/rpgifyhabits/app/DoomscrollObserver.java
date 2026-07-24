@@ -11,7 +11,7 @@ import androidx.annotation.RequiresApi;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.concurrent.TimeUnit;
+import java.time.Duration;
 
 /**
  * OS-driven detection (API 29+): one {@code registerUsageSessionObserver} per
@@ -47,10 +47,13 @@ public final class DoomscrollObserver {
         JSONObject a = apps.getJSONObject(i);
         String pkg = a.getString("package");
         int threshold = Math.max(1, a.optInt("thresholdMin", 20));
+        // registerUsageSessionObserver takes java.time.Duration for the time
+        // limit and the session-gap (not the (long, TimeUnit) pair used by
+        // registerAppUsageObserver).
         usm.registerUsageSessionObserver(
             i, new String[]{ pkg },
-            threshold, TimeUnit.MINUTES,
-            DoomscrollUtil.SESSION_GAP_MIN, TimeUnit.MINUTES,
+            Duration.ofMinutes(threshold),
+            Duration.ofMinutes(DoomscrollUtil.SESSION_GAP_MIN),
             broadcast(ctx, DoomscrollReceiver.ACTION_LIMIT, i),
             broadcast(ctx, DoomscrollReceiver.ACTION_SESSION_END, i));
       } catch (Exception ignored) { }
