@@ -728,9 +728,9 @@ function doomscrollSection(state) {
         </select></label>
         <label class="field" style="width:84px" id="ds-everywrap"><span>N MIN</span><input type="number" id="ds-every" min="1" max="240" value="${d.retrigger.everyMin}"></label>
       </div>
-      <label class="field"><span>CHECK EVERY (min) — lower = notices new sessions sooner</span><input type="number" id="ds-poll" min="1" max="30" value="${d.pollMinutes}"></label>
+      <label class="field"><span>CHECK EVERY (min) — older-Android fallback only</span><input type="number" id="ds-poll" min="1" max="30" value="${d.pollMinutes}"></label>
       <button class="btn primary block" id="ds-apply">APPLY</button>
-      <div class="bar-caption" style="margin-top:8px">Disruptive timing, calm message — e.g. “${esc(observationCopy('Instagram', 28))}”. It only notices; it never tells you what to do. The alert fires <b>exactly</b> at your threshold (scheduled from the real session start); the check interval only affects how soon a brand-new session is noticed. Runs as a foreground service (persistent notice, more battery).</div>
+      <div class="bar-caption" style="margin-top:8px">Disruptive timing, calm message — e.g. “${esc(observationCopy('Instagram', 28))}”. It only notices; it never tells you what to do. On <b>Android 10+</b> the system itself signals the moment your threshold is hit — no polling, no persistent notification, low battery. Older devices use a foreground-service fallback (persistent notice, the “check every” interval above).</div>
     </div>`;
 }
 

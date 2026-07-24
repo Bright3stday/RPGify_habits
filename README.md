@@ -99,19 +99,24 @@ past your per-app threshold, it fires a real notification that only *observes*
 — "28 minutes on Instagram", optionally with a hunched pixel avatar — never
 instructs, scolds, or warns. No streak-broken framing, no red styling.
 
-- **Native Android foreground service** (`DoomscrollService.java`) over
-  WorkManager (15-min floor), for tight detection; costs a persistent notice +
-  more battery — an accepted tradeoff. It requires the special **Usage Access**
-  permission (granted in system settings via the plugin) and is fully **opt-in**.
-- **Precise firing.** Because the real session **start** timestamp is known, the
-  service schedules a one-shot **exactly at `start + threshold`** (and, for
-  retrigger, `start + lastAlert + N`) rather than waiting for a poll — so the
-  alert lands to the second. A short detection poll (default **1 min**,
-  configurable) only bounds how soon a *brand-new* session is noticed so the
-  exact timer can be armed; it never affects the alert's accuracy. When the
-  timer fires it re-verifies the same session is still foreground.
-- **Per continuous session**, not cumulative-per-day: switching away resets it,
-  the next open counts from zero. Duration uses real event timestamps.
+- **Opt-in** and requires the special **Usage Access** permission (granted in
+  system settings via the plugin). Two detection backends:
+  - **Android 10+ (primary): OS session observers.** `DoomscrollObserver`
+    registers one `registerUsageSessionObserver` per watched app, so the
+    *system itself* fires `DoomscrollReceiver` the instant a continuous session
+    reaches that app's limit — **no polling, no foreground service, no
+    persistent notification, low battery**. A session ends after ~1 min of
+    non-use, then the next open counts fresh. Registrations are restored after
+    reboot by `DoomscrollBootReceiver`.
+  - **Older devices (fallback): a foreground service** (`DoomscrollService.java`)
+    that polls UsageStats and schedules a one-shot **exactly at
+    `start + threshold`** from the real session-start timestamp (precise to the
+    second; the poll only bounds how soon a *new* session is noticed).
+- **Retrigger** (every N minutes) re-fires via a re-verified alarm that checks
+  the same continuous session is still foreground before posting again.
+- **Per continuous session**, not cumulative-per-day. Duration uses real event
+  timestamps. The config→observer mapping and the fallback timing math are
+  unit-tested in `www/js/doomscroll.js`; the native code mirrors them.
 - **Retrigger** is configurable: once per session, or every N further minutes.
 - **YouTube caveat**: UsageStats can't tell Shorts from long-form, so this first
   pass just lets you give YouTube a much longer threshold (or leave it off).

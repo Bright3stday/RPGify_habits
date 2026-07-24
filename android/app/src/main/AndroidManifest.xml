@@ -35,7 +35,9 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
-        <!-- Doomscroll reflection monitor (opt-in foreground service). -->
+        <!-- Doomscroll reflection monitor. Modern devices (API 29+) use the
+             session-observer receiver below; older devices use this foreground
+             service fallback. -->
         <service
             android:name=".DoomscrollService"
             android:exported="false"
@@ -44,6 +46,20 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Opt-in monitoring of the user's own selected apps' continuous foreground time, to show a factual self-reflection notice once a chosen threshold is crossed." />
         </service>
+
+        <!-- Receives OS usage-session-observer callbacks + our retrigger alarms. -->
+        <receiver
+            android:name=".DoomscrollReceiver"
+            android:exported="false" />
+
+        <!-- Re-registers observers after a reboot (they don't survive one). -->
+        <receiver
+            android:name=".DoomscrollBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 
     <!-- Lets the app list launchable apps for the picker without the sensitive
@@ -71,4 +87,6 @@
         tools:ignore="ProtectedPermissions" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Re-register usage-session observers after reboot. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 </manifest>
