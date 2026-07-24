@@ -79,24 +79,36 @@ export async function testNotification() {
   return { ok: true };
 }
 
-// Random integer minute [0,59].
-function randMinute() {
-  return Math.floor(Math.random() * 60);
+// Spread `count` nudges across an hour: split the hour into equal buckets and
+// pick a jittered minute inside each, keeping a margin off the bucket edges so
+// consecutive nudges keep a real gap (never fire a minute apart, never clump).
+// Returns sorted minutes, e.g. 2/hour -> ~[6..23] then ~[36..53] (>=13 min gap).
+export function spreadMinutes(count, rnd = Math.random) {
+  const n = Math.max(1, Math.min(4, count || 1));
+  const bucket = 60 / n;
+  const margin = Math.min(6, bucket * 0.25);
+  const mins = [];
+  for (let k = 0; k < n; k += 1) {
+    const lo = k * bucket + margin;
+    const hi = (k + 1) * bucket - margin;
+    mins.push(Math.floor(lo + rnd() * (hi - lo)));
+  }
+  return mins;
 }
 
 // Build the schedule for general nudges (water/posture) across the next
-// `days` days, one per active hour with a random minute, honouring perHour.
+// `days` days, spread evenly within each active hour, honouring perHour.
 function generalSchedule(kind, cfg, activeHours, days = 3) {
   const out = [];
   const now = new Date();
   for (let d = 0; d < days; d += 1) {
     for (let h = activeHours.start; h < activeHours.end; h += 1) {
-      const count = Math.max(1, Math.min(4, cfg.perHour || 1));
-      for (let k = 0; k < count; k += 1) {
+      const minutes = spreadMinutes(cfg.perHour || 1);
+      minutes.forEach((minute, k) => {
         const when = new Date(now);
         when.setDate(now.getDate() + d);
-        when.setHours(h, randMinute(), 0, 0);
-        if (when <= now) continue;
+        when.setHours(h, minute, 0, 0);
+        if (when <= now) return;
         out.push({
           id: ID_BASE[kind] + d * 100 + h * 4 + k,
           title: kind === 'water' ? '💧 Hydrate' : '🪑 Posture check',
@@ -104,7 +116,7 @@ function generalSchedule(kind, cfg, activeHours, days = 3) {
           schedule: { at: when, allowWhileIdle: true },
           channelId: CHANNEL,
         });
-      }
+      });
     }
   }
   return out;

@@ -23,6 +23,7 @@ import {
 } from '../www/js/attributes.js';
 import { rollLoot, RARITY_ORDER } from '../www/js/items.js';
 import { equipItem, slotForItem } from '../www/js/equipment.js';
+import { spreadMinutes } from '../www/js/notifications.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -211,6 +212,22 @@ test('equipment: slot mapping; equipping is cosmetic', () => {
   const h = addHabit(s, { name: 'x', statIds: ['str'], xpPerCompletion: 40 });
   completeHabit(s, h.id);
   assert.equal(s.stats.str.xp - before, 40);
+});
+
+// ---- Reminder spacing -----------------------------------------------------
+test('spreadMinutes: nudges are ordered, in-range, and never clump', () => {
+  for (const n of [1, 2, 3, 4]) {
+    for (let trial = 0; trial < 200; trial += 1) {
+      const m = spreadMinutes(n, Math.random);
+      assert.equal(m.length, n);
+      for (let i = 0; i < n; i += 1) {
+        assert.ok(m[i] >= 0 && m[i] <= 59, `minute in range (${m[i]})`);
+        if (i > 0) assert.ok(m[i] - m[i - 1] >= 5, `>=5 min gap (${m.join(',')})`);
+      }
+    }
+  }
+  // extremes: rnd->0 hugs bucket starts, rnd->~1 hugs bucket ends; still spaced
+  assert.deepEqual(spreadMinutes(2, () => 0), [6, 36]);
 });
 
 console.log(`\n${passed} checks passed.`);
