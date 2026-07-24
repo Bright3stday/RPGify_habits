@@ -26,8 +26,7 @@ import { rollLoot, RARITY_ORDER } from '../www/js/items.js';
 import { equipItem, slotForItem } from '../www/js/equipment.js';
 import { spreadMinutes } from '../www/js/notifications.js';
 import {
-  currentSession, shouldAlert, observationCopy, sanitizeConfig, nextFireDelayMs,
-  observerSpecs, probeSummary,
+  currentSession, shouldAlert, observationCopy, sanitizeConfig, nextFireDelayMs, probeSummary,
 } from '../www/js/doomscroll.js';
 
 let passed = 0;
@@ -325,18 +324,6 @@ test('doomscroll nextFireDelayMs: schedules precisely at the crossing', () => {
   // every 15: alerted at 20, now 30 -> next at 35 -> 5 min
   assert.equal(nextFireDelayMs({ session: sess, thresholdMin: 20, lastAlertMin: 20, retrigger: every }, 30 * MIN), 5 * MIN);
   assert.equal(nextFireDelayMs({ session: null, thresholdMin: 20, lastAlertMin: null, retrigger: once }, 0), null);
-});
-
-test('doomscroll observerSpecs: one per app, id = index, threshold preserved', () => {
-  const specs = observerSpecs({
-    enabled: true,
-    apps: [{ package: 'a', label: 'A', thresholdMin: 20 }, { package: 'b', label: 'B', thresholdMin: 15 }],
-    retrigger: { mode: 'once' },
-  });
-  assert.deepEqual(specs.map((s) => s.id), [0, 1]);
-  assert.equal(specs[0].timeLimitMin, 20);
-  assert.equal(specs[1].package, 'b');
-  assert.equal(specs[0].sessionGapMin, 1);
 });
 
 test('doomscroll probeSummary: factual one-liner for each state', () => {

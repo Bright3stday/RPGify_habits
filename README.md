@@ -99,24 +99,24 @@ past your per-app threshold, it fires a real notification that only *observes*
 — "28 minutes on Instagram", optionally with a hunched pixel avatar — never
 instructs, scolds, or warns. No streak-broken framing, no red styling.
 
-- **Opt-in** and requires the special **Usage Access** permission (granted in
-  system settings via the plugin). Two detection backends:
-  - **Android 10+ (primary): OS session observers.** `DoomscrollObserver`
-    registers one `registerUsageSessionObserver` per watched app, so the
-    *system itself* fires `DoomscrollReceiver` the instant a continuous session
-    reaches that app's limit — **no polling, no foreground service, no
-    persistent notification, low battery**. A session ends after ~1 min of
-    non-use, then the next open counts fresh. Registrations are restored after
-    reboot by `DoomscrollBootReceiver`.
-  - **Older devices (fallback): a foreground service** (`DoomscrollService.java`)
-    that polls UsageStats and schedules a one-shot **exactly at
-    `start + threshold`** from the real session-start timestamp (precise to the
-    second; the poll only bounds how soon a *new* session is noticed).
-- **Retrigger** (every N minutes) re-fires via a re-verified alarm that checks
-  the same continuous session is still foreground before posting again.
-- **Per continuous session**, not cumulative-per-day. Duration uses real event
-  timestamps. The config→observer mapping and the fallback timing math are
-  unit-tested in `www/js/doomscroll.js`; the native code mirrors them.
+- **Opt-in**; requires the special **Usage Access** permission (`PACKAGE_USAGE_STATS`,
+  granted in system settings via the plugin). This is the only usage-time API a
+  normal app can use — the OS usage-session *observer* APIs
+  (`registerUsageSessionObserver`) need the privileged `OBSERVE_APP_USAGE`
+  permission that only system apps (e.g. Digital Wellbeing) can hold, so they're
+  not available here.
+- **Foreground service** (`DoomscrollService.java`) over WorkManager (15-min
+  floor); costs a persistent notice + more battery — an accepted tradeoff.
+- **Precise firing.** Because the real session **start** timestamp is known, the
+  service schedules a one-shot **exactly at `start + threshold`** (and, for
+  retrigger, `start + lastAlert + N`) rather than waiting for a poll — so the
+  alert lands to the second. A short detection poll (default **1 min**,
+  configurable) only bounds how soon a *brand-new* session is noticed so the
+  exact timer can be armed; it never affects accuracy. The timer re-verifies the
+  same session is still foreground before firing.
+- **Per continuous session**, not cumulative-per-day: switching away resets it.
+  The session/threshold/copy/timing logic is unit-tested in `www/js/doomscroll.js`;
+  the service mirrors it.
 - **Diagnostics** (Config → Doomscroll → DIAGNOSTICS): *Probe* reads the current
   foreground app + elapsed session time via the plugin (`probe()`), and *Test
   alert* posts a sample notification (`fireTestAlert()`) — so detection and the

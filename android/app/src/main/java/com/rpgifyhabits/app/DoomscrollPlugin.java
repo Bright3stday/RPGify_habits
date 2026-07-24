@@ -78,33 +78,23 @@ public class DoomscrollPlugin extends Plugin {
     call.resolve(r);
   }
 
-  // Modern devices (API 29+) use OS session observers — no polling, no
-  // foreground service, low battery. Older devices fall back to the polling
-  // foreground service.
+  // Detection uses a foreground service polling UsageStats. (The OS
+  // usage-session observer APIs need the privileged OBSERVE_APP_USAGE
+  // permission, which a normal app can't hold — so they're not usable here.)
   @PluginMethod
   public void startMonitoring(PluginCall call) {
     DoomscrollUtil.writeConfig(getContext(), call.getData().toString());
-    if (DoomscrollObserver.supported()) {
-      DoomscrollObserver.register(getContext());
-    } else {
-      Intent i = new Intent(getContext(), DoomscrollService.class);
-      i.setAction(DoomscrollService.ACTION_START);
-      i.putExtra(DoomscrollService.EXTRA_CONFIG, call.getData().toString());
-      ContextCompat.startForegroundService(getContext(), i);
-      DoomscrollService.setRunningFlag(true);
-    }
-    JSObject r = new JSObject();
-    r.put("mode", DoomscrollObserver.supported() ? "observer" : "service");
-    call.resolve(r);
+    Intent i = new Intent(getContext(), DoomscrollService.class);
+    i.setAction(DoomscrollService.ACTION_START);
+    i.putExtra(DoomscrollService.EXTRA_CONFIG, call.getData().toString());
+    ContextCompat.startForegroundService(getContext(), i);
+    DoomscrollService.setRunningFlag(true);
+    call.resolve();
   }
 
   @PluginMethod
   public void stopMonitoring(PluginCall call) {
-    // Persist enabled=false so boot re-registration won't fire.
     DoomscrollUtil.writeConfig(getContext(), "{\"enabled\":false,\"apps\":[]}");
-    if (DoomscrollObserver.supported()) {
-      DoomscrollObserver.unregister(getContext());
-    }
     Intent i = new Intent(getContext(), DoomscrollService.class);
     i.setAction(DoomscrollService.ACTION_STOP);
     getContext().startService(i);
@@ -142,12 +132,8 @@ public class DoomscrollPlugin extends Plugin {
 
   @PluginMethod
   public void isMonitoring(PluginCall call) {
-    boolean active = DoomscrollObserver.supported()
-        ? DoomscrollUtil.isEnabled(getContext())
-        : DoomscrollService.isRunningFlag();
     JSObject r = new JSObject();
-    r.put("active", active);
-    r.put("mode", DoomscrollObserver.supported() ? "observer" : "service");
+    r.put("active", DoomscrollService.isRunningFlag());
     call.resolve(r);
   }
 }

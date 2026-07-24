@@ -729,7 +729,7 @@ function doomscrollSection(state) {
         </select></label>
         <label class="field" style="width:84px" id="ds-everywrap"><span>N MIN</span><input type="number" id="ds-every" min="1" max="240" value="${d.retrigger.everyMin}"></label>
       </div>
-      <label class="field"><span>CHECK EVERY (min) — older-Android fallback only</span><input type="number" id="ds-poll" min="1" max="30" value="${d.pollMinutes}"></label>
+      <label class="field"><span>CHECK EVERY (min) — how often it re-checks the foreground app</span><input type="number" id="ds-poll" min="1" max="30" value="${d.pollMinutes}"></label>
       <button class="btn primary block" id="ds-apply">APPLY</button>
       <div class="section-label" style="margin-left:0">DIAGNOSTICS</div>
       <div class="btn-row">
@@ -737,7 +737,7 @@ function doomscrollSection(state) {
         <button class="btn small gold" id="ds-test">🔔 TEST ALERT</button>
       </div>
       <div class="bar-caption" id="ds-probe-out" style="margin-top:6px">Probe reads whatever app is in the foreground right now + how long you've been in it.</div>
-      <div class="bar-caption" style="margin-top:8px">Disruptive timing, calm message — e.g. “${esc(observationCopy('Instagram', 28))}”. It only notices; it never tells you what to do. On <b>Android 10+</b> the system itself signals the moment your threshold is hit — no polling, no persistent notification, low battery. Older devices use a foreground-service fallback (persistent notice, the “check every” interval above).</div>
+      <div class="bar-caption" style="margin-top:8px">Disruptive timing, calm message — e.g. “${esc(observationCopy('Instagram', 28))}”. It only notices; it never tells you what to do. Runs as a foreground service (a persistent notice, more battery) that reads app usage times; the alert is scheduled to fire <b>exactly</b> at your threshold from the real session start.</div>
     </div>`;
 }
 

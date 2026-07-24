@@ -22,11 +22,6 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-    // java.time (used by the API 29+ usage-session observer) needs desugaring on
-    // this project's minSdk (22). Safe on all API levels.
-    compileOptions {
-        coreLibraryDesugaringEnabled true
-    }
 }
 
 repositories {
@@ -36,7 +31,6 @@ repositories {
 }
 
 dependencies {
-    coreLibraryDesugaring "com.android.tools:desugar_jdk_libs:2.0.4"
     implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"

@@ -123,24 +123,6 @@ function clampInt(v, lo, hi, dflt) {
   return Math.max(lo, Math.min(hi, n));
 }
 
-// Gap (minutes) of non-use that ends a continuous session, for the OS session
-// observer. Mirrors DoomscrollUtil.SESSION_GAP_MIN.
-export const SESSION_GAP_MIN = 1;
-
-// Map the config to per-app OS-observer specs (API 29+ path). The native
-// DoomscrollObserver registers one usage-session observer per app with these
-// params; observer id = the app's index. Kept here so the mapping is tested.
-export function observerSpecs(config) {
-  const c = sanitizeConfig(config);
-  return c.apps.map((a, i) => ({
-    id: i,
-    package: a.package,
-    label: a.label,
-    timeLimitMin: a.thresholdMin,
-    sessionGapMin: SESSION_GAP_MIN,
-  }));
-}
-
 // ---- pure detection logic (mirrored by DoomscrollService.java) -----------
 
 // Reconstruct the CURRENT continuous foreground session from ordered UsageStats
