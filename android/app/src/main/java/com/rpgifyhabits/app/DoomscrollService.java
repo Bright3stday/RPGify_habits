@@ -53,14 +53,20 @@ public class DoomscrollService extends Service {
 
   private HandlerThread thread;
   private Handler handler;
-  private long pollMs = 5 * 60 * 1000L;
+  private long pollMs = 60 * 1000L;
   private final Map<String, Integer> thresholds = new HashMap<>(); // package -> minutes
   private String retriggerMode = "once";
   private int retriggerEvery = 15;
 
-  // Current-session alert tracking (mirrors JS shouldAlert()).
+  // Current-session alert tracking (mirrors JS shouldAlert() / nextFireDelayMs()).
+  private String curPkg = null;   // app currently foregrounded (or null)
+  private long curStart = 0;      // when the current continuous session began
   private String sessionKey = null; // package + "@" + sessionStart
   private Integer lastAlertMin = null;
+
+  // The precise one-shot that fires the alert exactly at the crossing.
+  private Runnable fireRunnable = null;
+  private long armedFireAt = -1;
 
   @Override
   public void onCreate() {
@@ -113,13 +119,15 @@ public class DoomscrollService extends Service {
     } catch (Exception ignored) { }
   }
 
-  // Mirrors doomscroll.js currentSession() + shouldAlert().
-  private void poll() {
+  // Read the current continuous foreground session into curPkg/curStart, and
+  // reset per-session alert tracking when the session changes. Mirrors
+  // doomscroll.js currentSession().
+  private void readCurrent() {
+    curPkg = null; curStart = 0;
     UsageStatsManager usm = (UsageStatsManager) getSystemService(Context.USAGE_STATS_SERVICE);
-    if (usm == null || thresholds.isEmpty()) return;
+    if (usm == null || thresholds.isEmpty()) { sessionKey = null; lastAlertMin = null; return; }
     long now = System.currentTimeMillis();
-    long begin = now - 12L * 60 * 60 * 1000; // look back far enough to find the session start
-    UsageEvents events = usm.queryEvents(begin, now);
+    UsageEvents events = usm.queryEvents(now - 12L * 60 * 60 * 1000, now);
     UsageEvents.Event e = new UsageEvents.Event();
     String fg = null;
     long start = 0;
@@ -133,22 +141,65 @@ public class DoomscrollService extends Service {
       }
     }
     if (fg == null || !thresholds.containsKey(fg)) { sessionKey = null; lastAlertMin = null; return; }
-
+    curPkg = fg; curStart = start;
     String key = fg + "@" + start;
     if (!key.equals(sessionKey)) { sessionKey = key; lastAlertMin = null; } // new session -> reset
+  }
 
-    int elapsedMin = (int) ((now - start) / 60000L);
-    int threshold = thresholds.get(fg);
-    boolean alert;
-    if (elapsedMin < threshold) alert = false;
-    else if (lastAlertMin == null) alert = true;
-    else if (!"every".equals(retriggerMode)) alert = false;
-    else alert = (elapsedMin - lastAlertMin) >= retriggerEvery;
+  // Periodic detection: refresh the current session and (re)arm the exact timer.
+  private void poll() {
+    readCurrent();
+    arm();
+  }
 
-    if (alert) {
-      fireAlert(fg, elapsedMin);
-      lastAlertMin = elapsedMin;
+  // ms until the next alert for the current session (mirrors JS nextFireDelayMs).
+  private Long nextFireDelay(long now) {
+    if (curPkg == null) return null;
+    int threshold = thresholds.get(curPkg);
+    long fireAt;
+    if (lastAlertMin == null) {
+      fireAt = curStart + threshold * 60000L;
+    } else if ("every".equals(retriggerMode)) {
+      fireAt = curStart + (lastAlertMin + retriggerEvery) * 60000L;
+    } else {
+      return null; // once, already alerted
     }
+    return Math.max(0, fireAt - now);
+  }
+
+  // Schedule (or re-schedule) the precise one-shot that fires at the crossing.
+  private void arm() {
+    long now = System.currentTimeMillis();
+    Long delay = nextFireDelay(now);
+    if (delay == null) { cancelTimer(); return; }
+    long fireAt = now + delay;
+    if (fireRunnable != null && Math.abs(fireAt - armedFireAt) < 1000) return; // already armed ~here
+    cancelTimer();
+    armedFireAt = fireAt;
+    fireRunnable = this::onFire;
+    handler.postDelayed(fireRunnable, delay);
+  }
+
+  private void cancelTimer() {
+    if (fireRunnable != null) handler.removeCallbacks(fireRunnable);
+    fireRunnable = null;
+    armedFireAt = -1;
+  }
+
+  // The timer fired: re-verify the same session is still current, then alert.
+  private void onFire() {
+    fireRunnable = null; armedFireAt = -1;
+    String armedSession = sessionKey;
+    readCurrent();
+    if (curPkg != null && armedSession != null && armedSession.equals(sessionKey)) {
+      int elapsedMin = (int) ((System.currentTimeMillis() - curStart) / 60000L);
+      int threshold = thresholds.get(curPkg);
+      if (elapsedMin >= threshold) {
+        fireAlert(curPkg, elapsedMin);
+        lastAlertMin = elapsedMin;
+      }
+    }
+    arm(); // schedule the next retrigger, if any
   }
 
   private void fireAlert(String pkg, int elapsedMin) {

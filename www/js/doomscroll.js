@@ -64,7 +64,10 @@ export async function isMonitoring() {
 export function defaultDoomscroll() {
   return {
     enabled: false,
-    pollMinutes: 5, // foreground-service poll cadence
+    // How often the service re-checks which app is foregrounded (to arm the
+    // exact-fire timer). The alert itself fires precisely at start+threshold
+    // regardless, so this only bounds how soon a *new* session is noticed.
+    pollMinutes: 1,
     // apps: [{ package, label, thresholdMin }]
     apps: [],
     // retrigger within the same continuous session
@@ -131,4 +134,22 @@ export function shouldAlert({ elapsedMin, thresholdMin, lastAlertMin, retrigger 
 export function observationCopy(appLabel, elapsedMin) {
   const mins = Math.max(1, Math.round(elapsedMin));
   return `${mins} ${mins === 1 ? 'minute' : 'minutes'} on ${appLabel}`;
+}
+
+// Real-time firing: given the *known* session start, compute how many ms from
+// `now` until the next alert should fire — so the service can schedule a precise
+// one-shot at the exact crossing instead of waiting for the next poll. Returns
+// null when nothing more should fire this session. The service re-verifies the
+// session is still current when the timer actually fires.
+export function nextFireDelayMs({ session, thresholdMin, lastAlertMin, retrigger }, now) {
+  if (!session) return null;
+  let fireAt;
+  if (lastAlertMin == null) {
+    fireAt = session.start + thresholdMin * 60000; // first alert, exactly at crossing
+  } else if (retrigger && retrigger.mode === 'every') {
+    fireAt = session.start + (lastAlertMin + retrigger.everyMin) * 60000;
+  } else {
+    return null; // once-per-session, already alerted
+  }
+  return Math.max(0, fireAt - now);
 }

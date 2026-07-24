@@ -99,15 +99,19 @@ past your per-app threshold, it fires a real notification that only *observes*
 — "28 minutes on Instagram", optionally with a hunched pixel avatar — never
 instructs, scolds, or warns. No streak-broken framing, no red styling.
 
-- **Native Android foreground service** (`DoomscrollService.java`) polls
-  UsageStats ~every 5 min (chosen over WorkManager's 15-min floor for tighter
-  detection; costs a persistent notice + more battery — an accepted tradeoff).
-  It requires the special **Usage Access** permission (granted in system
-  settings via the plugin) and is fully **opt-in** (you pick which apps count).
+- **Native Android foreground service** (`DoomscrollService.java`) over
+  WorkManager (15-min floor), for tight detection; costs a persistent notice +
+  more battery — an accepted tradeoff. It requires the special **Usage Access**
+  permission (granted in system settings via the plugin) and is fully **opt-in**.
+- **Precise firing.** Because the real session **start** timestamp is known, the
+  service schedules a one-shot **exactly at `start + threshold`** (and, for
+  retrigger, `start + lastAlert + N`) rather than waiting for a poll — so the
+  alert lands to the second. A short detection poll (default **1 min**,
+  configurable) only bounds how soon a *brand-new* session is noticed so the
+  exact timer can be armed; it never affects the alert's accuracy. When the
+  timer fires it re-verifies the same session is still foreground.
 - **Per continuous session**, not cumulative-per-day: switching away resets it,
-  the next open counts from zero. Duration uses real event timestamps
-  (second-accurate); the poll interval only bounds how *soon* a crossing is
-  noticed (worst case ~5 min).
+  the next open counts from zero. Duration uses real event timestamps.
 - **Retrigger** is configurable: once per session, or every N further minutes.
 - **YouTube caveat**: UsageStats can't tell Shorts from long-form, so this first
   pass just lets you give YouTube a much longer threshold (or leave it off).

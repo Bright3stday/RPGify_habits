@@ -26,7 +26,7 @@ import { rollLoot, RARITY_ORDER } from '../www/js/items.js';
 import { equipItem, slotForItem } from '../www/js/equipment.js';
 import { spreadMinutes } from '../www/js/notifications.js';
 import {
-  currentSession, shouldAlert, observationCopy, sanitizeConfig,
+  currentSession, shouldAlert, observationCopy, sanitizeConfig, nextFireDelayMs,
 } from '../www/js/doomscroll.js';
 
 let passed = 0;
@@ -309,6 +309,21 @@ test('doomscroll copy is a factual mirror — no instructional/evaluative words'
   const banned = ['should', 'stop', 'put down', 'too', 'enough', 'limit', 'warning', 'break', 'quit', 'distract', 'wast'];
   const lc = c.toLowerCase();
   banned.forEach((w) => assert.ok(!lc.includes(w), `copy must not contain "${w}": ${c}`));
+});
+
+test('doomscroll nextFireDelayMs: schedules precisely at the crossing', () => {
+  const sess = { package: 'x', start: 0 };
+  const once = { mode: 'once' };
+  const every = { mode: 'every', everyMin: 15 };
+  // 5 min in, 20-min threshold -> fire in 15 min
+  assert.equal(nextFireDelayMs({ session: sess, thresholdMin: 20, lastAlertMin: null, retrigger: once }, 5 * MIN), 15 * MIN);
+  // already past the threshold -> fire now (0)
+  assert.equal(nextFireDelayMs({ session: sess, thresholdMin: 20, lastAlertMin: null, retrigger: once }, 25 * MIN), 0);
+  // once, already alerted -> never again
+  assert.equal(nextFireDelayMs({ session: sess, thresholdMin: 20, lastAlertMin: 20, retrigger: once }, 30 * MIN), null);
+  // every 15: alerted at 20, now 30 -> next at 35 -> 5 min
+  assert.equal(nextFireDelayMs({ session: sess, thresholdMin: 20, lastAlertMin: 20, retrigger: every }, 30 * MIN), 5 * MIN);
+  assert.equal(nextFireDelayMs({ session: null, thresholdMin: 20, lastAlertMin: null, retrigger: once }, 0), null);
 });
 
 test('doomscroll sanitizeConfig clamps and filters', () => {
