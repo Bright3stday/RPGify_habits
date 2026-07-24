@@ -4,7 +4,6 @@
   "webDir": "www",
   "plugins": {
     "LocalNotifications": {
-      "smallIcon": "ic_stat_icon",
       "iconColor": "#48c8ff"
     }
   }

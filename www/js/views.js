@@ -461,8 +461,11 @@ export function renderSettings(container, ctx) {
         <label class="field" style="flex:1"><span>ACTIVE FROM</span><select id="ah-s">${hourOpts(s.activeHours.start)}</select></label>
         <label class="field" style="flex:1"><span>ACTIVE TO</span><select id="ah-e">${hourOpts(s.activeHours.end)}</select></label>
       </div>
-      <button class="btn primary block" id="apply-rem">APPLY REMINDERS</button>
-      <div class="bar-caption" style="margin-top:8px">Reminders fire on-device only. They take effect in the Android build.</div>
+      <div class="btn-row">
+        <button class="btn primary" id="apply-rem">APPLY</button>
+        <button class="btn gold" id="test-rem">🔔 TEST (5s)</button>
+      </div>
+      <div class="bar-caption" style="margin-top:8px">Reminders fire on-device only (Android build). Water/posture nudges land at a random minute within each active hour, so the first can be up to an hour away — use TEST to confirm they work now.</div>
     </div>
 
     <div class="window">
@@ -492,6 +495,15 @@ export function renderSettings(container, ctx) {
     await ensurePermission();
     await ctx.reschedule();
     ctx.toast('Reminders applied.');
+  });
+
+  // Fire a test notification ~5s out to verify permission + channel + display.
+  container.querySelector('#test-rem').addEventListener('click', async () => {
+    const { testNotification } = await import('./notifications.js');
+    const res = await testNotification();
+    if (res.ok) ctx.toast('Test sent — watch for it in ~5s.');
+    else if (res.reason === 'permission') ctx.toast('Notifications not permitted — allow them in Android settings.', 2600);
+    else ctx.toast('Reminders only work in the installed Android app.', 2600);
   });
 
   // Data

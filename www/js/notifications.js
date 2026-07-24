@@ -37,6 +37,48 @@ export async function ensurePermission() {
   }
 }
 
+// Android 8+ requires a notification channel to exist BEFORE posting to it —
+// a notification with an unknown channelId is silently dropped. Create ours
+// once (idempotent) so reminders actually appear.
+let channelReady = false;
+export async function ensureChannel() {
+  const p = plugin();
+  if (!p || channelReady || !p.createChannel) return;
+  try {
+    await p.createChannel({
+      id: CHANNEL,
+      name: 'Reminders',
+      description: 'Water, posture and habit reminders',
+      importance: 5, // HIGH — pops a heads-up
+      visibility: 1,
+      vibration: true,
+    });
+    channelReady = true;
+  } catch (e) {
+    console.warn('createChannel failed', e);
+  }
+}
+
+// Fire a notification a few seconds out so you can confirm the whole pipeline
+// (permission + channel + display) works, without waiting for a scheduled one.
+export async function testNotification() {
+  const p = plugin();
+  if (!p) { warnWebOnce(); return { ok: false, reason: 'web' }; }
+  const granted = await ensurePermission();
+  if (!granted) return { ok: false, reason: 'permission' };
+  await ensureChannel();
+  await p.schedule({
+    notifications: [{
+      id: 999001,
+      title: '💧 Test reminder',
+      body: 'If you can see this, reminders work! 🎉',
+      schedule: { at: new Date(Date.now() + 5000), allowWhileIdle: true },
+      channelId: CHANNEL,
+    }],
+  });
+  return { ok: true };
+}
+
 // Random integer minute [0,59].
 function randMinute() {
   return Math.floor(Math.random() * 60);
@@ -85,6 +127,7 @@ export async function rescheduleAll(settings) {
   const p = plugin();
   if (!p) { warnWebOnce(); return; }
   try {
+    await ensureChannel();
     const pending = await p.getPending();
     if (pending?.notifications?.length) {
       await p.cancel({ notifications: pending.notifications.map((n) => ({ id: n.id })) });

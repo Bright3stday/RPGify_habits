@@ -206,8 +206,13 @@ manual step source.
 ### Notifications on device
 The Local Notifications plugin merges the needed permissions
 (`POST_NOTIFICATIONS`, boot receiver, etc.) at build time. On Android 13+ the
-app requests notification permission the first time you tap **APPLY REMINDERS**
-in Config.
+app requests notification permission the first time you tap **APPLY** or **TEST**
+in Config. A notification **channel** (`rpgify`) is created before scheduling —
+Android 8+ silently drops notifications posted to an unknown channel, so this is
+required. Config has a **🔔 TEST (5s)** button that fires a notification a few
+seconds out to confirm the pipeline; scheduled water/posture nudges land at a
+random minute within each active hour, so the first real one can be up to an
+hour away.
 
 ---
 
