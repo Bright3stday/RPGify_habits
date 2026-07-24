@@ -117,6 +117,11 @@ instructs, scolds, or warns. No streak-broken framing, no red styling.
 - **Per continuous session**, not cumulative-per-day. Duration uses real event
   timestamps. The config→observer mapping and the fallback timing math are
   unit-tested in `www/js/doomscroll.js`; the native code mirrors them.
+- **Diagnostics** (Config → Doomscroll → DIAGNOSTICS): *Probe* reads the current
+  foreground app + elapsed session time via the plugin (`probe()`), and *Test
+  alert* posts a sample notification (`fireTestAlert()`) — so detection and the
+  notification path can be sanity-checked on-device without waiting for a real
+  threshold.
 - **Retrigger** is configurable: once per session, or every N further minutes.
 - **YouTube caveat**: UsageStats can't tell Shorts from long-form, so this first
   pass just lets you give YouTube a much longer threshold (or leave it off).

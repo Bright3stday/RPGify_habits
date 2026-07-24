@@ -112,6 +112,34 @@ public class DoomscrollPlugin extends Plugin {
     call.resolve();
   }
 
+  // On-device diagnostic: what app is foregrounded right now, and for how long?
+  @PluginMethod
+  public void probe(PluginCall call) {
+    JSObject r = new JSObject();
+    if (!usageAccessGranted()) { r.put("granted", false); call.resolve(r); return; }
+    r.put("granted", true);
+    DoomscrollUtil.Session s = DoomscrollUtil.currentForeground(getContext());
+    if (s == null) { r.put("foreground", false); call.resolve(r); return; }
+    r.put("foreground", true);
+    r.put("package", s.pkg);
+    r.put("label", DoomscrollUtil.labelFor(getContext(), s.pkg));
+    r.put("elapsedMin", (int) ((System.currentTimeMillis() - s.start) / 60000L));
+    r.put("watched", DoomscrollUtil.isWatched(getContext(), s.pkg));
+    call.resolve(r);
+  }
+
+  // Post a sample reflection alert now, to confirm the notification path works.
+  @PluginMethod
+  public void fireTestAlert(PluginCall call) {
+    DoomscrollUtil.Session s = DoomscrollUtil.currentForeground(getContext());
+    String label = (s != null) ? DoomscrollUtil.labelFor(getContext(), s.pkg) : "this session";
+    int mins = (s != null) ? Math.max(1, (int) ((System.currentTimeMillis() - s.start) / 60000L)) : 1;
+    DoomscrollUtil.postAlert(getContext(), label, mins);
+    JSObject r = new JSObject();
+    r.put("ok", true);
+    call.resolve(r);
+  }
+
   @PluginMethod
   public void isMonitoring(PluginCall call) {
     boolean active = DoomscrollObserver.supported()

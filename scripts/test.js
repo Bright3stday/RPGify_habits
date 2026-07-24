@@ -26,7 +26,8 @@ import { rollLoot, RARITY_ORDER } from '../www/js/items.js';
 import { equipItem, slotForItem } from '../www/js/equipment.js';
 import { spreadMinutes } from '../www/js/notifications.js';
 import {
-  currentSession, shouldAlert, observationCopy, sanitizeConfig, nextFireDelayMs, observerSpecs,
+  currentSession, shouldAlert, observationCopy, sanitizeConfig, nextFireDelayMs,
+  observerSpecs, probeSummary,
 } from '../www/js/doomscroll.js';
 
 let passed = 0;
@@ -336,6 +337,16 @@ test('doomscroll observerSpecs: one per app, id = index, threshold preserved', (
   assert.equal(specs[0].timeLimitMin, 20);
   assert.equal(specs[1].package, 'b');
   assert.equal(specs[0].sessionGapMin, 1);
+});
+
+test('doomscroll probeSummary: factual one-liner for each state', () => {
+  assert.match(probeSummary({ native: false }), /Android app only/);
+  assert.match(probeSummary({ native: true, granted: false }), /not granted/);
+  assert.match(probeSummary({ native: true, granted: true, foreground: false }), /No foreground app/);
+  assert.equal(
+    probeSummary({ native: true, granted: true, foreground: true, label: 'Instagram', elapsedMin: 12, watched: true }),
+    'Instagram · 12 min this session · watched',
+  );
 });
 
 test('doomscroll sanitizeConfig clamps and filters', () => {

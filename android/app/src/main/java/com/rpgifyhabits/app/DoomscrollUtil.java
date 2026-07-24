@@ -61,7 +61,8 @@ public final class DoomscrollUtil {
     Session(String pkg, long start) { this.pkg = pkg; this.start = start; }
   }
 
-  public static Session currentSession(Context ctx, Set<String> watched) {
+  // The current continuous foreground session for ANY app (or null).
+  public static Session currentForeground(Context ctx) {
     UsageStatsManager usm = (UsageStatsManager) ctx.getSystemService(Context.USAGE_STATS_SERVICE);
     if (usm == null) return null;
     long now = System.currentTimeMillis();
@@ -78,8 +79,22 @@ public final class DoomscrollUtil {
         fg = null;
       }
     }
-    if (fg != null && watched.contains(fg)) return new Session(fg, start);
-    return null;
+    return fg != null ? new Session(fg, start) : null;
+  }
+
+  public static Session currentSession(Context ctx, Set<String> watched) {
+    Session s = currentForeground(ctx);
+    return (s != null && watched.contains(s.pkg)) ? s : null;
+  }
+
+  public static boolean isWatched(Context ctx, String pkg) {
+    JSONArray apps = apps(ctx);
+    if (apps == null) return false;
+    for (int i = 0; i < apps.length(); i++) {
+      JSONObject a = apps.optJSONObject(i);
+      if (a != null && pkg.equals(a.optString("package"))) return true;
+    }
+    return false;
   }
 
   public static String labelFor(Context ctx, String pkg) {

@@ -59,6 +59,30 @@ export async function isMonitoring() {
   try { return !!(await p.isMonitoring()).active; } catch { return false; }
 }
 
+// Diagnostics: read the current foreground app + elapsed session time.
+export async function probe() {
+  const p = plugin();
+  if (!p) return { native: false };
+  try { return { native: true, ...(await p.probe()) }; } catch { return { native: true, error: true }; }
+}
+
+// Post a sample reflection alert now (to confirm the notification path).
+export async function fireTestAlert() {
+  const p = plugin();
+  if (!p) return false;
+  try { await p.fireTestAlert(); return true; } catch { return false; }
+}
+
+// Factual one-line summary of a probe() result (tested).
+export function probeSummary(r) {
+  if (!r || r.native === false) return 'Diagnostics run in the Android app only.';
+  if (r.error) return 'Could not read usage.';
+  if (r.granted === false) return 'Usage access not granted yet.';
+  if (!r.foreground) return 'No foreground app detected right now.';
+  const m = Math.max(0, Math.round(r.elapsedMin || 0));
+  return `${r.label || r.package} · ${m} min this session${r.watched ? ' · watched' : ''}`;
+}
+
 // ---- config --------------------------------------------------------------
 
 export function defaultDoomscroll() {
