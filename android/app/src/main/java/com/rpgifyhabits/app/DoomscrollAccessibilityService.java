@@ -1,8 +1,11 @@
 package com.rpgifyhabits.app;
 
 import android.accessibilityservice.AccessibilityService;
+import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
+import android.text.TextUtils;
 import android.view.accessibility.AccessibilityEvent;
 
 import org.json.JSONObject;
@@ -44,11 +47,41 @@ public class DoomscrollAccessibilityService extends AccessibilityService {
     CharSequence pkgCs = event.getPackageName();
     if (pkgCs == null) return;
     String pkg = pkgCs.toString();
-    // Ignore our own UI and repeats of the same foreground app (window churn
-    // within one app fires many events).
-    if (pkg.equals(getPackageName())) return;
+    // WINDOW_STATE_CHANGED fires for MANY transient windows, not just app
+    // switches — the keyboard, System UI (notification shade), and system
+    // dialogs each report their own package. If we treated those as switches
+    // we'd chop the real session into 0-min fragments and the threshold timer
+    // would never accumulate. Only a genuine launchable app counts as a switch.
+    if (!isRealAppSwitch(pkg)) return;
     if (pkg.equals(curPkg)) return;
     onForegroundChanged(pkg);
+  }
+
+  // True only for a real, launchable foreground app (not the keyboard, System
+  // UI, a system dialog host, or our own app). Going to the launcher counts —
+  // it's launchable — which correctly ends a watched session.
+  private boolean isRealAppSwitch(String pkg) {
+    if (pkg == null) return false;
+    if (pkg.equals(getPackageName())) return false;
+    if (pkg.equals("com.android.systemui")) return false;
+    if (pkg.equals("android")) return false;
+    String ime = currentImePackage();
+    if (ime != null && pkg.equals(ime)) return false;
+    // Launchable apps only — filters out IMEs/overlays that have no launcher
+    // entry. (The manifest's <queries> launcher filter grants this visibility.)
+    Intent launch = getPackageManager().getLaunchIntentForPackage(pkg);
+    return launch != null;
+  }
+
+  private String currentImePackage() {
+    try {
+      String id = Settings.Secure.getString(getContentResolver(), Settings.Secure.DEFAULT_INPUT_METHOD);
+      if (TextUtils.isEmpty(id)) return null;
+      int slash = id.indexOf('/');
+      return slash > 0 ? id.substring(0, slash) : id;
+    } catch (Exception e) {
+      return null;
+    }
   }
 
   private void onForegroundChanged(String newPkg) {
@@ -64,9 +97,14 @@ public class DoomscrollAccessibilityService extends AccessibilityService {
     if (curThreshold != null) armAlert();
   }
 
+  private static final long MIN_RECORD_MS = 1500; // ignore sub-second UI churn
+
   // Append a completed session to the ledger. Rich enough that JS can score
   // doomscroll (did they leave soon after the nudge?) and — later — total usage.
   private void finalizeSession(long now) {
+    // Skip trivially short sessions (transient windows that slipped the filter),
+    // unless an alert fired during it (then it's real and worth recording).
+    if (now - curStart < MIN_RECORD_MS && alertedAt == 0) return;
     try {
       JSONObject ev = new JSONObject();
       ev.put("type", "session");
