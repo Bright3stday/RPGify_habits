@@ -53,7 +53,7 @@
 </header>
 <main><article><h1>RPGify Habits — How It Actually Works</h1>
 <p>A plain-English, example-driven tour of every system, and <em>exactly</em> what each
-number/threshold reads from. This is the intuitive companion to the README.</p>
+number/threshold reads from — a deeper companion to the Overview.</p>
 <p>The one sentence version: <strong>you do real habits → they pour XP into six fixed
 attributes → your attributes drive a character level, derived stats, and a hero
 sprite → you spend a scarce time-granted currency to unlock self-authored
@@ -98,7 +98,7 @@ Defense = VIT + Lv/2, Magic Defense = SPR + Lv/2, Speed = SPD, Luck = LCK.</li>
 <li><strong>GP</strong> on the sheet = your <strong>Growth Points</strong> balance (see §6).</li>
 </ul>
 <p>These derived numbers are a flavourful mirror of growth — there&#39;s no combat, so
-they exist to make &quot;the numbers go up as I build habits&quot; feel real.</p>
+they exist to make &quot;the numbers go up as you build habits&quot; feel real.</p>
 <hr>
 <h2>3. Condition &amp; decay — the loss-aversion half</h2>
 <p>Separate from permanent score, each attribute has a <strong>condition</strong> (0–100%) =
@@ -183,11 +183,11 @@ unlock, but nothing happens automatically.</li>
 Point</strong>. Eligibility alone is never enough — the point + your honest
 confirmation are the real gate.</li>
 </ol>
-<h3>Your specific question: an overarching node that depends on a few quests</h3>
+<h3>An overarching node that depends on a few milestones</h3>
 <p>The engine has <strong>no &quot;require these 3 specific quests&quot; gate</strong>. A node&#39;s own
 trigger is only <em>attribute level</em> or <em>attribute-wide practice</em>. Specific
-prerequisites are expressed <strong>node-to-node</strong>, not node-to-quest. Two ways to get
-what you want:</p>
+prerequisites are expressed <strong>node-to-node</strong>, not node-to-quest. There are two
+ways to build this:</p>
 <p><strong>Pattern A — parent nodes (recommended for &quot;depends on a few things&quot;).</strong>
 Make a small node for each milestone, then a general node that requires them:</p>
 <pre><code>Strength tree:
@@ -200,14 +200,13 @@ Make a small node for each milestone, then a general node that requires them:</p
 <strong>&quot;any N of them&quot;</strong> instead of &quot;all&quot; for non-linear gates — e.g. a capstone that
 needs &quot;any 2 of 3&quot; sub-paths.</p>
 <p><strong>Pattern B — a single aggregate threshold.</strong>
-If &quot;a few quests being done&quot; really just means &quot;I&#39;ve put in the reps across this
-domain,&quot; skip parents and set one <strong>Practice ≥ N</strong> threshold. It already sums all
-quests in that attribute.</p>
-<p><strong>What you can&#39;t (yet) do:</strong> gate a node on one <em>named</em> quest hitting a count
-(e.g. &quot;Meditate specifically, 30 times&quot;), independent of other Spirit quests.
-Practice is per-attribute, not per-quest. If you want per-quest criteria, that&#39;s
-a small addition — say the word and I&#39;ll add a &quot;specific quest ≥ N&quot; threshold
-type.</p>
+If &quot;a few quests being done&quot; really just means &quot;you&#39;ve put in the reps across
+this domain,&quot; skip parents and set one <strong>Practice ≥ N</strong> threshold. It already
+sums all quests in that attribute.</p>
+<p><strong>What isn&#39;t supported (yet):</strong> gating a node on one <em>named</em> quest hitting a
+count (e.g. &quot;Meditate specifically, 30 times&quot;), independent of other Spirit
+quests. Practice is per-attribute, not per-quest. A per-quest (&quot;specific quest
+≥ N&quot;) threshold type is a possible future addition.</p>
 <h3>Cross-tree trade-off</h3>
 <p>When several nodes across <em>different</em> trees are eligible at once, you usually
 can&#39;t afford them all (points are scarce). Choosing where the point goes is the
@@ -232,8 +231,8 @@ potions, five rarities). Longer streaks and a higher <strong>Luck</strong> attri
 your odds. Loot collects in the <strong>Bag</strong>, and you can <strong>equip</strong> it into five slots
 to change how your hero looks.</p>
 <p><strong>Gear grants zero stat bonuses.</strong> It&#39;s collection + customization. All real
-power comes from habits → levels → mastery nodes, by design (you asked for no
-item min-maxing).</p>
+power comes from habits → levels → mastery nodes, by design — the focus is real
+growth, not item min-maxing.</p>
 <hr>
 <h2>8. Steps (auto-quests)</h2>
 <p>A quest can be <strong>&quot;auto (steps)&quot;</strong> instead of tap-to-log: it has a daily step

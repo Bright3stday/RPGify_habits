@@ -169,15 +169,15 @@ model for a small, non-commercial circle. If this ever grows into something you
 hand to strangers, <em>then</em> a Play Store listing (and its review/signing) becomes
 worth the overhead.</p>
 <hr>
-<h2>For the author: strengthening assurance further (optional)</h2>
+<h2>Further hardening (possible additions)</h2>
+<p>Beyond the checks above, two measures can strengthen assurance further:</p>
 <ul>
-<li><strong>Build provenance attestation</strong> — add <code>actions/attest-build-provenance</code> to the
-APK workflow so each APK carries a cryptographic, GitHub-signed statement of
-<em>which repo + commit + workflow</em> produced it, verifiable with
-<code>gh attestation verify</code>. This is the gold standard for &quot;this binary came from
-this public source.&quot;</li>
-<li><strong>Publish the signing certificate fingerprint</strong> in the repo so friends have a
-known-good value to compare step 4 against.</li>
+<li><strong>Build provenance attestation</strong> — each APK can carry a cryptographic,
+GitHub-signed statement of <em>which repository, commit, and workflow</em> produced
+it, verifiable with <code>gh attestation verify</code>. This is the gold standard for
+proving a binary came from a specific public source.</li>
+<li><strong>A published signing-certificate fingerprint</strong> — a known-good value to compare
+the signature check (step 4) against.</li>
 </ul>
 </article></main>
 <footer>Offline-first habit RPG · built in public · <a href="security.html">how to verify it's safe</a></footer>

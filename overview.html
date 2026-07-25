@@ -151,7 +151,7 @@ sensor (web) you log them manually.</p>
 <h3>Doomscroll reflection layer</h3>
 <p>A deliberately <strong>non-judgemental</strong>, <strong>per-continuous-session</strong> awareness layer —
 intentionally <em>distinct</em> from Android&#39;s Digital Wellbeing (which owns daily
-limits + hard blocking; we don&#39;t duplicate it). When a chosen app has been in the
+limits + hard blocking; RPGify doesn&#39;t duplicate that). When a chosen app has been in the
 foreground for one continuous sitting past your per-app threshold, it fires a
 notification that only <em>observes</em> — &quot;28 minutes on Instagram&quot; — never instructs,
 scolds, warns, or blocks. No red styling.</p>
@@ -172,11 +172,10 @@ back through the plugin&#39;s <code>readEvents</code>); <strong>all scoring live
 APK. Each session logs app, start, end, duration, whether the nudge fired, and
 how soon you left after it — rich enough to also power a future optional
 &quot;total usage over time&quot; view.</li>
-<li><strong>Tied to Spirit, transparently.</strong> Leaving a watched app soon after the nudge is
-designed to <em>feed Spirit</em>; bingeing past it <em>wears</em> it — the same loss-aversion
-loop as habit decay, shown plainly in Config (a <em>Recently detected</em> panel lists
-what the detector logged). The detector + ledger ship first; Spirit scoring is
-layered on via OTA.</li>
+<li><strong>Tied to Spirit, transparently.</strong> Leaving a watched app soon after the nudge
+<em>feeds Spirit</em>; bingeing past it <em>wears</em> it — the same loss-aversion loop as
+habit decay, shown plainly in Config (a <em>Recently detected</em> panel lists what the
+detector logged).</li>
 <li><strong>Per continuous session</strong>, not cumulative-per-day: switching away (including to
 the launcher) resets it, and the next open counts fresh.</li>
 <li><strong>Retrigger</strong> is configurable: once per session, or every N further minutes.</li>
