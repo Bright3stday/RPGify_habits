@@ -7,6 +7,9 @@ on:
   push:
     tags: ['v*']
 
+permissions:
+  contents: write   # needed to publish the APK to Releases
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -66,15 +69,29 @@ jobs:
           echo "path=$APK" >> "$GITHUB_OUTPUT"
           echo "Built: $APK"
 
-      - name: Upload APK artifact
+      # Give the APK a clear name so the Release asset is e.g.
+      # rpgify-habits-2026-07-25.apk instead of app-debug.apk.
+      - name: Rename APK
+        id: named
+        run: |
+          DEST="rpgify-habits-$(date +%Y%m%d-%H%M).apk"
+          cp "${{ steps.apk.outputs.path }}" "$DEST"
+          echo "path=$DEST" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK artifact (zip, from the run page)
         uses: actions/upload-artifact@v4
         with:
           name: rpgify-habits-apk
-          path: ${{ steps.apk.outputs.path }}
+          path: ${{ steps.named.outputs.path }}
 
-      - name: Publish GitHub Release (only on version tags)
-        if: startsWith(github.ref, 'refs/tags/')
+      # Always publish the APK to the Releases page as a direct, phone-tappable
+      # file. Version tags (v1, v2, …) make a normal release; any other run
+      # updates a rolling "latest-build" prerelease.
+      - name: Publish to Releases
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.apk.outputs.path }}
-          generate_release_notes: true
+          files: ${{ steps.named.outputs.path }}
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest-build' }}
+          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Latest build' }}
+          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          generate_release_notes: ${{ startsWith(github.ref, 'refs/tags/') }}
