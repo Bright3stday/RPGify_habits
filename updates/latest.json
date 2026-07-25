@@ -1,7 +1,8 @@
 {
-  "build": 25,
-  "version": "web-25",
-  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-25.zip",
+  "build": 30,
+  "version": "web-30",
+  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-30.zip",
   "minNative": 1,
-  "publishedAt": "2026-07-25T04:15:16.213Z"
+  "notes": "• Make OTA updates opt-in: prompt with change notes, apply only on consent\n• Bump minSdk to 23 for the OTA updater's play-services-tasks dependency\n• Bump compileSdk to 35 for the OTA updater's androidx.work dependency\n• Sync package-lock.json with OTA dependencies\n• Update android.yml",
+  "publishedAt": "2026-07-25T08:26:49.532Z"
 }
