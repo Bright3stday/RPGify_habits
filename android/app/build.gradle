@@ -16,10 +16,28 @@ android {
             ignoreAssetsPattern '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    // Release signing is driven by env vars (set by CI from repo secrets, or
+    // locally if you export them). When they're absent this block is inert, so
+    // local debug builds are unaffected.
+    signingConfigs {
+        release {
+            def ks = System.getenv("RPGIFY_KEYSTORE_FILE")
+            if (ks != null && !ks.isEmpty()) {
+                storeFile file(ks)
+                storePassword System.getenv("RPGIFY_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("RPGIFY_KEY_ALIAS")
+                keyPassword System.getenv("RPGIFY_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
+            def ks = System.getenv("RPGIFY_KEYSTORE_FILE")
+            if (ks != null && !ks.isEmpty()) {
+                signingConfig signingConfigs.release
+            }
         }
     }
 }
