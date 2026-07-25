@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How It Works · RPGify Habits</title><style>
+  :root{--bg:#0e0e24;--panel:#171736;--ink:#e8e8ff;--dim:#9a9ac8;--line:#2a2a55;
+        --purple:#b06af0;--gold:#f0c020;--blue:#48c8ff;--green:#6ad46a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       line-height:1.6}
+  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header.top{position:sticky;top:0;z-index:10;background:rgba(14,14,36,.92);
+    backdrop-filter:blur(6px);border-bottom:2px solid var(--line);
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 20px}
+  header.top .brand{font-weight:800;letter-spacing:1px;color:var(--gold)}
+  header.top nav{display:flex;gap:14px;flex-wrap:wrap}
+  header.top nav a{color:var(--dim);font-size:14px}
+  header.top nav a.active,header.top nav a:hover{color:var(--ink)}
+  .dl{margin-left:auto;background:var(--purple);color:#120a1f;font-weight:700;
+      padding:8px 14px;border-radius:8px}
+  .dl:hover{text-decoration:none;filter:brightness(1.08)}
+  main{max-width:820px;margin:0 auto;padding:28px 20px 80px}
+  .hero{text-align:center;padding:56px 16px 24px}
+  .hero h1{font-size:40px;margin:0 0 8px;color:var(--gold)}
+  .hero p{color:var(--dim);font-size:18px;max-width:640px;margin:0 auto}
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:26px 0}
+  .cta a{padding:10px 18px;border-radius:8px;font-weight:700}
+  .cta .primary{background:var(--purple);color:#120a1f}
+  .cta .ghost{border:2px solid var(--line);color:var(--ink)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:10px}
+  .card{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:16px 18px}
+  .card h3{margin:0 0 6px;color:var(--purple)}.card p{margin:0;color:var(--dim);font-size:14px}
+  article h1{color:var(--gold);border-bottom:2px solid var(--line);padding-bottom:8px}
+  article h2{color:var(--purple);margin-top:34px}
+  article h3{color:var(--blue)}
+  article pre{background:#0a0a1c;border:1px solid var(--line);border-radius:8px;
+    padding:14px;overflow:auto}
+  article code{background:#0a0a1c;border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  article pre code{background:none;border:0;padding:0}
+  article table{border-collapse:collapse;width:100%;overflow:auto;display:block}
+  article th,article td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+  article th{background:var(--panel)}
+  article blockquote{border-left:3px solid var(--purple);margin:0;padding:4px 16px;color:var(--dim)}
+  footer{border-top:2px solid var(--line);color:var(--dim);font-size:13px;
+    text-align:center;padding:24px}
+</style></head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">RPGify Habits</a>
+  <nav><a href="overview.html" class="">Overview</a><a href="how-it-works.html" class="active">How It Works</a><a href="install.html" class="">Install & Update</a><a href="security.html" class="">Is It Safe?</a></nav>
+  <a class="dl" href="apk/rpgify-latest.apk">Download APK</a>
+</header>
+<main><article><h1>RPGify Habits — How It Actually Works</h1>
+<p>A plain-English, example-driven tour of every system, and <em>exactly</em> what each
+number/threshold reads from. This is the intuitive companion to the README.</p>
+<p>The one sentence version: <strong>you do real habits → they pour XP into six fixed
+attributes → your attributes drive a character level, derived stats, and a hero
+sprite → you spend a scarce time-granted currency to unlock self-authored
+&quot;mastery&quot; milestones. Neglect makes attributes visibly decay.</strong></p>
+<hr>
+<h2>1. Quests (habits) — the only thing you log</h2>
+<p>A <strong>quest</strong> is a habit. You tap to complete it (or it auto-completes from steps).
+Each quest has:</p>
+<ul>
+<li>a <strong>cadence</strong> (daily / every N days / weekly) — controls when it&#39;s &quot;due&quot; and
+how fast its decay bites,</li>
+<li>an <strong>XP per completion</strong>,</li>
+<li>and <strong>which attribute(s) it trains</strong> (one or more of the six).</li>
+</ul>
+<p>That last one — &quot;trains attribute X&quot; — is the <em>only</em> connection between a quest
+and the rest of the game. A quest named &quot;Bench press&quot; that trains <strong>Strength</strong>
+is, to the engine, just &quot;+XP to Strength, +1 Strength completion.&quot; <strong>The name is
+never read by any logic.</strong> Rename it freely.</p>
+<p>Completing a quest does four things:</p>
+<ol>
+<li>adds XP to each attribute it trains,</li>
+<li>increments that quest&#39;s lifetime <strong>completion counter</strong> (uncapped),</li>
+<li>resets that quest&#39;s decay clock, bumps its streak,</li>
+<li>rolls for cosmetic loot.</li>
+</ol>
+<hr>
+<h2>2. Attributes &amp; the character sheet</h2>
+<p>Six <strong>fixed</strong> attributes (you can&#39;t add/remove them): <strong>Strength, Magic,
+Vitality, Spirit, Luck, Speed</strong>. Each accumulates XP from the quests that train
+it.</p>
+<ul>
+<li><strong>Score</strong> (the number on the Status screen, e.g. &quot;Strength 13&quot;) grows
+<em>permanently</em> from XP — you never lose it. Formula: <code>8 + attribute level</code>,
+where level comes from the XP curve.</li>
+<li><strong>Character Level</strong> comes from the <strong>sum of all six attributes&#39; XP</strong> (a
+steeper curve). It drives:<ul>
+<li><strong>Derived stats</strong>: Attack = STR·2 + Lv, Magic Attack = MAG·2 + Lv,
+Defense = VIT + Lv/2, Magic Defense = SPR + Lv/2, Speed = SPD, Luck = LCK.</li>
+<li><strong>HP</strong> (from Vitality), <strong>MP</strong> (from Magic/Spirit).</li>
+</ul>
+</li>
+<li><strong>GP</strong> on the sheet = your <strong>Growth Points</strong> balance (see §6).</li>
+</ul>
+<p>These derived numbers are a flavourful mirror of growth — there&#39;s no combat, so
+they exist to make &quot;the numbers go up as I build habits&quot; feel real.</p>
+<hr>
+<h2>3. Condition &amp; decay — the loss-aversion half</h2>
+<p>Separate from permanent score, each attribute has a <strong>condition</strong> (0–100%) =
+its <em>upkeep</em>. It is <strong>derived live from the health of the quests feeding it</strong>,
+never stored as a ticking counter:</p>
+<ul>
+<li>A quest is at 100% health for one full cadence period past its due time
+(grace), then decays to 0 over the next ~3 periods.</li>
+<li>This is <strong>cadence-scaled</strong>: a lapsed <em>weekly</em> quest rots far slower (in real
+time) than a lapsed <em>daily</em> one.</li>
+<li>An attribute&#39;s condition = the average health of its non-retired quests.</li>
+</ul>
+<p>Condition shows as a dot per attribute (<code>STEADY / FADING / CRACKED / BROKEN</code>)
+and drives your hero&#39;s look (§4). Because it&#39;s recomputed from timestamps, being
+away from the app for 3 weeks decays exactly as much as 3 weeks of real neglect.</p>
+<p>Unlocking certain mastery nodes can grant <strong>decay resistance</strong>, which softens
+(never eliminates) the drop.</p>
+<hr>
+<h2>4. Your hero (one sprite)</h2>
+<p>A single pixel avatar = <em>you</em>. It&#39;s chosen from two axes:</p>
+<ul>
+<li><strong>Character level → class:</strong> Adventurer (1–3) → Warrior (4–6) → Knight (7–10)
+→ Mage (11+).</li>
+<li><strong>Overall condition → devolution:</strong> if the <em>average</em> condition across all six
+attributes goes cracked → <strong>Imp</strong>, or broken → <strong>Slime</strong>. A worn-but-not-broken
+hero just looks desaturated.</li>
+</ul>
+<p>So: do your habits and your class climbs; neglect everything and your leveled-up
+hero visibly melts into a slime.</p>
+<hr>
+<h2>5. The Mastery Tree (read this carefully — it answers the common questions)</h2>
+<p>This is the self-authored progression layer. <strong>You</strong> create the nodes.</p>
+<h3>What a node is</h3>
+<p>Each node lives in <strong>one attribute-tree</strong> (you pick Strength / Magic / … when
+creating it). A node has:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Title</strong></td>
+<td>A label. <strong>Purely cosmetic — never matched against anything.</strong></td>
+</tr>
+<tr>
+<td><strong>Criteria</strong></td>
+<td>Free text: what &quot;cleared&quot; means <em>to you</em>. The app never checks it; it&#39;s your honesty prompt.</td>
+</tr>
+<tr>
+<td><strong>Eligibility threshold</strong></td>
+<td>Either <strong>Attribute level ≥ N</strong>, or <strong>Practice count ≥ N</strong>.</td>
+</tr>
+<tr>
+<td><strong>Depends on</strong> (optional)</td>
+<td>Other <strong>nodes</strong> in the same tree that must be unlocked first — &quot;all of them&quot; or &quot;any N of them&quot;.</td>
+</tr>
+<tr>
+<td><strong>Reward</strong> (optional)</td>
+<td>+X% XP to that attribute, or +Y% decay resistance, applied once unlocked.</td>
+</tr>
+</tbody></table>
+<h3>What &quot;practice count&quot; actually counts</h3>
+<blockquote>
+<p><strong>Practice = the sum of lifetime completions of <em>every</em> quest that trains this
+node&#39;s attribute.</strong> It has <strong>nothing to do with names.</strong></p>
+</blockquote>
+<p>Example: your <strong>Strength</strong> tree. You have three Strength quests — &quot;Gym&quot;
+(done 8×), &quot;Run&quot; (done 5×), &quot;Push-ups&quot; (done 2×). The Strength practice count is
+<strong>8 + 5 + 2 = 15</strong>. A Strength node with &quot;Practice ≥ 15&quot; is now eligible. It did
+not need to be named &quot;Gym&quot; or match any quest — it just watches the whole
+Strength attribute.</p>
+<p>(Completions are counted for retired quests too, so retiring a quest doesn&#39;t
+erase the practice you already banked.)</p>
+<h3>The lifecycle: locked → eligible → unlocked</h3>
+<ol>
+<li><strong>locked</strong> — threshold not met, or its parent nodes aren&#39;t unlocked yet.</li>
+<li><strong>eligible</strong> — threshold met <strong>and</strong> parents satisfied. Now it <em>offers</em> an
+unlock, but nothing happens automatically.</li>
+<li><strong>unlocked</strong> — you tick <strong>&quot;I genuinely met this&quot;</strong> <em>and</em> spend <strong>1 Growth
+Point</strong>. Eligibility alone is never enough — the point + your honest
+confirmation are the real gate.</li>
+</ol>
+<h3>Your specific question: an overarching node that depends on a few quests</h3>
+<p>The engine has <strong>no &quot;require these 3 specific quests&quot; gate</strong>. A node&#39;s own
+trigger is only <em>attribute level</em> or <em>attribute-wide practice</em>. Specific
+prerequisites are expressed <strong>node-to-node</strong>, not node-to-quest. Two ways to get
+what you want:</p>
+<p><strong>Pattern A — parent nodes (recommended for &quot;depends on a few things&quot;).</strong>
+Make a small node for each milestone, then a general node that requires them:</p>
+<pre><code>Strength tree:
+  ● &quot;Consistency&quot;   practice ≥ 20     (aggregate Strength reps)
+  ● &quot;Heavy lifts&quot;   Strength level ≥ 6
+  ◆ &quot;Strength Base&quot; depends on: ALL of [Consistency, Heavy lifts]
+                    (its own threshold can be trivial, e.g. level ≥ 1)
+</code></pre>
+<p>&quot;Strength Base&quot; only becomes eligible once <em>both</em> parents are unlocked. Use
+<strong>&quot;any N of them&quot;</strong> instead of &quot;all&quot; for non-linear gates — e.g. a capstone that
+needs &quot;any 2 of 3&quot; sub-paths.</p>
+<p><strong>Pattern B — a single aggregate threshold.</strong>
+If &quot;a few quests being done&quot; really just means &quot;I&#39;ve put in the reps across this
+domain,&quot; skip parents and set one <strong>Practice ≥ N</strong> threshold. It already sums all
+quests in that attribute.</p>
+<p><strong>What you can&#39;t (yet) do:</strong> gate a node on one <em>named</em> quest hitting a count
+(e.g. &quot;Meditate specifically, 30 times&quot;), independent of other Spirit quests.
+Practice is per-attribute, not per-quest. If you want per-quest criteria, that&#39;s
+a small addition — say the word and I&#39;ll add a &quot;specific quest ≥ N&quot; threshold
+type.</p>
+<h3>Cross-tree trade-off</h3>
+<p>When several nodes across <em>different</em> trees are eligible at once, you usually
+can&#39;t afford them all (points are scarce). Choosing where the point goes is the
+intended mechanic, not a limitation.</p>
+<hr>
+<h2>6. Growth Points (the unlock currency)</h2>
+<ul>
+<li>You&#39;re granted a small fixed number <strong>per period</strong> — default <strong>3 / week</strong>
+(switchable to monthly, and the amount is editable in Config).</li>
+<li>They <strong>roll over</strong> but are <strong>capped at 2× one period&#39;s grant</strong> (default cap 6):
+a busy week isn&#39;t punished, but you can&#39;t hoard forever.</li>
+<li>Points accrue automatically when you open the app (it back-fills any periods
+you missed, up to the cap).</li>
+<li>Spending <strong>1 point</strong> is what converts an <em>eligible</em> node to <em>unlocked</em>.</li>
+</ul>
+<p>That&#39;s the whole loop: <strong>real habits → attribute growth makes nodes eligible →
+scarce weekly points force you to choose which mastery to actually claim.</strong></p>
+<hr>
+<h2>7. Loot &amp; gear — cosmetic only</h2>
+<p>Every quest completion has a chance to <strong>drop loot</strong> (weapons/armour/treasure/
+potions, five rarities). Longer streaks and a higher <strong>Luck</strong> attribute improve
+your odds. Loot collects in the <strong>Bag</strong>, and you can <strong>equip</strong> it into five slots
+to change how your hero looks.</p>
+<p><strong>Gear grants zero stat bonuses.</strong> It&#39;s collection + customization. All real
+power comes from habits → levels → mastery nodes, by design (you asked for no
+item min-maxing).</p>
+<hr>
+<h2>8. Steps (auto-quests)</h2>
+<p>A quest can be <strong>&quot;auto (steps)&quot;</strong> instead of tap-to-log: it has a daily step
+goal and <strong>auto-completes the moment you hit it</strong> (awards XP, resets decay),
+once per day.</p>
+<ul>
+<li>On <strong>Android</strong>, steps come from the phone&#39;s hardware pedometer
+(<code>TYPE_STEP_COUNTER</code>), read live while the app is open; a per-day baseline
+converts &quot;steps since boot&quot; into &quot;steps today,&quot; handling reboots.</li>
+<li>On the <strong>web preview</strong> (no sensor), you log steps manually with the +/SET
+buttons.</li>
+</ul>
+<p>The seeded &quot;Daily Steps&quot; quest trains <strong>Strength</strong>; you can retarget it.</p>
+<hr>
+<h2>9. Reminders (local, on-device)</h2>
+<p>Three kinds, all fired by Android&#39;s local-notifications (no server):</p>
+<ul>
+<li><strong>Weekly check-in</strong> — prompts you to review/keep/adjust/retire quests.</li>
+<li><strong>Water / posture nudges</strong> — fire at a <strong>random minute inside each active
+hour</strong>, but now <strong>evenly spread</strong> so 2/hour won&#39;t land a minute apart (buckets
+the hour and jitters within each, ≥ several minutes apart).</li>
+<li>A <strong>🔔 TEST (5s)</strong> button in Config fires one immediately so you can confirm
+permission + the notification channel work (a missing channel was silently
+eating notifications before — now created explicitly).</li>
+</ul>
+<p>Reminders schedule for the next few days each time you press APPLY.</p>
+<hr>
+<h2>10. Doomscroll reflection alert</h2>
+<p>Opt-in, and deliberately <em>distinct from</em> Android&#39;s Digital Wellbeing (which does
+daily limits + hard blocking). This is a <strong>per-continuous-session awareness</strong>
+layer: you pick apps (e.g. Instagram) and a threshold (e.g. 20 min); when you&#39;ve
+been in that app that long <em>in one sitting</em>, a notification only <strong>observes</strong> —
+&quot;28 minutes on Instagram&quot; — never instructs, scolds, or blocks. No red styling.</p>
+<ul>
+<li><strong>Detection is event-driven</strong> via an <strong>AccessibilityService</strong>
+(<code>DoomscrollAccessibilityService</code>): once you enable it under Settings →
+Accessibility, the OS <em>pushes</em> foreground-app changes — real-time, no polling
+loop, no persistent notification, low battery. It reads only <em>which</em> app is in
+front (<code>canRetrieveWindowContent=false</code>), never screen content, and only for
+the apps you chose. (The zero-poll <em>usage-session observer</em> API needs a
+privileged permission a normal app can&#39;t hold; the old UsageStats
+foreground-service poll remains in the tree as a dormant fallback.)</li>
+<li><strong>Dumb native, smart JS.</strong> The service only <em>records raw facts</em> to a session
+ledger; <strong>all scoring lives in JS</strong>, so the mechanic is tunable over-the-air
+without a new APK. The ledger captures each session (app, start, end, duration,
+whether the nudge fired, and how soon you left after it) — rich enough to also
+power a future &quot;total usage over time&quot; view.</li>
+<li><strong>Tied to Spirit (transparent, tunable).</strong> Scoring is pure JS
+(<code>www/js/spirit.js</code>), drained from the ledger on app open/resume:<ul>
+<li><strong>Restraint → Spirit XP.</strong> Leaving a watched app within ~90s of the nudge
+grants Spirit XP, <strong>capped per day</strong> (default 18) so it can&#39;t be farmed by
+open/close spam.</li>
+<li><strong>Bingeing → Spirit wear.</strong> Staying well past the nudge (default 5 min) adds
+capped wear (≤ 0.6) to Spirit&#39;s <em>condition</em> — never a hard break. Wear
+<strong>self-heals</strong> (half-life ~2 days) <strong>and each completed quest burns some
+down</strong>, so doing real habits is what clears doomscroll fatigue.</li>
+<li><strong>Feedback:</strong> when you return to the app it plays an animated <strong>reward beat</strong>
+(&quot;SPIRIT +6&quot; / &quot;SPIRIT WEARS&quot;); the Status screen shows an explicit <strong>fatigue
+chip</strong> (😵‍💫 N%) on the Spirit row while worn (a single binge&#39;s dip can hide
+inside the condition bucket); and Config shows the running SPIRIT IMPACT line.
+All magnitudes live in <code>SPIRIT_TUNING</code> and ship over-the-air.</li>
+</ul>
+</li>
+<li><strong>Per session:</strong> switching away (including to the launcher) resets it.</li>
+<li><strong>Retrigger</strong> is configurable: once per session, or every N further minutes.</li>
+<li><strong>YouTube caveat:</strong> the foreground signal can&#39;t tell Shorts from long-form, so
+give YouTube a long threshold or leave it off.</li>
+<li><strong>Transparency + diagnostics</strong> (Config → Doomscroll): a <em>Recently detected</em>
+panel lists the sessions the detector logged (so you can verify it on-device);
+<em>Test alert</em> posts a sample notice.</li>
+<li><strong>Not</strong> a limiter/blocker — that&#39;s what Digital Wellbeing is for. This never
+restricts, only reflects and scores.</li>
+</ul>
+<hr>
+<h2>11. Data, privacy, offline</h2>
+<p>100% on-device. No accounts, no server, no analytics. Your save lives in local
+storage (Capacitor Preferences on device, localStorage on web). <strong>Export</strong>
+writes a JSON backup you can save/share; <strong>Import</strong> replaces your save from one.
+That&#39;s the only way data leaves or enters the app.</p>
+<hr>
+<h2>12. Updates — OTA (web) &amp; APK (native)</h2>
+<p>There are two kinds of change, and they reach your phone differently:</p>
+<ul>
+<li><strong>Web changes</strong> (screens, game logic, text — anything in <code>www/</code>) ship
+<strong>over-the-air</strong>. On every launch the app checks a small manifest on GitHub
+Pages; if a newer web bundle is published and your installed APK is new enough
+to run it, the app <strong>prompts you</strong> — showing the version and a short &quot;what&#39;s
+new&quot; — and downloads/installs it <strong>only if you tap UPDATE NOW</strong> (a brief
+restart). Choosing <strong>LATER</strong> snoozes that build until a newer one appears. You
+can also pull anytime via <strong>CHECK FOR UPDATES</strong> in <strong>Config → APP UPDATES</strong>.
+Nothing is ever downloaded or applied without your consent. No APK download.</li>
+<li><strong>Native changes</strong> (step counter, doomscroll service, a new plugin, icon,
+permissions) need a <strong>new APK</strong>, published to the Releases page when you push a
+version tag (<code>v2</code>, <code>v3</code>, …).</li>
+</ul>
+<p><strong>How it stays consistent:</strong> every build has a number = <code>git rev-list --count HEAD</code> (commit count), stamped into both the APK&#39;s baked-in <code>www/ota.json</code> and
+each published <code>updates/latest.json</code>. The app runs whichever is newer — the APK&#39;s
+baked-in build or the last OTA bundle it applied. Each web bundle also records
+the minimum native <code>versionCode</code> it needs; if your APK is older, the app declines
+the web update and tells you to grab a new APK, so it can never half-update into
+a broken state. Full setup and mechanics: <code>docs/INSTALL_AND_UPDATE.md</code>.</p>
+<p>The pure decision (<code>shouldApply</code>) is unit-tested in <code>scripts/test.js</code>; the
+consent prompt (<code>showUpdatePrompt</code>) and download/apply glue (<code>applyUpdate</code>) run
+only inside the installed Android app (no-op on web). <code>checkForUpdate</code> only
+detects — it never downloads.</p>
+<hr>
+<h2>13. Where things live (quick map)</h2>
+<pre><code>www/
+  ota.json        baked-in OTA baseline { build, channel } (CI-stamped)
+  js/
+    game.js         completion, XP, migration, default state
+    attributes.js   the six attributes, character level, derived stats
+    condition.js    cadence-aware decay / attribute condition
+    skilltree.js    mastery nodes + Growth Points  ← §5, §6
+    sprites.js      the single hero sprite
+    items.js        loot table + drop rolls
+    equipment.js    cosmetic gear slots
+    pedometer.js    steps source
+    notifications.js reminders (spacing, test, channel)
+    doomscroll.js   doomscroll session/threshold/copy logic + native bridge
+    ota.js          OTA update check/apply + native updater bridge  ← §12
+    views.js        all screens
+scripts/
+  ota-stamp.mjs   CI helper: stamps build number + channel into ota.json/manifest
+.github/workflows/
+  android.yml     builds/signs the APK, publishes to Releases on version tags
+  web-ota.yml     publishes web bundles to GitHub Pages for OTA
+android/app/src/main/java/com/rpgifyhabits/app/
+  StepCounterPlugin.java   pedometer bridge
+  DoomscrollService.java   usage-stats polling + precise-fire scheduling
+  DoomscrollPlugin.java    doomscroll bridge (probe / test / start / stop)
+  DoomscrollUtil.java      shared: session read + alert notification
+</code></pre>
+<p>Pure logic (levels, decay, mastery eligibility, growth points, doomscroll
+timing, reminder spacing) is unit-tested in <code>scripts/test.js</code>; the UI loop is
+covered by <code>scripts/smoke.mjs</code>. Native code (pedometer, doomscroll service)
+can&#39;t be compiled in the authoring environment — it&#39;s written to the Android
+APIs and verified on-device.</p>
+</article></main>
+<footer>Offline-first habit RPG · built in public · <a href="security.html">how to verify it's safe</a></footer>
+</body></html>

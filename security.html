@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Is It Safe? · RPGify Habits</title><style>
+  :root{--bg:#0e0e24;--panel:#171736;--ink:#e8e8ff;--dim:#9a9ac8;--line:#2a2a55;
+        --purple:#b06af0;--gold:#f0c020;--blue:#48c8ff;--green:#6ad46a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       line-height:1.6}
+  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header.top{position:sticky;top:0;z-index:10;background:rgba(14,14,36,.92);
+    backdrop-filter:blur(6px);border-bottom:2px solid var(--line);
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 20px}
+  header.top .brand{font-weight:800;letter-spacing:1px;color:var(--gold)}
+  header.top nav{display:flex;gap:14px;flex-wrap:wrap}
+  header.top nav a{color:var(--dim);font-size:14px}
+  header.top nav a.active,header.top nav a:hover{color:var(--ink)}
+  .dl{margin-left:auto;background:var(--purple);color:#120a1f;font-weight:700;
+      padding:8px 14px;border-radius:8px}
+  .dl:hover{text-decoration:none;filter:brightness(1.08)}
+  main{max-width:820px;margin:0 auto;padding:28px 20px 80px}
+  .hero{text-align:center;padding:56px 16px 24px}
+  .hero h1{font-size:40px;margin:0 0 8px;color:var(--gold)}
+  .hero p{color:var(--dim);font-size:18px;max-width:640px;margin:0 auto}
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:26px 0}
+  .cta a{padding:10px 18px;border-radius:8px;font-weight:700}
+  .cta .primary{background:var(--purple);color:#120a1f}
+  .cta .ghost{border:2px solid var(--line);color:var(--ink)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:10px}
+  .card{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:16px 18px}
+  .card h3{margin:0 0 6px;color:var(--purple)}.card p{margin:0;color:var(--dim);font-size:14px}
+  article h1{color:var(--gold);border-bottom:2px solid var(--line);padding-bottom:8px}
+  article h2{color:var(--purple);margin-top:34px}
+  article h3{color:var(--blue)}
+  article pre{background:#0a0a1c;border:1px solid var(--line);border-radius:8px;
+    padding:14px;overflow:auto}
+  article code{background:#0a0a1c;border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  article pre code{background:none;border:0;padding:0}
+  article table{border-collapse:collapse;width:100%;overflow:auto;display:block}
+  article th,article td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+  article th{background:var(--panel)}
+  article blockquote{border-left:3px solid var(--purple);margin:0;padding:4px 16px;color:var(--dim)}
+  footer{border-top:2px solid var(--line);color:var(--dim);font-size:13px;
+    text-align:center;padding:24px}
+</style></head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">RPGify Habits</a>
+  <nav><a href="overview.html" class="">Overview</a><a href="how-it-works.html" class="">How It Works</a><a href="install.html" class="">Install & Update</a><a href="security.html" class="active">Is It Safe?</a></nav>
+  <a class="dl" href="apk/rpgify-latest.apk">Download APK</a>
+</header>
+<main><article><h1>Is this app safe? — how to verify it yourself</h1>
+<p>RPGify Habits is a hobby app shared with a few friends, not a Play Store listing.
+That means Android will show &quot;unknown source / unverified&quot; warnings when you
+install it — those are Android&#39;s <strong>default caution for any sideloaded app</strong>, not
+a verdict that this app is unsafe. This page explains exactly what the app does,
+what it can and can&#39;t touch, and how you can <strong>verify that for yourself</strong> instead
+of taking anyone&#39;s word for it.</p>
+<p>The short version: <strong>the entire app is open source and built in public</strong>, so you
+don&#39;t have to trust the author — you can read every line and check that the APK
+you installed was built from that public code.</p>
+<hr>
+<h2>What leaves your device</h2>
+<p><strong>Effectively nothing, and never silently.</strong> The app is offline-first:</p>
+<ul>
+<li><strong>No accounts, no analytics, no tracking, no ad SDKs.</strong> There is no server that
+belongs to this app.</li>
+<li>The only network use is <strong>downloading updates</strong> — the app fetches a small JSON
+file and (if you accept) a web-code bundle from the project&#39;s public GitHub
+Pages site. That&#39;s a <strong>download only</strong>; nothing about you is uploaded.</li>
+<li>Your data (habits, stats, etc.) lives in <strong>on-device storage</strong>. It leaves only
+if <strong>you</strong> tap <strong>Config → Export</strong> (a file you choose to share).</li>
+</ul>
+<p>You can prove this: put the phone in <strong>airplane mode</strong> — everything works except
+checking for updates. Or run it behind a network monitor (e.g. PCAPdroid) and
+you&#39;ll see it only ever talks to <code>github.io</code> / <code>githubusercontent.com</code> for
+updates, nothing else.</p>
+<hr>
+<h2>The permissions, and exactly what each can do</h2>
+<table>
+<thead>
+<tr>
+<th>Permission</th>
+<th>Why</th>
+<th>What it can NOT do</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Accessibility</strong> (optional, off by default)</td>
+<td>The doomscroll detector reads <em>which app</em> is in the foreground so it can notice long continuous sessions.</td>
+<td>It is configured <code>canRetrieveWindowContent=&quot;false&quot;</code> — it <strong>cannot read the text/content on your screen</strong>, only the package name of the front app, and only for the apps you pick. Turn it off and the feature simply stops.</td>
+</tr>
+<tr>
+<td><strong>Usage access</strong> (optional)</td>
+<td>Older diagnostic path for app-usage times.</td>
+<td>Read-only usage stats; no content.</td>
+</tr>
+<tr>
+<td><strong>Notifications</strong></td>
+<td>The reflection nudge + reminders.</td>
+<td>Only posts local notifications.</td>
+</tr>
+<tr>
+<td><strong>Activity recognition / step counter</strong> (optional)</td>
+<td>Auto-completing step-goal habits from the hardware pedometer.</td>
+<td>Reads the on-device step sensor only; no location, no fitness account, no network.</td>
+</tr>
+<tr>
+<td><strong>Internet</strong></td>
+<td>Checking for and downloading updates from GitHub Pages.</td>
+<td>No uploads; used only for the update fetch.</td>
+</tr>
+</tbody></table>
+<p>There is <strong>no</strong> location, camera, microphone, contacts, SMS, call-log, or
+&quot;query all packages&quot; permission. (App list for the picker uses a narrow launcher
+query, not the sensitive all-packages permission.)</p>
+<p>The Accessibility permission is the scary-looking one, and rightly so — it&#39;s a
+powerful permission that malware <em>can</em> abuse. The protection here is that the
+code using it is <strong>public and small</strong>: see
+<code>android/app/src/main/java/com/rpgifyhabits/app/DoomscrollAccessibilityService.java</code>.
+It only records which watched app is in front and for how long. Read it.</p>
+<hr>
+<h2>How to verify the APK is what the source says it is</h2>
+<ol>
+<li><p><strong>Read the source.</strong> The whole app is in this public repo. The logic is plain
+JavaScript under <code>www/js/</code>; the native Android code is a handful of small Java
+files under <code>android/app/src/main/java/</code>. There&#39;s no obfuscation and no
+minification.</p>
+</li>
+<li><p><strong>The APK is built in public, not on someone&#39;s laptop.</strong> Every release is
+built by <strong>GitHub Actions</strong> from a specific public commit — the build logs are
+public (Actions tab), so you can see exactly what went in. Nothing is
+hand-assembled off-repo.</p>
+</li>
+<li><p><strong>Verify your download wasn&#39;t tampered with.</strong> Each published APK has a
+SHA-256 checksum next to it (<code>apk/rpgify-latest.apk.sha256</code> on the Pages
+site). Compute the hash of your downloaded file and compare:</p>
+<pre><code class="language-bash">sha256sum rpgify-latest.apk        # Linux
+shasum -a 256 rpgify-latest.apk    # macOS
+</code></pre>
+</li>
+<li><p><strong>Verify the signature is consistent.</strong> Every update is signed with the same
+key, so an imposter build can&#39;t install over a genuine one. Check the signing
+certificate fingerprint:</p>
+<pre><code class="language-bash">apksigner verify --print-certs rpgify-latest.apk
+</code></pre>
+<p>The fingerprint should match across releases (and match what the author
+publishes).</p>
+</li>
+<li><p><strong>Scan it.</strong> Upload the APK to <strong>VirusTotal</strong> for a ~70-engine scan, and note
+that <strong>Google Play Protect</strong> already scans sideloaded apps on-device (that&#39;s
+the &quot;scan / install anyway&quot; prompt you saw). Heuristic engines sometimes flag
+<em>any</em> unsigned-by-Play app; a couple of generic/heuristic hits with no named
+malware family is normal for a hobby APK.</p>
+</li>
+<li><p><strong>Build it yourself and compare.</strong> With the Android SDK you can build the APK
+from source (<code>npx cap sync android &amp;&amp; cd android &amp;&amp; ./gradlew assembleRelease</code>)
+and diff it against the published one to confirm they match.</p>
+</li>
+</ol>
+<hr>
+<h2>Do you need the Play Store for this?</h2>
+<p>For a handful of friends, <strong>no</strong>. The Play Store mainly adds Google&#39;s review +
+distribution; it doesn&#39;t make the <em>code</em> any safer than reading the public source
+and verifying the build. Sideloading with the checks above is a reasonable trust
+model for a small, non-commercial circle. If this ever grows into something you
+hand to strangers, <em>then</em> a Play Store listing (and its review/signing) becomes
+worth the overhead.</p>
+<hr>
+<h2>For the author: strengthening assurance further (optional)</h2>
+<ul>
+<li><strong>Build provenance attestation</strong> — add <code>actions/attest-build-provenance</code> to the
+APK workflow so each APK carries a cryptographic, GitHub-signed statement of
+<em>which repo + commit + workflow</em> produced it, verifiable with
+<code>gh attestation verify</code>. This is the gold standard for &quot;this binary came from
+this public source.&quot;</li>
+<li><strong>Publish the signing certificate fingerprint</strong> in the repo so friends have a
+known-good value to compare step 4 against.</li>
+</ul>
+</article></main>
+<footer>Offline-first habit RPG · built in public · <a href="security.html">how to verify it's safe</a></footer>
+</body></html>

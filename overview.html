@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Overview · RPGify Habits</title><style>
+  :root{--bg:#0e0e24;--panel:#171736;--ink:#e8e8ff;--dim:#9a9ac8;--line:#2a2a55;
+        --purple:#b06af0;--gold:#f0c020;--blue:#48c8ff;--green:#6ad46a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       line-height:1.6}
+  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header.top{position:sticky;top:0;z-index:10;background:rgba(14,14,36,.92);
+    backdrop-filter:blur(6px);border-bottom:2px solid var(--line);
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 20px}
+  header.top .brand{font-weight:800;letter-spacing:1px;color:var(--gold)}
+  header.top nav{display:flex;gap:14px;flex-wrap:wrap}
+  header.top nav a{color:var(--dim);font-size:14px}
+  header.top nav a.active,header.top nav a:hover{color:var(--ink)}
+  .dl{margin-left:auto;background:var(--purple);color:#120a1f;font-weight:700;
+      padding:8px 14px;border-radius:8px}
+  .dl:hover{text-decoration:none;filter:brightness(1.08)}
+  main{max-width:820px;margin:0 auto;padding:28px 20px 80px}
+  .hero{text-align:center;padding:56px 16px 24px}
+  .hero h1{font-size:40px;margin:0 0 8px;color:var(--gold)}
+  .hero p{color:var(--dim);font-size:18px;max-width:640px;margin:0 auto}
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:26px 0}
+  .cta a{padding:10px 18px;border-radius:8px;font-weight:700}
+  .cta .primary{background:var(--purple);color:#120a1f}
+  .cta .ghost{border:2px solid var(--line);color:var(--ink)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:10px}
+  .card{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:16px 18px}
+  .card h3{margin:0 0 6px;color:var(--purple)}.card p{margin:0;color:var(--dim);font-size:14px}
+  article h1{color:var(--gold);border-bottom:2px solid var(--line);padding-bottom:8px}
+  article h2{color:var(--purple);margin-top:34px}
+  article h3{color:var(--blue)}
+  article pre{background:#0a0a1c;border:1px solid var(--line);border-radius:8px;
+    padding:14px;overflow:auto}
+  article code{background:#0a0a1c;border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  article pre code{background:none;border:0;padding:0}
+  article table{border-collapse:collapse;width:100%;overflow:auto;display:block}
+  article th,article td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+  article th{background:var(--panel)}
+  article blockquote{border-left:3px solid var(--purple);margin:0;padding:4px 16px;color:var(--dim)}
+  footer{border-top:2px solid var(--line);color:var(--dim);font-size:13px;
+    text-align:center;padding:24px}
+</style></head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">RPGify Habits</a>
+  <nav><a href="overview.html" class="active">Overview</a><a href="how-it-works.html" class="">How It Works</a><a href="install.html" class="">Install & Update</a><a href="security.html" class="">Is It Safe?</a></nav>
+  <a class="dl" href="apk/rpgify-latest.apk">Download APK</a>
+</header>
+<main><article><h1>RPGify Habits</h1>
+<p>An <strong>offline-first habit tracker framed as a Final Fantasy character sheet</strong>.
+Real-life habits train six primary attributes (Strength, Magic, Vitality,
+Spirit, Luck, Speed); those raise your <strong>character level</strong>, derived stats
+(Attack, Defense, HP, MP…). You spend time-granted <strong>Growth Points</strong> on a
+self-authored <strong>mastery tree</strong>. You are a single hero who levels up by doing
+beneficial things — and
+visibly <strong>decays</strong> (down to a slime) when you neglect them.</p>
+<p>Power comes from <strong>growing real habits → leveling → skills</strong>, not from
+min-maxing items: loot and gear are collected and worn purely for looks.</p>
+<p>It is designed around one behavioural problem: people start habits with
+discipline but go complacent once the original pain fades. Two mechanisms fight
+that:</p>
+<ol>
+<li><strong>Growth framing</strong> — visible XP, level-ups, and skill-tree progress reward
+continued effort (the big <code>LEVEL UP!</code> / <code>SKILL UNLOCKED!</code> beats).</li>
+<li><strong>Decay framing (loss aversion)</strong> — a stat&#39;s <em>condition</em> drops when the
+habits feeding it are neglected, shown as fading/desaturated pixel panels.</li>
+</ol>
+<p>Built as a plain HTML/CSS/JS web app (no framework) and wrapped with
+<strong>Capacitor</strong> into an installable Android app. Runs <strong>fully offline</strong> — no
+backend, no accounts, no sync. All data lives on-device; all reminders are
+scheduled locally.</p>
+<!-- screens: Status · Quests · Skill tree · Config -->
+
+<hr>
+<h2>Screens</h2>
+<table>
+<thead>
+<tr>
+<th>Screen</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Status</strong></td>
+<td>The character sheet: your hero sprite, Level + EXP, HP/MP/GP, the six primary attributes (each with an upkeep dot), and derived stats (Attack, Magic Attack, Defense, Magic Defense…). Plus today&#39;s steps and due quests.</td>
+</tr>
+<tr>
+<td><strong>Quests</strong> (habits)</td>
+<td>Add / edit / retire habits. Set cadence (daily / every N days / weekly), XP per completion, and which attribute(s) each trains.</td>
+</tr>
+<tr>
+<td><strong>Skills</strong></td>
+<td>Your Growth Points balance + a mastery tree per attribute. Author nodes with your own &quot;cleared&quot; criteria, dependency edges, and optional rewards; when a node is eligible, confirm it and spend a point to unlock.</td>
+</tr>
+<tr>
+<td><strong>Bag</strong></td>
+<td>Your hero + cosmetic gear slots, and the loot collected from completions. Tap gear to equip (looks only — no bonuses).</td>
+</tr>
+<tr>
+<td><strong>Config</strong></td>
+<td>The (fixed) attribute list, reminders (weekly check-in + water/posture nudges), doomscroll mirror, Growth Point settings, <strong>app updates</strong> (OTA check), and export/import your save.</td>
+</tr>
+</tbody></table>
+<hr>
+<h2>Design notes</h2>
+<h3>Decay is derived, never stored</h3>
+<p>A stat&#39;s condition is <strong>recomputed from timestamps</strong> every time the app opens
+(<code>www/js/condition.js</code>), never persisted as a ticking counter. That matters for
+an offline app: whether you return after an hour or three weeks, decay reflects
+exactly the real neglect — no background job, no drift.</p>
+<p>Health is measured <strong>in units of each habit&#39;s own cadence</strong>, so a lapsed <em>weekly</em>
+habit does not rot as fast (in real time) as a lapsed <em>daily</em> one. Each habit
+gets one full grace period, then its stat&#39;s condition falls to zero over the
+next three periods.</p>
+<h3>Attributes, character level &amp; derived stats</h3>
+<p>Six fixed primary attributes (<code>www/js/attributes.js</code>): <strong>Strength, Magic,
+Vitality, Spirit, Luck, Speed</strong>. Each habit trains one or more of them. An
+attribute&#39;s <em>score</em> grows permanently from XP (you never lose progress), while
+its <em>condition</em> (upkeep) decays with neglect.</p>
+<p>The sum of all attribute XP drives your <strong>character level</strong> (a steeper curve,
+<code>www/js/leveling.js</code>), and everything on the status screen is derived from the
+primaries + level, JRPG-style: Attack = STR·2 + Lv, Defense = VIT + Lv/2, HP
+from VIT, MP from MAG/SPR, etc. (Unlocking mastery is gated by time-granted
+Growth Points, not by character level — see below.)</p>
+<h3>One hero, who levels and devolves</h3>
+<p>A single hero sprite (<code>www/js/sprites.js</code>) — <em>you</em> — driven by character level
+and overall condition, not one-per-attribute:</p>
+<pre><code>character level 1-3  -&gt; Adventurer
+character level 4-6  -&gt; Warrior   (leather + sword)
+character level 7-10 -&gt; Knight    (plate, shield, plumed helm)
+character level 11+  -&gt; Mage      (robe, staff, arcane aura)
+overall condition worn    -&gt; the current class, desaturated (early warning)
+overall condition cracked -&gt; Imp   (devolved into a lesser monster)
+overall condition broken  -&gt; Slime (your hero literally melts into goo)
+</code></pre>
+<p>Do your habits and your hero climbs the class ladder; neglect them and it
+devolves toward a slime — the loss-aversion thesis made literal. Drawn
+procedurally as inline SVG (no image assets).</p>
+<h3>Steps</h3>
+<p>A habit can be <strong>auto (steps)</strong> instead of tap-to-log: it carries a daily step
+goal and <strong>auto-completes the moment you hit it</strong> (awarding XP, resetting decay),
+at most once per day. On Android, steps read straight from the hardware
+pedometer (<code>www/js/pedometer.js</code> ⇄ <code>StepCounterPlugin.java</code>, <code>TYPE_STEP_COUNTER</code>)
+and the app polls live while open, so goals complete on their own; with no
+sensor (web) you log them manually.</p>
+<h3>Doomscroll reflection layer</h3>
+<p>A deliberately <strong>non-judgemental</strong>, <strong>per-continuous-session</strong> awareness layer —
+intentionally <em>distinct</em> from Android&#39;s Digital Wellbeing (which owns daily
+limits + hard blocking; we don&#39;t duplicate it). When a chosen app has been in the
+foreground for one continuous sitting past your per-app threshold, it fires a
+notification that only <em>observes</em> — &quot;28 minutes on Instagram&quot; — never instructs,
+scolds, warns, or blocks. No red styling.</p>
+<ul>
+<li><strong>Event-driven detection</strong> via an <strong>AccessibilityService</strong>
+(<code>DoomscrollAccessibilityService</code>). Once enabled under Settings → Accessibility,
+the OS <em>pushes</em> foreground-app changes — real-time, no polling loop, no
+persistent notification, low battery. It reads only <em>which</em> app is in front
+(<code>canRetrieveWindowContent=&quot;false&quot;</code>), never screen content, and only for the
+apps you pick. (The zero-poll usage-session <em>observer</em> API needs the privileged
+<code>OBSERVE_APP_USAGE</code> permission a normal app can&#39;t hold; the older UsageStats
+foreground-service poll, <code>DoomscrollService.java</code>, stays in the tree as a
+dormant fallback.)</li>
+<li><strong>Dumb native, smart JS — so mechanics ship over-the-air.</strong> The service only
+<em>records raw facts</em> into a session ledger (<code>DoomscrollUtil.appendEvent</code>, read
+back through the plugin&#39;s <code>readEvents</code>); <strong>all scoring lives in JS</strong>
+(<code>www/js/doomscroll.js</code>, unit-tested), so it&#39;s tunable via OTA without a new
+APK. Each session logs app, start, end, duration, whether the nudge fired, and
+how soon you left after it — rich enough to also power a future optional
+&quot;total usage over time&quot; view.</li>
+<li><strong>Tied to Spirit, transparently.</strong> Leaving a watched app soon after the nudge is
+designed to <em>feed Spirit</em>; bingeing past it <em>wears</em> it — the same loss-aversion
+loop as habit decay, shown plainly in Config (a <em>Recently detected</em> panel lists
+what the detector logged). The detector + ledger ship first; Spirit scoring is
+layered on via OTA.</li>
+<li><strong>Per continuous session</strong>, not cumulative-per-day: switching away (including to
+the launcher) resets it, and the next open counts fresh.</li>
+<li><strong>Retrigger</strong> is configurable: once per session, or every N further minutes.</li>
+<li><strong>YouTube caveat</strong>: the foreground signal can&#39;t tell Shorts from long-form, so
+give YouTube a much longer threshold (or leave it off).</li>
+<li><strong>Non-goals:</strong> no blocking or app limits (that&#39;s Digital Wellbeing&#39;s job — this
+reflects and scores, never restricts) and no evaluative language anywhere.</li>
+</ul>
+<h3>Mastery tree — self-authored, honestly confirmed (<code>www/js/skilltree.js</code>)</h3>
+<p>The tree is <strong>yours to write</strong>. Inside each attribute-tree you author nodes,
+each with a self-defined <em>&quot;cleared&quot; criteria</em> (what mastery means to you, not an
+app-prescribed label). A node&#39;s lifecycle:</p>
+<pre><code>locked   -&gt; eligible : your threshold is met (attribute level OR practice count)
+                       and its prerequisites are satisfied
+eligible -&gt; unlocked : you confirm you genuinely met it AND spend a Growth Point
+</code></pre>
+<p>Reaching eligibility is never enough on its own — the point spend (plus an
+honest &quot;I genuinely met this&quot; toggle) is the real gate. Dependency <strong>edges</strong> are
+optional and per-tree: a domain can be a flat list or a sequential chain, and
+prerequisites can be strict AND <strong>or</strong> &quot;any N of parents&quot; (non-linear). Each
+node can optionally carry a reward (+X% attribute XP, or +Y% decay resistance)
+that applies once unlocked.</p>
+<h3>Growth Points — the scarce currency (<code>skilltree.js</code>)</h3>
+<p>You earn a small fixed number of <strong>Growth Points</strong> per period (default <strong>3 /
+week</strong>, configurable to monthly in Config). They <strong>roll over</strong> but are <strong>capped
+at 2× one period&#39;s grant</strong>, so a busy stretch isn&#39;t punished and you can&#39;t hoard
+indefinitely. Spending one point is what converts an eligible node to unlocked.
+When several nodes across different trees are eligible at once, limited points
+<strong>force a choice</strong> — that trade-off is the intended mechanic. Points accrue on
+app open (<code>grantDue</code>) and show on the character sheet (GP) and the Skills header.</p>
+<h3>Loot &amp; gear (cosmetic)</h3>
+<p>Completing a quest can <strong>drop treasure</strong> (<code>www/js/items.js</code>) — FF-flavored
+weapons, armour, treasure and consumables across five rarities; longer streaks
+and a higher <strong>Luck</strong> attribute improve the odds. Drops fire a <code>TREASURE!</code> beat
+and collect in the <strong>Bag</strong>, where you can equip weapon/armour into five slots
+(<code>www/js/equipment.js</code>). Equipping is <strong>cosmetic only</strong> — it changes nothing
+about your stats. The focus is real growth, not item min-maxing.</p>
+<hr>
+<h2>Project layout</h2>
+<pre><code>www/                     the web app (this is what Capacitor wraps)
+  index.html
+  styles/main.css        8-bit / JRPG theme
+  assets/fonts/          Press Start 2P, bundled for true offline use
+  js/
+    store.js             storage: Capacitor Preferences native / localStorage web
+    game.js              engine: state, habit CRUD, completion, XP, migration
+    attributes.js        the six primaries, character level, derived stats
+    condition.js         cadence-aware decay / attribute condition
+    leveling.js          attribute + character XP -&gt; level curves
+    cadence.js           cadence periods &amp; due timing
+    skilltree.js         user-authored mastery nodes + Growth Points currency
+    sprites.js           the single procedural hero (adventurer..mage, imp, slime)
+    items.js             loot table, drop rolls, pixel item icons
+    equipment.js         cosmetic equip slots (no bonuses)
+    pedometer.js         steps source: native sensor (live poll) / manual fallback
+    doomscroll.js        doomscroll session/threshold/copy logic + native bridge
+    notifications.js     local notifications (native) / no-op (web)
+    backup.js            JSON export/import
+    ota.js               over-the-air web-update check/apply (native updater bridge)
+    views.js             the five screens + editor modals
+    app.js               orchestrator: routing, persistence, reward beats
+  ota.json               baked-in OTA baseline { build, channel } (CI-stamped)
+android/                 generated Capacitor Android project (build in Studio)
+scripts/                 dev server, tests, icon + OTA-stamp helpers (not shipped)
+.github/workflows/       android.yml (APK build/sign/release) · web-ota.yml (OTA publish)
+capacitor.config.json
+</code></pre>
+<hr>
+<h2>Develop &amp; test (web)</h2>
+<pre><code class="language-bash">npm install
+npm run serve          # http://localhost:5173
+npm test               # dependency-free logic tests
+node scripts/smoke.mjs # headless-browser end-to-end smoke test
+</code></pre>
+<blockquote>
+<p>On plain web, storage falls back to <code>localStorage</code> and reminders are a no-op
+(browsers can&#39;t reliably fire scheduled local notifications without a service
+worker). Everything else — the full game loop — runs in the browser.</p>
+</blockquote>
+<hr>
+<h2>Build the Android app</h2>
+<p>The <code>android/</code> Capacitor project is committed and ready. You need:</p>
+<ul>
+<li><strong>JDK 17+</strong></li>
+<li><strong>Android Studio</strong> (or the Android command-line SDK) with an SDK platform +
+build-tools installed</li>
+</ul>
+<p>Then either open <code>android/</code> in Android Studio and press <strong>Run</strong>, or from the CLI:</p>
+<pre><code class="language-bash">npm install
+npx cap sync android
+cd android
+./gradlew assembleDebug          # -&gt; android/app/build/outputs/apk/debug/app-debug.apk
+</code></pre>
+<p>After changing anything in <code>www/</code>, re-run <code>npx cap sync android</code> to copy the web
+assets into the native project.</p>
+<blockquote>
+<p><strong>Note:</strong> the APK was <em>not</em> compiled in the authoring environment — it has no
+Android SDK provisioned and <code>dl.google.com</code> is blocked there, so the SDK can&#39;t
+be fetched. The Capacitor project is complete and builds normally in Android
+Studio / any machine with the SDK.</p>
+</blockquote>
+<h3>App icon &amp; splash</h3>
+<p>The launcher icon (a glowing 8-bit sword in the app palette), round/adaptive
+variants, and the splash screen are committed under <code>android/app/src/main/res/</code>.
+They&#39;re generated from a hand-drawn pixel emblem by <code>scripts/make-icons.mjs</code>
+(rasterized with headless Chromium) — re-run <code>node scripts/make-icons.mjs</code> if
+you tweak the emblem. <code>cap sync</code> does not touch these.</p>
+<h3>Steps on device</h3>
+<p>The step sensor is bridged by a small committed Capacitor plugin
+(<code>StepCounterPlugin.java</code>, registered in <code>MainActivity</code>) reading
+<code>TYPE_STEP_COUNTER</code> — no Google Fit / Health Connect / network. It requests the
+<code>ACTIVITY_RECOGNITION</code> runtime permission the first time steps are read. This
+native path can only be exercised on a real device/build; the JS logic,
+auto-complete, and avatar behaviour are covered by the tests above using the
+manual step source.</p>
+<h3>Notifications on device</h3>
+<p>The Local Notifications plugin merges the needed permissions
+(<code>POST_NOTIFICATIONS</code>, boot receiver, etc.) at build time. On Android 13+ the
+app requests notification permission the first time you tap <strong>APPLY</strong> or <strong>TEST</strong>
+in Config. A notification <strong>channel</strong> (<code>rpgify</code>) is created before scheduling —
+Android 8+ silently drops notifications posted to an unknown channel, so this is
+required. Config has a <strong>🔔 TEST (5s)</strong> button that fires a notification a few
+seconds out to confirm the pipeline; scheduled water/posture nudges land at a
+random minute within each active hour, so the first real one can be up to an
+hour away.</p>
+<hr>
+<h2>Updating the app (OTA web + APK)</h2>
+<p>Two update paths, so everyday changes never need an APK:</p>
+<ul>
+<li><strong>Web changes</strong> (anything in <code>www/</code> — screens, logic, text) ship
+<strong>over-the-air</strong>. Pushing them to the main branch triggers
+<code>.github/workflows/web-ota.yml</code>, which publishes the web bundle to <strong>GitHub
+Pages</strong>; the installed app checks that channel on launch (and via
+<strong>Config → APP UPDATES</strong>) and, when a newer bundle exists, <strong>prompts the user
+with a &quot;what&#39;s new&quot; summary and installs only on their consent</strong> (UPDATE NOW /
+LATER) — no reinstall, nothing applied silently. Uses
+<code>@capgo/capacitor-updater</code>; hosting is self-served on Pages (no third-party
+account).</li>
+<li><strong>Native changes</strong> (step counter, doomscroll service, a new plugin, icon,
+permissions) need a <strong>new APK</strong> — push a version tag (<code>v2</code>, <code>v3</code>, …) and
+<code>android.yml</code> builds a <strong>signed</strong> APK and publishes it to the Releases page.</li>
+</ul>
+<p>Build numbers are the commit count (<code>git rev-list --count HEAD</code>), stamped by
+<code>scripts/ota-stamp.mjs</code> into both the APK&#39;s baked-in <code>www/ota.json</code> and each
+published manifest, so the two paths stay consistent and never downgrade. Each
+web bundle records the minimum native <code>versionCode</code> it needs, so OTA can&#39;t push
+web that a stale APK can&#39;t run. <strong>Full setup (signing key, GitHub secrets, Pages)
+and troubleshooting live in <a href="install.html"><code>docs/INSTALL_AND_UPDATE.md</code></a>.</strong></p>
+<hr>
+<h2>Data &amp; privacy</h2>
+<ul>
+<li>100% on-device. No network calls, no analytics, no accounts.</li>
+<li><strong>Export</strong> writes a JSON backup (native share sheet, or a browser download on
+web). <strong>Import</strong> replaces your save from such a file. This is the only way
+data leaves or enters the app — there is no automatic sync.</li>
+</ul>
+<hr>
+<h2>Non-goals</h2>
+<p>No backend, no accounts, no cross-device sync · no cap on active habits · no
+forced daily cadence (it&#39;s per-habit) · no server push — all reminders are
+local, on-device.</p>
+</article></main>
+<footer>Offline-first habit RPG · built in public · <a href="security.html">how to verify it's safe</a></footer>
+</body></html>

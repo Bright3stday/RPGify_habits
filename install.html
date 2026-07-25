@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Install & Update · RPGify Habits</title><style>
+  :root{--bg:#0e0e24;--panel:#171736;--ink:#e8e8ff;--dim:#9a9ac8;--line:#2a2a55;
+        --purple:#b06af0;--gold:#f0c020;--blue:#48c8ff;--green:#6ad46a}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+       font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
+       line-height:1.6}
+  a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
+  code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  header.top{position:sticky;top:0;z-index:10;background:rgba(14,14,36,.92);
+    backdrop-filter:blur(6px);border-bottom:2px solid var(--line);
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:12px 20px}
+  header.top .brand{font-weight:800;letter-spacing:1px;color:var(--gold)}
+  header.top nav{display:flex;gap:14px;flex-wrap:wrap}
+  header.top nav a{color:var(--dim);font-size:14px}
+  header.top nav a.active,header.top nav a:hover{color:var(--ink)}
+  .dl{margin-left:auto;background:var(--purple);color:#120a1f;font-weight:700;
+      padding:8px 14px;border-radius:8px}
+  .dl:hover{text-decoration:none;filter:brightness(1.08)}
+  main{max-width:820px;margin:0 auto;padding:28px 20px 80px}
+  .hero{text-align:center;padding:56px 16px 24px}
+  .hero h1{font-size:40px;margin:0 0 8px;color:var(--gold)}
+  .hero p{color:var(--dim);font-size:18px;max-width:640px;margin:0 auto}
+  .cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:26px 0}
+  .cta a{padding:10px 18px;border-radius:8px;font-weight:700}
+  .cta .primary{background:var(--purple);color:#120a1f}
+  .cta .ghost{border:2px solid var(--line);color:var(--ink)}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px;margin-top:10px}
+  .card{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:16px 18px}
+  .card h3{margin:0 0 6px;color:var(--purple)}.card p{margin:0;color:var(--dim);font-size:14px}
+  article h1{color:var(--gold);border-bottom:2px solid var(--line);padding-bottom:8px}
+  article h2{color:var(--purple);margin-top:34px}
+  article h3{color:var(--blue)}
+  article pre{background:#0a0a1c;border:1px solid var(--line);border-radius:8px;
+    padding:14px;overflow:auto}
+  article code{background:#0a0a1c;border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+  article pre code{background:none;border:0;padding:0}
+  article table{border-collapse:collapse;width:100%;overflow:auto;display:block}
+  article th,article td{border:1px solid var(--line);padding:8px 10px;text-align:left}
+  article th{background:var(--panel)}
+  article blockquote{border-left:3px solid var(--purple);margin:0;padding:4px 16px;color:var(--dim)}
+  footer{border-top:2px solid var(--line);color:var(--dim);font-size:13px;
+    text-align:center;padding:24px}
+</style></head>
+<body>
+<header class="top">
+  <a class="brand" href="index.html">RPGify Habits</a>
+  <nav><a href="overview.html" class="">Overview</a><a href="how-it-works.html" class="">How It Works</a><a href="install.html" class="active">Install & Update</a><a href="security.html" class="">Is It Safe?</a></nav>
+  <a class="dl" href="apk/rpgify-latest.apk">Download APK</a>
+</header>
+<main><article><h1>Installing &amp; Updating on Your Phone</h1>
+<p>Goal: get the app on your phone, and then <strong>update it without building or
+downloading APKs for everyday changes</strong>.</p>
+<p>There are two update paths, by design:</p>
+<table>
+<thead>
+<tr>
+<th>Change type</th>
+<th>How it reaches the phone</th>
+<th>Needs a new APK?</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><strong>Web</strong> (screens, game logic, text, styling — anything in <code>www/</code>)</td>
+<td><strong>Over-the-air (OTA)</strong> — the app downloads the new web bundle itself</td>
+<td>No</td>
+</tr>
+<tr>
+<td><strong>Native</strong> (step counter, doomscroll service, a newly added Capacitor plugin, app icon, permissions)</td>
+<td>A new <strong>APK</strong> you install</td>
+<td>Yes</td>
+</tr>
+</tbody></table>
+<p>Most changes are web changes, so once you&#39;re set up you&#39;ll rarely touch APKs.</p>
+<p>Three one-time setups make this painless:</p>
+<ol>
+<li><strong>A stable signing key</strong> — so APK updates install <em>over</em> the old app instead
+of failing with &quot;app not installed&quot;. (Android refuses to replace an app if the
+new APK is signed with a different key.)</li>
+<li><strong>Cloud APK build</strong> — GitHub builds signed APKs for you (no PC toolchain).</li>
+<li><strong>GitHub Pages</strong> — free static hosting for OTA web bundles.</li>
+</ol>
+<hr>
+<h2>One-time setup</h2>
+<h3>1. Create a signing key (~5 min)</h3>
+<p>On any computer with Java (<code>keytool</code> ships with the JDK):</p>
+<pre><code class="language-bash">keytool -genkey -v -keystore rpgify-release.keystore \
+  -alias rpgify -keyalg RSA -keysize 2048 -validity 10000
+</code></pre>
+<p>It asks for a <strong>keystore password</strong>, a <strong>key password</strong> (same is fine), and some
+name/org fields (anything). <strong>Keep <code>rpgify-release.keystore</code> safe</strong> — lose it and
+you can&#39;t ship APK updates that install over the old app (you&#39;d have to
+uninstall + reinstall, losing data unless you Export first).</p>
+<h3>2. Add the four signing secrets</h3>
+<p>Base64-encode the keystore:</p>
+<pre><code class="language-bash">base64 -w0 rpgify-release.keystore    # Linux
+base64 rpgify-release.keystore        # macOS (no -w0)
+</code></pre>
+<p>Repo → <strong>Settings → Secrets and variables → Actions → New repository secret</strong>,
+add these four:</p>
+<table>
+<thead>
+<tr>
+<th>Secret name</th>
+<th>Value</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>RPGIFY_KEYSTORE_BASE64</code></td>
+<td>the base64 text</td>
+</tr>
+<tr>
+<td><code>RPGIFY_KEYSTORE_PASSWORD</code></td>
+<td>the keystore password</td>
+</tr>
+<tr>
+<td><code>RPGIFY_KEY_ALIAS</code></td>
+<td><code>rpgify</code></td>
+</tr>
+<tr>
+<td><code>RPGIFY_KEY_PASSWORD</code></td>
+<td>the key password</td>
+</tr>
+</tbody></table>
+<p><code>.github/workflows/android.yml</code> picks these up automatically and signs release
+builds. (Without them it still builds, but a <strong>debug</strong> APK — fine for a first
+try, but debug builds don&#39;t share a signature between runs, so updates fail.)</p>
+<h3>3. Enable GitHub Pages for OTA (~2 min)</h3>
+<p>Repo → <strong>Settings → Pages → Build and deployment → Deploy from a branch</strong> →
+branch <strong><code>gh-pages</code></strong>, folder <strong>/ (root)</strong> → Save.</p>
+<p>The <code>gh-pages</code> branch doesn&#39;t exist yet — it&#39;s created automatically the first
+time the OTA workflow runs (next section). After that, Pages serves the update
+manifest at <code>https://&lt;your-username&gt;.github.io/rpgify_habits/updates/latest.json</code>.</p>
+<hr>
+<h2>How updates work now</h2>
+<h3>Web changes → automatic OTA</h3>
+<p>When you push web changes (anything under <code>www/</code>) to the main development branch,
+<code>.github/workflows/web-ota.yml</code> runs, packages the web bundle, and publishes it
+to GitHub Pages. Your installed app checks that channel <strong>on every launch</strong> and,
+if there&#39;s a newer bundle it can use, <strong>asks you first</strong> — a prompt shows the
+version and a short &quot;what&#39;s new&quot; list, with <strong>UPDATE NOW</strong> / <strong>LATER</strong>. Nothing
+downloads until you tap UPDATE NOW; LATER snoozes that build until a newer one
+appears. There&#39;s also a <strong>CHECK FOR UPDATES</strong> button in <strong>Config → APP UPDATES</strong>
+to check on demand.</p>
+<p>No tags, no APK, no signing dance — you push, and the next time you open the app
+it offers the update for you to accept.</p>
+<blockquote>
+<p>The very first time, the phone needs an APK that already contains the OTA
+updater (built after this feature was added). Install that APK once (below);
+from then on web changes arrive over-the-air.</p>
+</blockquote>
+<h3>Native changes → new APK (from a stable Pages URL, no tags)</h3>
+<p>When native code changes, bump <code>versionCode</code> in <code>android/app/build.gradle</code>, then
+run the APK build: repo → <strong>Actions → Build Android APK → Run workflow</strong>. Every
+run publishes the <strong>signed</strong> APK to GitHub Pages at a <strong>stable URL</strong>:</p>
+<pre><code>https://&lt;your-username&gt;.github.io/rpgify_habits/apk/rpgify-latest.apk
+</code></pre>
+<p>On the phone, just open that URL and tap to install — it updates in place,
+keeping your data (same signing key). No git tag, no Release page. (A dated copy
+is kept alongside for history, and pushing a version tag <em>also</em> tries to publish
+a GitHub Release — but tags aren&#39;t required, and this repo&#39;s rulesets/immutable
+releases may restrict creating them, which is exactly why the Pages URL is the
+primary path.)</p>
+<p>The OTA system is aware of this: each web bundle records the minimum native
+<code>versionCode</code> it needs — set intentionally in <code>www/ota.json</code> (<code>minNative</code>), and
+only raised when a web change genuinely requires a newer native capability
+(most JS updates run fine on older APKs and degrade gracefully). If a web bundle
+does need native code your installed APK lacks, the app declines it and tells you
+a fresh APK is needed — so OTA can never leave the app half-updated.</p>
+<hr>
+<h2>Installing the APK on the phone</h2>
+<ol>
+<li>Download the <code>.apk</code> from the <strong>Releases</strong> page (tap the asset directly — not
+the artifact <code>.zip</code> from the Actions run page; a zip won&#39;t install).</li>
+<li>Tap it. First time, Android asks to allow &quot;install unknown apps&quot; for your
+browser/Files app — allow it.</li>
+<li>If Play Protect shows <strong>&quot;app not installed&quot;</strong>, tap <strong>More details → Install
+anyway</strong> (sideloaded apps trip Play Protect; this is expected).</li>
+</ol>
+<h3>&quot;App not installed&quot; troubleshooting</h3>
+<p>Almost always one of these, in order:</p>
+<ol>
+<li><strong>An older copy with a different signature is already installed</strong> (e.g. a
+build you ran from Android Studio/VS Code during development, which uses the
+debug key). Uninstall it first (Export your data via <strong>Config → Export</strong>
+beforehand if you have any), then install.</li>
+<li>You tapped the <strong>artifact <code>.zip</code></strong> instead of the <code>.apk</code>. Use the Release
+asset.</li>
+<li><strong>Play Protect</strong> blocked it → <em>More details → Install anyway</em>.</li>
+<li>Partial/corrupt download → re-download.</li>
+</ol>
+<p>Once a signed APK is on cleanly, later signed APKs update in place with no
+uninstall.</p>
+<hr>
+<h2>Building an APK manually (optional)</h2>
+<p>Repo → <strong>Actions</strong> tab → <strong>Build Android APK</strong> → <strong>Run workflow</strong> → pick your
+branch → Run. Open the finished run → <strong>Artifacts</strong> → download the APK zip. (Only
+<strong>tag</strong> pushes publish a phone-tappable APK to Releases; manual/branch runs just
+produce the artifact zip.)</p>
+<hr>
+<h2>Sharing with a friend</h2>
+<p>A friend forks the repo and does their <strong>own</strong> one-time setup (their own keystore</p>
+<ul>
+<li>four secrets, their own Pages). The workflows derive the OTA channel from the
+repo owner, so their fork automatically points at <em>their</em> Pages, not yours —
+their builds and updates are fully independent of yours. Downloading your APK
+doesn&#39;t use their secrets, and vice-versa.</li>
+</ul>
+<hr>
+<h2>How the versioning fits together (reference)</h2>
+<ul>
+<li><strong>Build number</strong> = <code>git rev-list --count HEAD</code> (commit count). Monotonic along
+the branch and identical no matter which workflow computes it, so an APK built
+at commit N and a web bundle published at commit M compare cleanly (M &gt; N ⇒
+the app updates). Stamped by <code>scripts/ota-stamp.mjs</code>.</li>
+<li>The APK bakes in <code>www/ota.json</code> (<code>{ build, channel }</code>); each OTA publish writes
+<code>updates/latest.json</code> (<code>{ build, url, minNative, … }</code>) to Pages.</li>
+<li>The app runs whichever is newer: the APK&#39;s baked-in build or the last OTA
+bundle it applied (tracked in Preferences). A freshly installed newer APK
+always wins over an older OTA bundle (<code>resetWhenUpdate</code> in
+<code>capacitor.config.json</code>), so updates never go backwards.</li>
+</ul>
+</article></main>
+<footer>Offline-first habit RPG · built in public · <a href="security.html">how to verify it's safe</a></footer>
+</body></html>
