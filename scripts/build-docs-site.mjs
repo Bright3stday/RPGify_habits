@@ -21,7 +21,12 @@ const PAGES = [
   { file: 'docs/SECURITY.md', slug: 'security', title: 'Is It Safe?' },
 ];
 
-// Rewrite inter-doc Markdown links to the site's page slugs.
+// Repo-only docs that aren't published as site pages link to the GitHub file.
+const REPO = process.env.GITHUB_REPOSITORY || 'Bright3stday/RPGify_habits';
+const GH = `https://github.com/${REPO}/blob/HEAD`;
+
+// Rewrite inter-doc Markdown links to the site's page slugs (or GitHub for
+// repo-only docs).
 const LINK_MAP = {
   '../README.md': 'overview.html',
   'README.md': 'overview.html',
@@ -31,6 +36,8 @@ const LINK_MAP = {
   'docs/INSTALL_AND_UPDATE.md': 'install.html',
   'SECURITY.md': 'security.html',
   'docs/SECURITY.md': 'security.html',
+  '../DEVELOPING.md': `${GH}/DEVELOPING.md`,
+  'DEVELOPING.md': `${GH}/DEVELOPING.md`,
 };
 function rewriteLinks(html) {
   let out = html;

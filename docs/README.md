@@ -9,10 +9,11 @@ fresh session can pick up with full context.
 
 | Doc | Read it for |
 |-----|-------------|
-| [`../README.md`](../README.md) | Project overview, screens, design notes, project layout, dev/build commands. |
+| [`../README.md`](../README.md) | Product overview, screens, design notes. Public site "Overview" page. |
 | [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) | Plain-English, example-driven tour of every system and exactly what each number/threshold reads from. The best conceptual reference. |
-| [`INSTALL_AND_UPDATE.md`](INSTALL_AND_UPDATE.md) | Getting the app on a phone and keeping it updated: signing key + secrets, GitHub Pages, OTA vs APK, "app not installed" troubleshooting, sharing with a friend. |
-| [`SECURITY.md`](SECURITY.md) | "Is this safe?" — permissions explained, what leaves the device (nothing silently), and how anyone can verify the APK matches the public source. Shareable with friends. |
+| [`INSTALL_AND_UPDATE.md`](INSTALL_AND_UPDATE.md) | End-user install/update: download the APK from the site, "app not installed" fixes, how OTA updates arrive. (User-facing only.) |
+| [`SECURITY.md`](SECURITY.md) | "Is this safe?" — permissions explained, what leaves the device (nothing silently), and how anyone can verify the APK matches the public source. |
+| [`../DEVELOPING.md`](../DEVELOPING.md) | **Developer/self-host doc:** project layout, dev/test, signing key + GitHub secrets, GitHub Pages, building the APK, versioning, forking. Not on the public site. |
 
 ## What this is (one paragraph)
 
@@ -84,9 +85,11 @@ android/app/src/main/java/com/rpgifyhabits/app/
   updates fail with "app not installed" (signature mismatch). The one-time
   keystore + four secrets fix it; `android/app/build.gradle` reads them from env
   and is inert when unset.
-- **This repo has *immutable releases* enabled.** A reused release tag can't be
-  re-uploaded to, which broke an earlier rolling "latest-build" prerelease. The
-  APK workflow now publishes to Releases **only on unique version tags**.
+- **No git tags, no GitHub Releases.** Tag creation is blocked here (repo
+  ruleset + the session git proxy 403s tag refs), so distribution does **not**
+  use Releases. The APK is published to **GitHub Pages** (`apk/rpgify-latest.apk`,
+  built by a manual `android.yml` run); the docs site and OTA channel live on the
+  same Pages site. `android.yml` no longer has a Releases step or tag trigger.
 - **Updates: OTA for web, APK for native.** `@capgo/capacitor-updater` +
   self-hosted GitHub Pages. Build number = commit count, stamped into both the
   APK baseline and the OTA manifest so they compare cleanly; each web bundle
@@ -94,7 +97,7 @@ android/app/src/main/java/com/rpgifyhabits/app/
   APK. **Consent-based:** `checkForUpdate` only detects; it prompts the user
   (version + "what's new") and downloads/applies only via `applyUpdate` after
   they tap UPDATE NOW (LATER snoozes that build). Never auto-applies. See
-  `INSTALL_AND_UPDATE.md`.
+  `DEVELOPING.md` (setup) and `INSTALL_AND_UPDATE.md` (end-user).
 - **Doomscroll: event-driven detector, JS scoring, distinct from Digital
   Wellbeing.** Digital Wellbeing already owns daily limits + hard blocking; we do
   NOT duplicate that. RPGify's role is *per-continuous-session awareness* tied to
@@ -116,14 +119,16 @@ android/app/src/main/java/com/rpgifyhabits/app/
   `minNative` comes from the committed `www/ota.json` field (default 1), bumped by
   hand only when a web change truly needs a newer native capability. (Auto-reading
   it from `versionCode` would wrongly block JS-only updates from older-but-adequate
-  APKs.) `versionCode` is 2 as of the accessibility-detector APK.
+  APKs.) `versionCode` is 3 as of the doomscroll-detector-fix APK.
 
 ## One-time setup checklist (per person/fork)
 
+See `DEVELOPING.md` for the full walkthrough. In short:
 1. Signing key → four `RPGIFY_*` GitHub secrets (for signed APKs).
-2. Enable **GitHub Pages** from the `gh-pages` branch (for OTA).
+2. Enable **GitHub Pages** from the `gh-pages` branch (serves docs, APK, OTA).
 3. Install one signed APK that contains the OTA updater; web changes then arrive
-   over-the-air. Push version tags (`v2`, `v3`, …) only when native code changes.
+   over-the-air. Re-run **Actions → Build Android APK** for a new APK only when
+   native code changes.
 
 ## Open / possible future work
 

@@ -1,18 +1,15 @@
 name: Build Android APK
 
-# Run it manually from the Actions tab (Run workflow), or by pushing a version
-# tag. Every run publishes the signed APK to GitHub Pages at a stable URL:
+# Run it manually from the Actions tab (Run workflow). Every run publishes the
+# signed APK to GitHub Pages at a stable URL:
 #   https://<owner>.github.io/<repo>/apk/rpgify-latest.apk
-# so you can install straight from your phone — no git tag or Release needed
-# (this repo's rulesets restrict tag creation). Tag pushes additionally try to
-# publish a GitHub Release.
+# so anyone can install straight from their phone — no git tags, no GitHub
+# Releases (distribution is the Pages URL above).
 on:
   workflow_dispatch:
-  push:
-    tags: ['v*']
 
 permissions:
-  contents: write   # needed to push the APK to gh-pages / publish Releases
+  contents: write   # needed to push the APK to the gh-pages branch
 
 # Serialize with the web-OTA workflow so two jobs never race on gh-pages.
 concurrency:
@@ -131,17 +128,3 @@ jobs:
           destination_dir: .
           keep_files: true
           commit_message: "APK build ${{ steps.named.outputs.path }}"
-
-      # Publish the APK to the Releases page as a direct, phone-tappable file.
-      # Only on version tags (v1, v2, …): this repo has immutable releases
-      # enabled, so a reused "latest-build" tag can't be re-uploaded to — each
-      # tag must be unique. Branch/manual runs still produce the artifact above;
-      # for a phone install, push a tag (see docs/INSTALL_AND_UPDATE.md).
-      - name: Publish to Releases
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: ${{ steps.named.outputs.path }}
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
-          generate_release_notes: true

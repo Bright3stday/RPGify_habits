@@ -1,178 +1,44 @@
-# Installing & Updating on Your Phone
+# Installing & Updating
 
-Goal: get the app on your phone, and then **update it without building or
-downloading APKs for everyday changes**.
+RPGify Habits installs straight from this site — no app store, no account.
 
-There are two update paths, by design:
+## Install it on your phone
 
-| Change type | How it reaches the phone | Needs a new APK? |
-|-------------|--------------------------|------------------|
-| **Web** (screens, game logic, text, styling — anything in `www/`) | **Over-the-air (OTA)** — the app downloads the new web bundle itself | No |
-| **Native** (step counter, doomscroll service, a newly added Capacitor plugin, app icon, permissions) | A new **APK** you install | Yes |
+1. On your phone, tap **Download APK** (top of the page), or open:
+   `https://bright3stday.github.io/RPGify_habits/apk/rpgify-latest.apk`
+2. Open the downloaded file. The first time, Android asks to allow **"install
+   unknown apps"** for your browser or Files app — allow it. (Every sideloaded
+   app asks this; it's normal, not a sign anything is wrong.)
+3. If **Play Protect** shows a prompt, choose **More details → Install anyway**.
 
-Most changes are web changes, so once you're set up you'll rarely touch APKs.
+That's it — it runs fully offline.
 
-Three one-time setups make this painless:
+### If it says "app not installed"
 
-1. **A stable signing key** — so APK updates install *over* the old app instead
-   of failing with "app not installed". (Android refuses to replace an app if the
-   new APK is signed with a different key.)
-2. **Cloud APK build** — GitHub builds signed APKs for you (no PC toolchain).
-3. **GitHub Pages** — free static hosting for OTA web bundles.
+Usually one of:
 
----
+- **An older copy is already installed** with a different signature. Uninstall it
+  first, then install again. (If you have data you want to keep, open the old app
+  and use **Config → Export** first.)
+- **Play Protect blocked it** — tap **More details → Install anyway**.
+- **The download was interrupted** — re-download and try again.
 
-## One-time setup
+## Updating
 
-### 1. Create a signing key (~5 min)
+- **Most updates arrive automatically, over-the-air.** Open the app and it checks
+  for a newer version, shows what's changed, and **asks before installing** —
+  nothing downloads or applies without your OK.
+- **Occasionally a larger update needs a fresh APK.** Just download the latest
+  from the same button/link above and tap it — it installs over the old version
+  and keeps your data.
 
-On any computer with Java (`keytool` ships with the JDK):
+## Your data
 
-```bash
-keytool -genkey -v -keystore rpgify-release.keystore \
-  -alias rpgify -keyalg RSA -keysize 2048 -validity 10000
-```
-
-It asks for a **keystore password**, a **key password** (same is fine), and some
-name/org fields (anything). **Keep `rpgify-release.keystore` safe** — lose it and
-you can't ship APK updates that install over the old app (you'd have to
-uninstall + reinstall, losing data unless you Export first).
-
-### 2. Add the four signing secrets
-
-Base64-encode the keystore:
-
-```bash
-base64 -w0 rpgify-release.keystore    # Linux
-base64 rpgify-release.keystore        # macOS (no -w0)
-```
-
-Repo → **Settings → Secrets and variables → Actions → New repository secret**,
-add these four:
-
-| Secret name | Value |
-|-------------|-------|
-| `RPGIFY_KEYSTORE_BASE64` | the base64 text |
-| `RPGIFY_KEYSTORE_PASSWORD` | the keystore password |
-| `RPGIFY_KEY_ALIAS` | `rpgify` |
-| `RPGIFY_KEY_PASSWORD` | the key password |
-
-`.github/workflows/android.yml` picks these up automatically and signs release
-builds. (Without them it still builds, but a **debug** APK — fine for a first
-try, but debug builds don't share a signature between runs, so updates fail.)
-
-### 3. Enable GitHub Pages for OTA (~2 min)
-
-Repo → **Settings → Pages → Build and deployment → Deploy from a branch** →
-branch **`gh-pages`**, folder **/ (root)** → Save.
-
-The `gh-pages` branch doesn't exist yet — it's created automatically the first
-time the OTA workflow runs (next section). After that, Pages serves the update
-manifest at `https://<your-username>.github.io/rpgify_habits/updates/latest.json`.
+Everything stays on your device — no accounts, no servers. **Config → Export**
+saves a backup file you can keep or move to another phone; **Import** restores
+one. That's the only way data leaves or enters the app.
 
 ---
 
-## How updates work now
-
-### Web changes → automatic OTA
-
-When you push web changes (anything under `www/`) to the main development branch,
-`.github/workflows/web-ota.yml` runs, packages the web bundle, and publishes it
-to GitHub Pages. Your installed app checks that channel **on every launch** and,
-if there's a newer bundle it can use, **asks you first** — a prompt shows the
-version and a short "what's new" list, with **UPDATE NOW** / **LATER**. Nothing
-downloads until you tap UPDATE NOW; LATER snoozes that build until a newer one
-appears. There's also a **CHECK FOR UPDATES** button in **Config → APP UPDATES**
-to check on demand.
-
-No tags, no APK, no signing dance — you push, and the next time you open the app
-it offers the update for you to accept.
-
-> The very first time, the phone needs an APK that already contains the OTA
-> updater (built after this feature was added). Install that APK once (below);
-> from then on web changes arrive over-the-air.
-
-### Native changes → new APK (from a stable Pages URL, no tags)
-
-When native code changes, bump `versionCode` in `android/app/build.gradle`, then
-run the APK build: repo → **Actions → Build Android APK → Run workflow**. Every
-run publishes the **signed** APK to GitHub Pages at a **stable URL**:
-
-```
-https://<your-username>.github.io/rpgify_habits/apk/rpgify-latest.apk
-```
-
-On the phone, just open that URL and tap to install — it updates in place,
-keeping your data (same signing key). No git tag, no Release page. (A dated copy
-is kept alongside for history, and pushing a version tag *also* tries to publish
-a GitHub Release — but tags aren't required, and this repo's rulesets/immutable
-releases may restrict creating them, which is exactly why the Pages URL is the
-primary path.)
-
-The OTA system is aware of this: each web bundle records the minimum native
-`versionCode` it needs — set intentionally in `www/ota.json` (`minNative`), and
-only raised when a web change genuinely requires a newer native capability
-(most JS updates run fine on older APKs and degrade gracefully). If a web bundle
-does need native code your installed APK lacks, the app declines it and tells you
-a fresh APK is needed — so OTA can never leave the app half-updated.
-
----
-
-## Installing the APK on the phone
-
-1. Download the `.apk` from the **Releases** page (tap the asset directly — not
-   the artifact `.zip` from the Actions run page; a zip won't install).
-2. Tap it. First time, Android asks to allow "install unknown apps" for your
-   browser/Files app — allow it.
-3. If Play Protect shows **"app not installed"**, tap **More details → Install
-   anyway** (sideloaded apps trip Play Protect; this is expected).
-
-### "App not installed" troubleshooting
-
-Almost always one of these, in order:
-
-1. **An older copy with a different signature is already installed** (e.g. a
-   build you ran from Android Studio/VS Code during development, which uses the
-   debug key). Uninstall it first (Export your data via **Config → Export**
-   beforehand if you have any), then install.
-2. You tapped the **artifact `.zip`** instead of the `.apk`. Use the Release
-   asset.
-3. **Play Protect** blocked it → *More details → Install anyway*.
-4. Partial/corrupt download → re-download.
-
-Once a signed APK is on cleanly, later signed APKs update in place with no
-uninstall.
-
----
-
-## Building an APK manually (optional)
-
-Repo → **Actions** tab → **Build Android APK** → **Run workflow** → pick your
-branch → Run. Open the finished run → **Artifacts** → download the APK zip. (Only
-**tag** pushes publish a phone-tappable APK to Releases; manual/branch runs just
-produce the artifact zip.)
-
----
-
-## Sharing with a friend
-
-A friend forks the repo and does their **own** one-time setup (their own keystore
-+ four secrets, their own Pages). The workflows derive the OTA channel from the
-repo owner, so their fork automatically points at *their* Pages, not yours —
-their builds and updates are fully independent of yours. Downloading your APK
-doesn't use their secrets, and vice-versa.
-
----
-
-## How the versioning fits together (reference)
-
-- **Build number** = `git rev-list --count HEAD` (commit count). Monotonic along
-  the branch and identical no matter which workflow computes it, so an APK built
-  at commit N and a web bundle published at commit M compare cleanly (M > N ⇒
-  the app updates). Stamped by `scripts/ota-stamp.mjs`.
-- The APK bakes in `www/ota.json` (`{ build, channel }`); each OTA publish writes
-  `updates/latest.json` (`{ build, url, minNative, … }`) to Pages.
-- The app runs whichever is newer: the APK's baked-in build or the last OTA
-  bundle it applied (tracked in Preferences). A freshly installed newer APK
-  always wins over an older OTA bundle (`resetWhenUpdate` in
-  `capacitor.config.json`), so updates never go backwards.
+*Want to build, sign, or host your own copy? See `DEVELOPING.md` in the
+repository.*

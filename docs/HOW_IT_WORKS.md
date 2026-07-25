@@ -298,9 +298,10 @@ There are two kinds of change, and they reach your phone differently:
   restart). Choosing **LATER** snoozes that build until a newer one appears. You
   can also pull anytime via **CHECK FOR UPDATES** in **Config → APP UPDATES**.
   Nothing is ever downloaded or applied without your consent. No APK download.
-- **Native changes** (step counter, doomscroll service, a new plugin, icon,
-  permissions) need a **new APK**, published to the Releases page when you push a
-  version tag (`v2`, `v3`, …).
+- **Native changes** (step counter, doomscroll detector, a new plugin, icon,
+  permissions) need a **new APK** — downloaded from the project site (the same
+  place the app first came from), which installs over the old one and keeps your
+  data.
 
 **How it stays consistent:** every build has a number = `git rev-list --count
 HEAD` (commit count), stamped into both the APK's baked-in `www/ota.json` and
@@ -338,7 +339,7 @@ www/
 scripts/
   ota-stamp.mjs   CI helper: stamps build number + channel into ota.json/manifest
 .github/workflows/
-  android.yml     builds/signs the APK, publishes to Releases on version tags
+  android.yml     builds/signs the APK, publishes it to GitHub Pages
   web-ota.yml     publishes web bundles to GitHub Pages for OTA
 android/app/src/main/java/com/rpgifyhabits/app/
   StepCounterPlugin.java   pedometer bridge

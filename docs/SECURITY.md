@@ -1,11 +1,11 @@
 # Is this app safe? — how to verify it yourself
 
-RPGify Habits is a hobby app shared with a few friends, not a Play Store listing.
-That means Android will show "unknown source / unverified" warnings when you
-install it — those are Android's **default caution for any sideloaded app**, not
-a verdict that this app is unsafe. This page explains exactly what the app does,
-what it can and can't touch, and how you can **verify that for yourself** instead
-of taking anyone's word for it.
+RPGify Habits is a personal, non-commercial project distributed directly rather
+than through an app store. That means Android shows "unknown source / unverified"
+warnings when you install it — those are Android's **default caution for any
+sideloaded app**, not a verdict that this app is unsafe. This page explains
+exactly what the app does, what it can and can't touch, and how you can **verify
+that for yourself** instead of taking anyone's word for it.
 
 The short version: **the entire app is open source and built in public**, so you
 don't have to trust the author — you can read every line and check that the APK
@@ -61,9 +61,9 @@ It only records which watched app is in front and for how long. Read it.
    files under `android/app/src/main/java/`. There's no obfuscation and no
    minification.
 
-2. **The APK is built in public, not on someone's laptop.** Every release is
-   built by **GitHub Actions** from a specific public commit — the build logs are
-   public (Actions tab), so you can see exactly what went in. Nothing is
+2. **The APK is built in public, not on someone's laptop.** Every build is
+   produced by **GitHub Actions** from a specific public commit — the build logs
+   are public (Actions tab), so you can see exactly what went in. Nothing is
    hand-assembled off-repo.
 
 3. **Verify your download wasn't tampered with.** Each published APK has a
@@ -80,7 +80,7 @@ It only records which watched app is in front and for how long. Read it.
    ```bash
    apksigner verify --print-certs rpgify-latest.apk
    ```
-   The fingerprint should match across releases (and match what the author
+   The fingerprint should match across versions (and match what the author
    publishes).
 
 5. **Scan it.** Upload the APK to **VirusTotal** for a ~70-engine scan, and note
@@ -95,14 +95,14 @@ It only records which watched app is in front and for how long. Read it.
 
 ---
 
-## Do you need the Play Store for this?
+## Why it isn't on the Play Store
 
-For a handful of friends, **no**. The Play Store mainly adds Google's review +
-distribution; it doesn't make the *code* any safer than reading the public source
-and verifying the build. Sideloading with the checks above is a reasonable trust
-model for a small, non-commercial circle. If this ever grows into something you
-hand to strangers, *then* a Play Store listing (and its review/signing) becomes
-worth the overhead.
+It's a personal, non-commercial project, so it's distributed directly rather than
+through an app store — which is why you install it by sideloading and see
+Android's "unknown source" prompts. That's normal for this kind of app. A store
+listing mainly adds Google's review and distribution; it doesn't make the *code*
+any safer than reading the public source and verifying the build, which you can
+do with the steps above.
 
 ---
 
