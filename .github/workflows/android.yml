@@ -115,17 +115,12 @@ jobs:
           cp "${{ steps.named.outputs.path }}" "apk-site/apk/rpgify-latest.apk"
           # Publish a SHA-256 so anyone can verify their download (see docs/SECURITY.md).
           ( cd apk-site/apk && sha256sum rpgify-latest.apk > rpgify-latest.apk.sha256 )
-          # Tiny index so the folder is browsable.
+          # Tiny index so the apk/ folder is browsable. (The Pages root landing
+          # page is owned by the docs-site workflow.)
           {
             echo "<h1>RPGify Habits APKs</h1>"
             echo "<p>Latest: <a href=\"rpgify-latest.apk\">rpgify-latest.apk</a></p>"
           } > apk-site/apk/index.html
-          # Root landing page (confirms Pages is live; links to the APK).
-          {
-            echo "<h1>RPGify Habits</h1>"
-            echo "<p><a href=\"apk/rpgify-latest.apk\">Download latest APK</a></p>"
-            echo "<p>OTA manifest: <a href=\"updates/latest.json\">updates/latest.json</a></p>"
-          } > apk-site/index.html
 
       - name: Publish APK to GitHub Pages
         if: steps.signing.outputs.signed == 'true'

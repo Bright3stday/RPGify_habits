@@ -1,0 +1,43 @@
+name: Publish docs site
+
+# Renders README + docs/*.md into a styled static site and publishes it to the
+# GitHub Pages root, so the project docs render as a real website. Preserves the
+# apk/ and updates/ folders (keep_files). Runs when docs change, or manually.
+on:
+  push:
+    branches: [ main, master, claude/habit-skill-rpg-android-xir4qv ]
+    paths:
+      - 'README.md'
+      - 'docs/**'
+      - 'scripts/build-docs-site.mjs'
+      - '.github/workflows/docs-site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to push the site to the gh-pages branch
+
+# Share the gh-pages concurrency group so publishes never race.
+concurrency:
+  group: rpgify-gh-pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Build docs site
+        run: node scripts/build-docs-site.mjs dist-site
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist-site
+          destination_dir: .
+          keep_files: true
+          commit_message: "docs site"

@@ -23,6 +23,7 @@
     "@capacitor/share": "^6.0.2"
   },
   "devDependencies": {
-    "@capacitor/cli": "^6.1.2"
+    "@capacitor/cli": "^6.1.2",
+    "marked": "^12.0.0"
   }
 }

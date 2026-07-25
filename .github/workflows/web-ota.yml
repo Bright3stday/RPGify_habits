@@ -60,16 +60,7 @@ jobs:
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
 
-      # A root landing page so the Pages site root serves (confirms Pages is live)
-      # and links to the APK + OTA manifest. Not required for OTA — the app
-      # fetches updates/latest.json directly — but handy and reassuring.
-      - name: Write Pages root index
-        run: |
-          {
-            echo "<h1>RPGify Habits</h1>"
-            echo "<p><a href=\"apk/rpgify-latest.apk\">Download latest APK</a></p>"
-            echo "<p>OTA manifest: <a href=\"updates/latest.json\">updates/latest.json</a></p>"
-          } > dist/index.html
+      # (The Pages root landing page is owned by the docs-site workflow.)
 
       # Publish to gh-pages/updates/. keep_files retains older bundles so phones
       # mid-download aren't broken by a new publish.
