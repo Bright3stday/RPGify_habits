@@ -33,8 +33,10 @@ import {
 import {
   SLOTS, SLOT_LABEL, slotForItem, equipItem, unequipSlot, isKeyEquipped,
 } from './equipment.js';
-import { applyUpdate, markDismissed, describeStatus } from './ota.js';
-import { spiritSummary, spiritWear } from './spirit.js';
+import { applyUpdate, markDismissed, describeStatus, currentBuild } from './ota.js';
+import {
+  spiritSummary, spiritWear, SPIRIT_TUNING, defaultSpiritTrack,
+} from './spirit.js';
 
 // ---- small shared bits --------------------------------------------------
 
@@ -683,6 +685,7 @@ export function renderSettings(container, ctx) {
       <input type="file" id="import-file" accept="application/json,.json" class="hidden" />
       <button class="btn danger block" id="reset" style="margin-top:12px">RESET ALL DATA</button>
     </div>
+    ${state.settings.devMode ? devPanelHtml() : ''}
   `;
 
   // Reminders — persist on apply.
@@ -779,6 +782,87 @@ export function renderSettings(container, ctx) {
       ctx.toast('Reset complete.');
       ctx.render();
     }
+  });
+
+  // Hidden developer/test tools — reveal by tapping the version line 5×.
+  let devTaps = 0;
+  container.querySelector('#ota-status')?.addEventListener('click', async () => {
+    if (state.settings.devMode) return;
+    devTaps += 1;
+    if (devTaps >= 5) {
+      state.settings.devMode = true;
+      await ctx.save();
+      ctx.toast('Developer tools unlocked.');
+      ctx.render();
+    }
+  });
+  if (state.settings.devMode) wireDevPanel(container, ctx);
+}
+
+// Hidden panel for tuning the doomscroll → Spirit loop without real sessions,
+// OTA round-trips, or waiting on the daily cap. Revealed from renderSettings.
+function devPanelHtml() {
+  return `
+    <div class="window" style="border-color:#6a4a90">
+      <div class="window-title">◆ DEVELOPER / TEST</div>
+      <div class="bar-caption">Tuning tools. Simulations fire the real beats/scoring and bypass the daily cap.</div>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn small" id="dev-sim-good">＋ SIM RESTRAINT</button>
+        <button class="btn small" id="dev-sim-binge">＋ SIM BINGE</button>
+      </div>
+      <button class="btn small block" id="dev-reset-spirit" style="margin-top:8px">RESET DOOMSCROLL SCORING</button>
+      <div class="section-label" style="margin-left:0">DIAGNOSTICS</div>
+      <div class="bar-caption" id="dev-diag" style="white-space:pre-wrap">…</div>
+      <button class="btn small block" id="dev-refresh-diag" style="margin-top:6px">REFRESH</button>
+      <button class="btn small block danger" id="dev-hide" style="margin-top:10px">HIDE DEV TOOLS</button>
+    </div>`;
+}
+
+function wireDevPanel(container, ctx) {
+  const { state } = ctx;
+  const diag = container.querySelector('#dev-diag');
+  const showDiag = async () => {
+    if (!diag) return;
+    const build = await currentBuild().catch(() => 0);
+    const { events, seq } = await readUsageEvents();
+    const t = state.spiritTrack || {};
+    diag.textContent = [
+      `build: ${build}`,
+      `spirit: xp=${t.xp || 0}  wear=${Math.round(spiritWear(state) * 100)}%  lastSeq=${t.lastSeq || 0}  cap=${t.capXp || 0}/${SPIRIT_TUNING.dailyCapXp}`,
+      `ledger: ${Array.isArray(events) ? events.length : 0} events, seq=${seq}`,
+    ].join('\n');
+  };
+  showDiag();
+  container.querySelector('#dev-refresh-diag')?.addEventListener('click', showDiag);
+
+  container.querySelector('#dev-sim-good')?.addEventListener('click', async () => {
+    state.spiritTrack = state.spiritTrack || defaultSpiritTrack();
+    state.spiritTrack.xp += SPIRIT_TUNING.gainXp; // bypass cap for testing
+    await ctx.save();
+    ctx.flashBeat(`SPIRIT +${SPIRIT_TUNING.gainXp}`, 'Simulated restraint', '#b06af0');
+    ctx.render();
+  });
+  container.querySelector('#dev-sim-binge')?.addEventListener('click', async () => {
+    state.spiritTrack = state.spiritTrack || defaultSpiritTrack();
+    const at = Date.now();
+    state.spiritTrack.wear = Math.min(SPIRIT_TUNING.wearMax, spiritWear(state, at) + SPIRIT_TUNING.wearPerBinge);
+    state.spiritTrack.wearAt = at;
+    await ctx.save();
+    ctx.flashBeat('SPIRIT WEARS', `Simulated binge · fatigue ${Math.round(spiritWear(state, at) * 100)}%`, '#8a6aa8');
+    ctx.render();
+  });
+  container.querySelector('#dev-reset-spirit')?.addEventListener('click', async () => {
+    const { seq } = await readUsageEvents();
+    state.spiritTrack = { ...defaultSpiritTrack(), lastSeq: seq }; // skip existing ledger
+    await ctx.save();
+    ctx.toast('Doomscroll scoring reset.');
+    ctx.render();
+  });
+  container.querySelector('#dev-hide')?.addEventListener('click', async () => {
+    state.settings.devMode = false;
+    await ctx.save();
+    ctx.toast('Developer tools hidden.');
+    ctx.render();
   });
 }
 

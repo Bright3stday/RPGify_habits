@@ -113,6 +113,8 @@ jobs:
           mkdir -p apk-site/apk
           cp "${{ steps.named.outputs.path }}" "apk-site/apk/${{ steps.named.outputs.path }}"
           cp "${{ steps.named.outputs.path }}" "apk-site/apk/rpgify-latest.apk"
+          # Publish a SHA-256 so anyone can verify their download (see docs/SECURITY.md).
+          ( cd apk-site/apk && sha256sum rpgify-latest.apk > rpgify-latest.apk.sha256 )
           # Tiny index so the folder is browsable.
           {
             echo "<h1>RPGify Habits APKs</h1>"

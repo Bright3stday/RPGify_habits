@@ -12,6 +12,7 @@ fresh session can pick up with full context.
 | [`../README.md`](../README.md) | Project overview, screens, design notes, project layout, dev/build commands. |
 | [`HOW_IT_WORKS.md`](HOW_IT_WORKS.md) | Plain-English, example-driven tour of every system and exactly what each number/threshold reads from. The best conceptual reference. |
 | [`INSTALL_AND_UPDATE.md`](INSTALL_AND_UPDATE.md) | Getting the app on a phone and keeping it updated: signing key + secrets, GitHub Pages, OTA vs APK, "app not installed" troubleshooting, sharing with a friend. |
+| [`SECURITY.md`](SECURITY.md) | "Is this safe?" — permissions explained, what leaves the device (nothing silently), and how anyone can verify the APK matches the public source. Shareable with friends. |
 
 ## What this is (one paragraph)
 
