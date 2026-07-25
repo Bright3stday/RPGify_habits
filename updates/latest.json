@@ -1,8 +1,8 @@
 {
-  "build": 36,
-  "version": "web-36",
-  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-36.zip",
+  "build": 37,
+  "version": "web-37",
+  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-37.zip",
   "minNative": 1,
-  "notes": "• web-ota: write a root index.html to the Pages site\n• Spirit scoring from the doomscroll ledger (OTA, schema v4)\n• Add a root index.html to the Pages site (browsable landing page)\n• Publish signed APK to GitHub Pages (stable URL, no tags needed)\n• Doomscroll detector: only treat launchable apps as foreground switches",
-  "publishedAt": "2026-07-25T14:44:09.823Z"
+  "notes": "• Make Spirit gain/wear visible: reward beats + Status fatigue chip\n• web-ota: write a root index.html to the Pages site\n• Spirit scoring from the doomscroll ledger (OTA, schema v4)\n• Add a root index.html to the Pages site (browsable landing page)\n• Publish signed APK to GitHub Pages (stable URL, no tags needed)",
+  "publishedAt": "2026-07-25T15:04:29.114Z"
 }
