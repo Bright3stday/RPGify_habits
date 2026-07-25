@@ -254,6 +254,16 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 }
 .bar-caption { font-size: 7px; color: var(--ink-dim); margin-top: 4px; }
 
+/* Doomscroll "fatigue" chip on the Spirit attribute row. */
+.fatigue-chip {
+  font-size: 7px;
+  margin-left: 6px;
+  padding: 1px 4px;
+  color: #d0b0ff;
+  border: 1px solid #6a4a90;
+  white-space: nowrap;
+}
+
 /* ---- Condition badge / sprite ------------------------------------------ */
 
 .cond {

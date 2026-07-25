@@ -34,7 +34,7 @@ import {
   SLOTS, SLOT_LABEL, slotForItem, equipItem, unequipSlot, isKeyEquipped,
 } from './equipment.js';
 import { applyUpdate, markDismissed, describeStatus } from './ota.js';
-import { spiritSummary } from './spirit.js';
+import { spiritSummary, spiritWear } from './spirit.js';
 
 // ---- small shared bits --------------------------------------------------
 
@@ -125,14 +125,20 @@ export function renderDashboard(container, ctx) {
   const habits = Object.values(state.habits).filter((h) => !h.retired);
   const due = habits.filter((h) => isDue(h)).sort((a, b) => dueAt(a) - dueAt(b));
 
-  // Primary attributes with their upkeep (condition) dot.
+  // Primary attributes with their upkeep (condition) dot. Spirit also shows an
+  // explicit doomscroll "fatigue" chip when worn, since a single binge's dip can
+  // hide inside the condition bucket.
+  const wearPct = Math.round(spiritWear(state) * 100);
   const primHtml = ATTRIBUTES.map((a) => {
     const st = state.stats[a.id];
     const cs = conditionState(st.condition);
+    const fatigue = (a.id === 'spr' && wearPct > 0)
+      ? `<span class="fatigue-chip" title="Doomscroll fatigue — heals over time and as you complete quests">😵‍💫 ${wearPct}%</span>`
+      : '';
     return `
       <div class="attr-row">
         <span class="attr-glyph" style="color:${a.color}">${a.glyph}</span>
-        <span class="attr-name">${a.name}</span>
+        <span class="attr-name">${a.name}${fatigue}</span>
         <span class="attr-cond ${cs}" title="${st.condition}% upkeep"></span>
         <span class="attr-val">${sheet.primary[a.id]}</span>
       </div>`;

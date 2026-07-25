@@ -261,9 +261,11 @@ been in that app that long *in one sitting*, a notification only **observes** �
     capped wear (≤ 0.6) to Spirit's *condition* — never a hard break. Wear
     **self-heals** (half-life ~2 days) **and each completed quest burns some
     down**, so doing real habits is what clears doomscroll fatigue.
-  - The effect is shown plainly in Config (SPIRIT IMPACT: "+X XP · Y% wear") and
-    in Spirit's condition dot on the Status screen. All magnitudes live in
-    `SPIRIT_TUNING` and ship over-the-air.
+  - **Feedback:** when you return to the app it plays an animated **reward beat**
+    ("SPIRIT +6" / "SPIRIT WEARS"); the Status screen shows an explicit **fatigue
+    chip** (😵‍💫 N%) on the Spirit row while worn (a single binge's dip can hide
+    inside the condition bucket); and Config shows the running SPIRIT IMPACT line.
+    All magnitudes live in `SPIRIT_TUNING` and ship over-the-air.
 - **Per session:** switching away (including to the launcher) resets it.
 - **Retrigger** is configurable: once per session, or every N further minutes.
 - **YouTube caveat:** the foreground signal can't tell Shorts from long-form, so

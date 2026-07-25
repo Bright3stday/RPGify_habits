@@ -9,7 +9,7 @@ import { rescheduleAll } from './notifications.js';
 import { refreshSteps } from './pedometer.js';
 import { notifyReady, checkForUpdate, isDismissed } from './ota.js';
 import { readUsageEvents } from './doomscroll.js';
-import { applyLedger } from './spirit.js';
+import { applyLedger, spiritWear } from './spirit.js';
 import { RARITY, itemIconSvg } from './items.js';
 import { esc } from './util.js';
 import {
@@ -177,8 +177,18 @@ async function drainDoomscroll({ silent = false } = {}) {
     refreshConditions(state);
     await saveState(state);
   }
-  if (!silent && res.gainedXp) toast(`☯ Spirit +${res.gainedXp} — you left on the nudge`);
-  else if (!silent && res.addedWear) toast('☯ Spirit wears a little — long session');
+  if (silent) return { gainedXp: res.gainedXp, addedWear: res.addedWear };
+  // Surface the effect as proper animated reward beats (not just a toast).
+  const beats = [];
+  if (res.gainedXp) {
+    beats.push({ title: `SPIRIT +${res.gainedXp}`, line: 'You stepped away from the scroll', color: '#b06af0', icon: '☯' });
+  }
+  if (res.addedWear) {
+    const pct = Math.round(spiritWear(state) * 100);
+    beats.push({ title: 'SPIRIT WEARS', line: `A long session · Spirit fatigue ${pct}%`, color: '#8a6aa8' });
+  }
+  if (beats.length) playBeats(beats);
+  return { gainedXp: res.gainedXp, addedWear: res.addedWear };
 }
 
 // ---- OTA update prompt --------------------------------------------------
@@ -220,8 +230,10 @@ async function boot() {
   });
 
   await ctx.syncSteps({ silent: true }); // catch up steps from time away
-  await drainDoomscroll({ silent: true }); // fold any doomscroll sessions into Spirit
   render();
+  // Fold any doomscroll sessions into Spirit and show the reward/wear beats over
+  // the drawn screen, then re-render so the Spirit dot + wear indicator update.
+  drainDoomscroll().then((d) => { if (d && (d.gainedXp || d.addedWear)) render(); });
   // Re-check steps + conditions when returning to the app after time away.
   document.addEventListener('visibilitychange', async () => {
     if (!document.hidden) {
