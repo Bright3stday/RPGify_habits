@@ -31,6 +31,7 @@ import {
 import {
   SLOTS, SLOT_LABEL, slotForItem, equipItem, unequipSlot, isKeyEquipped,
 } from './equipment.js';
+import { applyUpdate, markDismissed, describeStatus } from './ota.js';
 
 // ---- small shared bits --------------------------------------------------
 
@@ -51,6 +52,47 @@ function modal(html) {
   overlay.innerHTML = `<div class="window modal">${html}</div>`;
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
   document.body.appendChild(overlay);
+  return overlay;
+}
+
+// Consent prompt for an available OTA update. Shows what's changing and lets the
+// user choose — nothing is downloaded or applied until they tap UPDATE NOW.
+// `manifest` comes from checkForUpdate()'s 'available' result.
+export function showUpdatePrompt(manifest, ctx) {
+  const notes = (manifest.notes || '').trim();
+  const noteHtml = notes
+    ? `<div class="section-label" style="margin-left:0">WHAT'S NEW</div>
+       <div class="bar-caption" style="white-space:pre-wrap;margin-bottom:6px">${esc(notes)}</div>`
+    : '<div class="bar-caption" style="margin-bottom:6px">No change notes were provided for this update.</div>';
+  const overlay = modal(`
+    <div class="window-title">◆ UPDATE AVAILABLE</div>
+    <div class="bar-caption" style="margin-bottom:8px">Version ${esc(String(manifest.version || `web-${manifest.build}`))} (build ${manifest.build}).</div>
+    ${noteHtml}
+    <div class="bar-caption" style="margin:6px 0">This updates the app's web content only; your data stays. The app will briefly restart.</div>
+    <div class="btn-row">
+      <button class="btn primary" id="ota-do">UPDATE NOW</button>
+      <button class="btn" id="ota-later">LATER</button>
+    </div>
+    <div class="bar-caption" id="ota-prog" style="margin-top:8px"></div>
+  `);
+  overlay.querySelector('#ota-later').addEventListener('click', async () => {
+    await markDismissed(manifest.build); // don't nag until a newer build appears
+    overlay.remove();
+  });
+  overlay.querySelector('#ota-do').addEventListener('click', async () => {
+    const prog = overlay.querySelector('#ota-prog');
+    overlay.querySelector('#ota-do').disabled = true;
+    overlay.querySelector('#ota-later').disabled = true;
+    prog.textContent = 'Downloading update…';
+    const r = await applyUpdate(manifest);
+    // On success the app reloads into the new bundle; this line rarely shows.
+    if (r.status !== 'applied') {
+      prog.textContent = describeStatus(r) || 'Update failed. Try again later.';
+      overlay.querySelector('#ota-do').disabled = false;
+      overlay.querySelector('#ota-later').disabled = false;
+      if (ctx) ctx.toast('Update failed — try again later.', 2600);
+    }
+  });
   return overlay;
 }
 
@@ -620,7 +662,7 @@ export function renderSettings(container, ctx) {
       <div class="window-title">◆ APP UPDATES</div>
       <div class="bar-caption" id="ota-status">Checking current version…</div>
       <button class="btn primary block" id="ota-check" style="margin-top:8px">CHECK FOR UPDATES</button>
-      <div class="bar-caption" style="margin-top:8px">Web changes install over-the-air here — no APK download needed. Only brand-new native features require a fresh APK from the Releases page.</div>
+      <div class="bar-caption" style="margin-top:8px">Checks for a newer web version and asks before installing — nothing downloads without your OK. The app also checks on launch and prompts you then. Only brand-new native features need a fresh APK from the Releases page.</div>
     </div>
 
     <div class="window">
@@ -686,12 +728,16 @@ export function renderSettings(container, ctx) {
     }
   })();
   container.querySelector('#ota-check').addEventListener('click', async () => {
-    const { checkForUpdate, describeStatus } = await import('./ota.js');
+    const { checkForUpdate } = await import('./ota.js');
     const statusEl = container.querySelector('#ota-status');
     statusEl.textContent = 'Checking for updates…';
-    const r = await checkForUpdate({ manual: true });
-    statusEl.textContent = describeStatus(r);
-    ctx.toast(describeStatus(r), 2600);
+    const r = await checkForUpdate();
+    statusEl.textContent = describeStatus(r) || 'No update information.';
+    if (r.status === 'available') {
+      showUpdatePrompt(r.manifest, ctx); // consent required before anything downloads
+    } else {
+      ctx.toast(describeStatus(r) || 'Up to date.', 2600);
+    }
   });
 
   // Data

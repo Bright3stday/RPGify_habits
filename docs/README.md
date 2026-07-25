@@ -90,7 +90,17 @@ android/app/src/main/java/com/rpgifyhabits/app/
   self-hosted GitHub Pages. Build number = commit count, stamped into both the
   APK baseline and the OTA manifest so they compare cleanly; each web bundle
   records the min native `versionCode` it needs so OTA never half-updates a stale
-  APK. See `INSTALL_AND_UPDATE.md`.
+  APK. **Consent-based:** `checkForUpdate` only detects; it prompts the user
+  (version + "what's new") and downloads/applies only via `applyUpdate` after
+  they tap UPDATE NOW (LATER snoozes that build). Never auto-applies. See
+  `INSTALL_AND_UPDATE.md`.
+- **Doomscroll is poll-primary, fire-precise.** There is no real-time OS push
+  for a normal app (the observer API needs a privileged permission — reverted).
+  Polling (`DoomscrollService`, default 1 min) is the *only* detector, but each
+  poll reads the session's true `MOVE_TO_FOREGROUND` timestamp from `queryEvents`
+  and arms an exact one-shot at `start + threshold`, so the alert still fires to
+  the second for any threshold ≫ poll interval. The poll interval only bounds how
+  fast a brand-new session is first noticed; it does not degrade firing accuracy.
 
 ## One-time setup checklist (per person/fork)
 

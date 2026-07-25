@@ -7,11 +7,12 @@ import { refreshConditions } from './condition.js';
 import { activeEffects, grantDue } from './skilltree.js';
 import { rescheduleAll } from './notifications.js';
 import { refreshSteps } from './pedometer.js';
-import { notifyReady, checkForUpdate } from './ota.js';
+import { notifyReady, checkForUpdate, isDismissed } from './ota.js';
 import { RARITY, itemIconSvg } from './items.js';
 import { esc } from './util.js';
 import {
   renderDashboard, renderHabits, renderTree, renderSettings, renderInventory,
+  showUpdatePrompt,
 } from './views.js';
 
 const ROUTES = {
@@ -159,13 +160,27 @@ const ctx = {
   },
 };
 
+// ---- OTA update prompt --------------------------------------------------
+
+// Check for a newer web bundle and, if one is available and not snoozed, ask
+// the user (never auto-applies). Safe no-op on the web preview.
+async function maybePromptUpdate() {
+  try {
+    const r = await checkForUpdate();
+    if (r.status === 'available' && !(await isDismissed(r.manifest.build))) {
+      showUpdatePrompt(r.manifest, ctx);
+    }
+  } catch (e) { /* offline / not native — ignore */ }
+}
+
 // ---- Boot ---------------------------------------------------------------
 
 async function boot() {
   // Confirm this web bundle booted OK so the OTA updater doesn't roll it back,
-  // then quietly check for a newer bundle (applying one reloads the app).
+  // then quietly check for a newer bundle. Nothing is downloaded automatically:
+  // if one is found (and not previously snoozed) we prompt for consent.
   notifyReady();
-  checkForUpdate({ silent: true }).catch(() => {});
+  maybePromptUpdate();
 
   state = migrate(await loadState());
   if (!state) {

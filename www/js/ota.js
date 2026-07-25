@@ -16,6 +16,7 @@
 // manifest, so "manifest build > my build" is a clean, cross-workflow test.
 
 const OTA_BUILD_KEY = 'rpgify.ota.build'; // Preferences: last OTA build applied
+const OTA_DISMISS_KEY = 'rpgify.ota.dismissed'; // Preferences: build the user snoozed
 
 function cap() {
   return typeof window !== 'undefined' ? window.Capacitor : undefined;
@@ -56,6 +57,7 @@ export function describeStatus(r) {
     case 'web': return 'Updates apply inside the installed Android app.';
     case 'unconfigured': return 'No update channel configured for this build.';
     case 'current': return `Up to date (build ${r.build}).`;
+    case 'available': return `Update available (build ${r.manifest.build}).`;
     case 'needs-apk': return 'A newer version needs a fresh APK from Releases.';
     case 'downloading': return 'Downloading update…';
     case 'applied': return 'Update installed — restarting…';
@@ -96,6 +98,23 @@ async function setAppliedBuild(build) {
   try { await prefs.set({ key: OTA_BUILD_KEY, value: String(build) }); } catch (e) { /* ignore */ }
 }
 
+// "Later" dismissals: remember which build the user declined so the launch
+// prompt doesn't nag every open. A newer build clears the snooze automatically.
+export async function markDismissed(build) {
+  const prefs = plugin('Preferences');
+  if (!prefs) return;
+  try { await prefs.set({ key: OTA_DISMISS_KEY, value: String(build) }); } catch (e) { /* ignore */ }
+}
+
+export async function isDismissed(build) {
+  const prefs = plugin('Preferences');
+  if (!prefs) return false;
+  try {
+    const { value } = await prefs.get({ key: OTA_DISMISS_KEY });
+    return value != null && Number(value) === Number(build);
+  } catch (e) { return false; }
+}
+
 // Installed APK's Android versionCode (App.getInfo().build), or null if unknown.
 async function nativeVersion() {
   const app = plugin('App');
@@ -124,9 +143,12 @@ export async function notifyReady() {
   try { await p.notifyAppReady(); } catch (e) { /* ignore */ }
 }
 
-// Check the channel and, if a newer applicable bundle exists, download + apply
-// it (which reloads the app). Returns a status object; see describeStatus().
-export async function checkForUpdate({ silent = false } = {}) {
+// Check the channel and report whether a newer applicable bundle exists. This
+// NEVER downloads or applies anything on its own — updates require explicit
+// consent via applyUpdate(). Returns a status object; see describeStatus().
+// An 'available' result carries the full manifest (build, version, notes) so
+// the UI can show the user what's changing before they decide.
+export async function checkForUpdate() {
   const p = plugin('CapacitorUpdater');
   if (!p) return { status: 'web' };
 
@@ -148,12 +170,17 @@ export async function checkForUpdate({ silent = false } = {}) {
   if (decision.reason === 'invalid') return { status: 'error' };
   if (decision.reason === 'up-to-date') return { status: 'current', build: current };
   if (decision.reason === 'needs-apk') return { status: 'needs-apk', build: manifest.build };
+  return { status: 'available', manifest };
+}
 
+// Download and apply a specific manifest's bundle — called ONLY after the user
+// agrees. set() reloads the app into the new bundle. Records the build BEFORE
+// set() so the next boot sees it as current and doesn't re-offer it.
+export async function applyUpdate(manifest) {
+  const p = plugin('CapacitorUpdater');
+  if (!p || !manifest || !manifest.url) return { status: 'error' };
   try {
     const b = await p.download({ url: manifest.url, version: manifest.version || `web-${manifest.build}` });
-    // Record BEFORE set(): set() reloads into the new bundle immediately, and
-    // on that next boot `current` must already reflect this build so we don't
-    // loop re-downloading it.
     await setAppliedBuild(manifest.build);
     await p.set({ id: b.id });
     return { status: 'applied', build: manifest.build };

@@ -386,6 +386,8 @@ test('ota describeStatus covers each status', () => {
   for (const s of ['web', 'current', 'needs-apk', 'applied', 'offline', 'error']) {
     assert.ok(describeStatus({ status: s, build: 1 }).length > 0);
   }
+  // 'available' reads the nested manifest build.
+  assert.ok(describeStatus({ status: 'available', manifest: { build: 7 } }).includes('7'));
 });
 
 console.log(`\n${passed} checks passed.`);

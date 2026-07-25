@@ -79,12 +79,14 @@ manifest at `https://<your-username>.github.io/rpgify_habits/updates/latest.json
 When you push web changes (anything under `www/`) to the main development branch,
 `.github/workflows/web-ota.yml` runs, packages the web bundle, and publishes it
 to GitHub Pages. Your installed app checks that channel **on every launch** and,
-if there's a newer bundle it can use, downloads and applies it (the app briefly
-restarts into the new version). There's also a **CHECK FOR UPDATES** button in
-**Config → APP UPDATES** to pull immediately.
+if there's a newer bundle it can use, **asks you first** — a prompt shows the
+version and a short "what's new" list, with **UPDATE NOW** / **LATER**. Nothing
+downloads until you tap UPDATE NOW; LATER snoozes that build until a newer one
+appears. There's also a **CHECK FOR UPDATES** button in **Config → APP UPDATES**
+to check on demand.
 
-No tags, no APK, no download prompts. You just push and, next time you open the
-app, it's updated.
+No tags, no APK, no signing dance — you push, and the next time you open the app
+it offers the update for you to accept.
 
 > The very first time, the phone needs an APK that already contains the OTA
 > updater (built after this feature was added). Install that APK once (below);

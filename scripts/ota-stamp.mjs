@@ -46,6 +46,20 @@ function nativeVersionCode() {
   }
 }
 
+// A short change summary for the in-app "what's new" prompt: the subject lines
+// of the most recent commits. Best-effort — empty if git isn't available.
+function releaseNotes() {
+  try {
+    const raw = execSync('git log -5 --pretty=%s').toString().trim();
+    return raw
+      .split('\n')
+      .map((s) => `• ${s.trim()}`)
+      .join('\n');
+  } catch (e) {
+    return '';
+  }
+}
+
 const mode = process.argv[2];
 const build = buildNumber();
 const channel = channelUrl();
@@ -62,6 +76,7 @@ if (mode === 'baseline') {
     version: `web-${build}`,
     url: `${channel}/bundle-${build}.zip`,
     minNative: nativeVersionCode(),
+    notes: releaseNotes(),
     publishedAt: new Date().toISOString(),
   };
   writeFileSync(join(outDir, 'latest.json'), `${JSON.stringify(manifest, null, 2)}\n`);

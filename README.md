@@ -277,10 +277,12 @@ Two update paths, so everyday changes never need an APK:
 - **Web changes** (anything in `www/` — screens, logic, text) ship
   **over-the-air**. Pushing them to the main branch triggers
   `.github/workflows/web-ota.yml`, which publishes the web bundle to **GitHub
-  Pages**; the installed app checks that channel on every launch (and via
-  **Config → APP UPDATES**) and applies newer bundles itself — no download,
-  no reinstall. Uses `@capgo/capacitor-updater`; hosting is self-served on Pages
-  (no third-party account).
+  Pages**; the installed app checks that channel on launch (and via
+  **Config → APP UPDATES**) and, when a newer bundle exists, **prompts the user
+  with a "what's new" summary and installs only on their consent** (UPDATE NOW /
+  LATER) — no reinstall, nothing applied silently. Uses
+  `@capgo/capacitor-updater`; hosting is self-served on Pages (no third-party
+  account).
 - **Native changes** (step counter, doomscroll service, a new plugin, icon,
   permissions) need a **new APK** — push a version tag (`v2`, `v3`, …) and
   `android.yml` builds a **signed** APK and publishes it to the Releases page.

@@ -271,8 +271,11 @@ There are two kinds of change, and they reach your phone differently:
 - **Web changes** (screens, game logic, text — anything in `www/`) ship
   **over-the-air**. On every launch the app checks a small manifest on GitHub
   Pages; if a newer web bundle is published and your installed APK is new enough
-  to run it, the app downloads and swaps it in (a brief restart). There's also a
-  **CHECK FOR UPDATES** button in **Config → APP UPDATES**. No APK download.
+  to run it, the app **prompts you** — showing the version and a short "what's
+  new" — and downloads/installs it **only if you tap UPDATE NOW** (a brief
+  restart). Choosing **LATER** snoozes that build until a newer one appears. You
+  can also pull anytime via **CHECK FOR UPDATES** in **Config → APP UPDATES**.
+  Nothing is ever downloaded or applied without your consent. No APK download.
 - **Native changes** (step counter, doomscroll service, a new plugin, icon,
   permissions) need a **new APK**, published to the Releases page when you push a
   version tag (`v2`, `v3`, …).
@@ -286,7 +289,9 @@ the web update and tells you to grab a new APK, so it can never half-update into
 a broken state. Full setup and mechanics: `docs/INSTALL_AND_UPDATE.md`.
 
 The pure decision (`shouldApply`) is unit-tested in `scripts/test.js`; the
-download/apply glue runs only inside the installed Android app (no-op on web).
+consent prompt (`showUpdatePrompt`) and download/apply glue (`applyUpdate`) run
+only inside the installed Android app (no-op on web). `checkForUpdate` only
+detects — it never downloads.
 
 ---
 
