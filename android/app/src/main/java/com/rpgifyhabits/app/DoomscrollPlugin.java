@@ -8,8 +8,7 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Process;
 import android.provider.Settings;
-
-import androidx.core.content.ContextCompat;
+import android.text.TextUtils;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -78,28 +77,61 @@ public class DoomscrollPlugin extends Plugin {
     call.resolve(r);
   }
 
-  // Detection uses a foreground service polling UsageStats. (The OS
-  // usage-session observer APIs need the privileged OBSERVE_APP_USAGE
-  // permission, which a normal app can't hold — so they're not usable here.)
+  // Detection is event-driven via DoomscrollAccessibilityService (enabled by the
+  // user in Settings → Accessibility). Here we just persist the watched-apps
+  // config for that service to read — no polling, no foreground service.
   @PluginMethod
   public void startMonitoring(PluginCall call) {
     DoomscrollUtil.writeConfig(getContext(), call.getData().toString());
-    Intent i = new Intent(getContext(), DoomscrollService.class);
-    i.setAction(DoomscrollService.ACTION_START);
-    i.putExtra(DoomscrollService.EXTRA_CONFIG, call.getData().toString());
-    ContextCompat.startForegroundService(getContext(), i);
-    DoomscrollService.setRunningFlag(true);
     call.resolve();
   }
 
   @PluginMethod
   public void stopMonitoring(PluginCall call) {
     DoomscrollUtil.writeConfig(getContext(), "{\"enabled\":false,\"apps\":[]}");
-    Intent i = new Intent(getContext(), DoomscrollService.class);
-    i.setAction(DoomscrollService.ACTION_STOP);
-    getContext().startService(i);
-    DoomscrollService.setRunningFlag(false);
     call.resolve();
+  }
+
+  // Is our accessibility detector currently enabled in system settings?
+  @PluginMethod
+  public void isAccessibilityEnabled(PluginCall call) {
+    JSObject r = new JSObject();
+    r.put("enabled", accessibilityEnabled());
+    call.resolve(r);
+  }
+
+  private boolean accessibilityEnabled() {
+    String flat = Settings.Secure.getString(
+        getContext().getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+    if (TextUtils.isEmpty(flat)) return false;
+    String me = getContext().getPackageName() + "/" + DoomscrollAccessibilityService.class.getName();
+    String meShort = getContext().getPackageName() + "/.DoomscrollAccessibilityService";
+    TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter(':');
+    splitter.setString(flat);
+    while (splitter.hasNext()) {
+      String s = splitter.next();
+      if (s.equalsIgnoreCase(me) || s.equalsIgnoreCase(meShort)) return true;
+    }
+    return false;
+  }
+
+  @PluginMethod
+  public void openAccessibilitySettings(PluginCall call) {
+    Intent i = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+    getContext().startActivity(i);
+    call.resolve();
+  }
+
+  // Read the raw session ledger the detector has recorded. JS computes all
+  // scoring from these events (and tracks the last `seq` it has processed).
+  @PluginMethod
+  public void readEvents(PluginCall call) {
+    JSObject r = new JSObject();
+    try { r.put("events", new JSONArray(DoomscrollUtil.readEventsJson(getContext()))); }
+    catch (Exception e) { r.put("events", new JSONArray()); }
+    r.put("seq", DoomscrollUtil.currentSeq(getContext()));
+    call.resolve(r);
   }
 
   // On-device diagnostic: what app is foregrounded right now, and for how long?
@@ -133,7 +165,8 @@ public class DoomscrollPlugin extends Plugin {
   @PluginMethod
   public void isMonitoring(PluginCall call) {
     JSObject r = new JSObject();
-    r.put("active", DoomscrollService.isRunningFlag());
+    // Active = detector enabled in system settings AND the user has it turned on.
+    r.put("active", accessibilityEnabled() && DoomscrollUtil.isEnabled(getContext()));
     call.resolve(r);
   }
 }

@@ -92,43 +92,42 @@ pedometer (`www/js/pedometer.js` ⇄ `StepCounterPlugin.java`, `TYPE_STEP_COUNTE
 and the app polls live while open, so goals complete on their own; with no
 sensor (web) you log them manually.
 
-### Doomscroll reflection alert
-A deliberately **disruptive** nudge with a deliberately **non-judgemental**
-message. When a chosen app has been in the foreground for a continuous session
-past your per-app threshold, it fires a real notification that only *observes*
-— "28 minutes on Instagram", optionally with a hunched pixel avatar — never
-instructs, scolds, or warns. No streak-broken framing, no red styling.
+### Doomscroll reflection layer
+A deliberately **non-judgemental**, **per-continuous-session** awareness layer —
+intentionally *distinct* from Android's Digital Wellbeing (which owns daily
+limits + hard blocking; we don't duplicate it). When a chosen app has been in the
+foreground for one continuous sitting past your per-app threshold, it fires a
+notification that only *observes* — "28 minutes on Instagram" — never instructs,
+scolds, warns, or blocks. No red styling.
 
-- **Opt-in**; requires the special **Usage Access** permission (`PACKAGE_USAGE_STATS`,
-  granted in system settings via the plugin). This is the only usage-time API a
-  normal app can use — the OS usage-session *observer* APIs
-  (`registerUsageSessionObserver`) need the privileged `OBSERVE_APP_USAGE`
-  permission that only system apps (e.g. Digital Wellbeing) can hold, so they're
-  not available here.
-- **Foreground service** (`DoomscrollService.java`) over WorkManager (15-min
-  floor); costs a persistent notice + more battery — an accepted tradeoff.
-- **Precise firing.** Because the real session **start** timestamp is known, the
-  service schedules a one-shot **exactly at `start + threshold`** (and, for
-  retrigger, `start + lastAlert + N`) rather than waiting for a poll — so the
-  alert lands to the second. A short detection poll (default **1 min**,
-  configurable) only bounds how soon a *brand-new* session is noticed so the
-  exact timer can be armed; it never affects accuracy. The timer re-verifies the
-  same session is still foreground before firing.
-- **Per continuous session**, not cumulative-per-day: switching away resets it.
-  The session/threshold/copy/timing logic is unit-tested in `www/js/doomscroll.js`;
-  the service mirrors it.
-- **Diagnostics** (Config → Doomscroll → DIAGNOSTICS): *Probe* reads the current
-  foreground app + elapsed session time via the plugin (`probe()`), and *Test
-  alert* posts a sample notification (`fireTestAlert()`) — so detection and the
-  notification path can be sanity-checked on-device without waiting for a real
-  threshold.
+- **Event-driven detection** via an **AccessibilityService**
+  (`DoomscrollAccessibilityService`). Once enabled under Settings → Accessibility,
+  the OS *pushes* foreground-app changes — real-time, no polling loop, no
+  persistent notification, low battery. It reads only *which* app is in front
+  (`canRetrieveWindowContent="false"`), never screen content, and only for the
+  apps you pick. (The zero-poll usage-session *observer* API needs the privileged
+  `OBSERVE_APP_USAGE` permission a normal app can't hold; the older UsageStats
+  foreground-service poll, `DoomscrollService.java`, stays in the tree as a
+  dormant fallback.)
+- **Dumb native, smart JS — so mechanics ship over-the-air.** The service only
+  *records raw facts* into a session ledger (`DoomscrollUtil.appendEvent`, read
+  back through the plugin's `readEvents`); **all scoring lives in JS**
+  (`www/js/doomscroll.js`, unit-tested), so it's tunable via OTA without a new
+  APK. Each session logs app, start, end, duration, whether the nudge fired, and
+  how soon you left after it — rich enough to also power a future optional
+  "total usage over time" view.
+- **Tied to Spirit, transparently.** Leaving a watched app soon after the nudge is
+  designed to *feed Spirit*; bingeing past it *wears* it — the same loss-aversion
+  loop as habit decay, shown plainly in Config (a *Recently detected* panel lists
+  what the detector logged). The detector + ledger ship first; Spirit scoring is
+  layered on via OTA.
+- **Per continuous session**, not cumulative-per-day: switching away (including to
+  the launcher) resets it, and the next open counts fresh.
 - **Retrigger** is configurable: once per session, or every N further minutes.
-- **YouTube caveat**: UsageStats can't tell Shorts from long-form, so this first
-  pass just lets you give YouTube a much longer threshold (or leave it off).
-  No heuristic/accessibility content-inspection — a deliberate non-goal for now.
-- The session/threshold/copy logic lives in `www/js/doomscroll.js` and is
-  unit-tested; `DoomscrollService.java` mirrors it. **Non-goals:** no blocking
-  or app limits (it alerts, never restricts) and no evaluative language anywhere.
+- **YouTube caveat**: the foreground signal can't tell Shorts from long-form, so
+  give YouTube a much longer threshold (or leave it off).
+- **Non-goals:** no blocking or app limits (that's Digital Wellbeing's job — this
+  reflects and scores, never restricts) and no evaluative language anywhere.
 
 ### Mastery tree — self-authored, honestly confirmed (`www/js/skilltree.js`)
 The tree is **yours to write**. Inside each attribute-tree you author nodes,

@@ -94,13 +94,23 @@ android/app/src/main/java/com/rpgifyhabits/app/
   (version + "what's new") and downloads/applies only via `applyUpdate` after
   they tap UPDATE NOW (LATER snoozes that build). Never auto-applies. See
   `INSTALL_AND_UPDATE.md`.
-- **Doomscroll is poll-primary, fire-precise.** There is no real-time OS push
-  for a normal app (the observer API needs a privileged permission — reverted).
-  Polling (`DoomscrollService`, default 1 min) is the *only* detector, but each
-  poll reads the session's true `MOVE_TO_FOREGROUND` timestamp from `queryEvents`
-  and arms an exact one-shot at `start + threshold`, so the alert still fires to
-  the second for any threshold ≫ poll interval. The poll interval only bounds how
-  fast a brand-new session is first noticed; it does not degrade firing accuracy.
+- **Doomscroll: event-driven detector, JS scoring, distinct from Digital
+  Wellbeing.** Digital Wellbeing already owns daily limits + hard blocking; we do
+  NOT duplicate that. RPGify's role is *per-continuous-session awareness* tied to
+  the RPG. Detection is an **AccessibilityService** (`DoomscrollAccessibilityService`,
+  `TYPE_WINDOW_STATE_CHANGED`) — event-driven, real-time, low battery, reads only
+  the foreground package (not screen content). The privileged usage-session
+  observer API is unusable (reverted); the old UsageStats foreground-service poll
+  is a dormant fallback. **Native/APK-locked:** the detector + the raw session
+  ledger (`DoomscrollUtil.appendEvent`, read via the plugin's `readEvents`).
+  **OTA-tunable (JS):** all scoring — the effect on **Spirit** (leave-on-nudge →
+  gain, binge → wear), thresholds, curves, copy, UI. The ledger is rich enough to
+  also power a future optional "total usage over time" view without a new APK.
+- **`minNative` is set intentionally, not auto-derived.** Each OTA manifest's
+  `minNative` comes from the committed `www/ota.json` field (default 1), bumped by
+  hand only when a web change truly needs a newer native capability. (Auto-reading
+  it from `versionCode` would wrongly block JS-only updates from older-but-adequate
+  APKs.) `versionCode` is 2 as of the accessibility-detector APK.
 
 ## One-time setup checklist (per person/fork)
 

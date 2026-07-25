@@ -88,13 +88,56 @@ public final class DoomscrollUtil {
   }
 
   public static boolean isWatched(Context ctx, String pkg) {
+    return thresholdMinFor(ctx, pkg) != null;
+  }
+
+  // The per-app continuous-session threshold (minutes), or null if not watched.
+  public static Integer thresholdMinFor(Context ctx, String pkg) {
     JSONArray apps = apps(ctx);
-    if (apps == null) return false;
+    if (apps == null || pkg == null) return null;
     for (int i = 0; i < apps.length(); i++) {
       JSONObject a = apps.optJSONObject(i);
-      if (a != null && pkg.equals(a.optString("package"))) return true;
+      if (a != null && pkg.equals(a.optString("package"))) return a.optInt("thresholdMin", 20);
     }
-    return false;
+    return null;
+  }
+
+  // ---- raw event ledger ---------------------------------------------------
+  //
+  // The native detector only RECORDS raw facts here; all scoring (Spirit
+  // effects, future total-usage stats) is computed in JS from these events, so
+  // the mechanic can be retuned over-the-air without a new APK. Events carry a
+  // monotonic `seq`; JS tracks the last seq it processed and never reprocesses.
+  // Self-capped to the most recent MAX_EVENTS so the store can't grow unbounded.
+
+  public static final String KEY_EVENTS = "events";
+  public static final String KEY_SEQ = "seq";
+  private static final int MAX_EVENTS = 500;
+
+  public static synchronized void appendEvent(Context ctx, JSONObject event) {
+    SharedPreferences p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    long seq = p.getLong(KEY_SEQ, 0) + 1;
+    JSONArray arr;
+    try { arr = new JSONArray(p.getString(KEY_EVENTS, "[]")); } catch (Exception e) { arr = new JSONArray(); }
+    try {
+      event.put("seq", seq);
+      arr.put(event);
+    } catch (Exception ignored) { }
+    // Trim to the newest MAX_EVENTS.
+    if (arr.length() > MAX_EVENTS) {
+      JSONArray trimmed = new JSONArray();
+      for (int i = arr.length() - MAX_EVENTS; i < arr.length(); i++) trimmed.put(arr.optJSONObject(i));
+      arr = trimmed;
+    }
+    p.edit().putString(KEY_EVENTS, arr.toString()).putLong(KEY_SEQ, seq).apply();
+  }
+
+  public static String readEventsJson(Context ctx) {
+    return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(KEY_EVENTS, "[]");
+  }
+
+  public static long currentSeq(Context ctx) {
+    return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_SEQ, 0);
   }
 
   public static String labelFor(Context ctx, String pkg) {

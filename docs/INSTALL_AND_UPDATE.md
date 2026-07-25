@@ -105,11 +105,12 @@ git tag v2 && git push origin v2      # next time v3, v4, …
 phone, open the repo's **Releases** page → tap the `.apk` → install (it updates
 in place, keeping your data, because it's signed with your key).
 
-The OTA system is aware of this: each web bundle records the minimum
-`versionCode` it needs (read from `build.gradle` at publish time). If a web
-bundle relies on native code your installed APK doesn't have yet, the app won't
-apply it and will tell you a new APK is needed — so OTA can never leave the app
-in a broken half-updated state.
+The OTA system is aware of this: each web bundle records the minimum native
+`versionCode` it needs — set intentionally in `www/ota.json` (`minNative`), and
+only raised when a web change genuinely requires a newer native capability
+(most JS updates run fine on older APKs and degrade gracefully). If a web bundle
+does need native code your installed APK lacks, the app declines it and tells you
+a fresh APK is needed — so OTA can never leave the app half-updated.
 
 ---
 

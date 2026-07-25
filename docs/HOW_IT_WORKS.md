@@ -233,25 +233,38 @@ Reminders schedule for the next few days each time you press APPLY.
 
 ## 10. Doomscroll reflection alert
 
-Opt-in. You pick apps (e.g. Instagram) and a **continuous-session** threshold
-(e.g. 20 min). When you've been in that app that long *in one sitting*, a
-notification fires that only **observes** — "28 minutes on Instagram" — never
-instructs or scolds, no red/warning styling.
+Opt-in, and deliberately *distinct from* Android's Digital Wellbeing (which does
+daily limits + hard blocking). This is a **per-continuous-session awareness**
+layer: you pick apps (e.g. Instagram) and a threshold (e.g. 20 min); when you've
+been in that app that long *in one sitting*, a notification only **observes** —
+"28 minutes on Instagram" — never instructs, scolds, or blocks. No red styling.
 
-- Runs as a **foreground service** (a persistent notice + more battery — an
-  accepted tradeoff) that reads app usage via the **Usage Access** permission.
-  (The OS's zero-poll observer APIs need a *privileged* permission a normal app
-  can't hold, so polling is the only workable route.)
-- **Precise:** it computes the exact crossing time from the real session start
-  and fires a one-shot *exactly* at `start + threshold` — the poll interval only
-  affects how soon a brand-new session is noticed.
-- **Per session:** switching away resets it; the next open counts from zero.
+- **Detection is event-driven** via an **AccessibilityService**
+  (`DoomscrollAccessibilityService`): once you enable it under Settings →
+  Accessibility, the OS *pushes* foreground-app changes — real-time, no polling
+  loop, no persistent notification, low battery. It reads only *which* app is in
+  front (`canRetrieveWindowContent=false`), never screen content, and only for
+  the apps you chose. (The zero-poll *usage-session observer* API needs a
+  privileged permission a normal app can't hold; the old UsageStats
+  foreground-service poll remains in the tree as a dormant fallback.)
+- **Dumb native, smart JS.** The service only *records raw facts* to a session
+  ledger; **all scoring lives in JS**, so the mechanic is tunable over-the-air
+  without a new APK. The ledger captures each session (app, start, end, duration,
+  whether the nudge fired, and how soon you left after it) — rich enough to also
+  power a future "total usage over time" view.
+- **Tied to Spirit (transparent).** Leaving a watched app soon after the nudge is
+  meant to *feed Spirit*; bingeing past it *wears* it — the same loss-aversion
+  loop as habit decay, with the effect shown plainly in Config. (The detector +
+  ledger ship first; the Spirit scoring is layered on via OTA.)
+- **Per session:** switching away (including to the launcher) resets it.
 - **Retrigger** is configurable: once per session, or every N further minutes.
-- **YouTube caveat:** usage stats can't tell Shorts from long-form, so give
-  YouTube a long threshold or leave it off.
-- **Diagnostics** (Config → Doomscroll): *Probe* shows the current foreground
-  app + how long you've been in it; *Test alert* posts a sample. Use these to
-  confirm detection on-device without waiting for a real threshold.
+- **YouTube caveat:** the foreground signal can't tell Shorts from long-form, so
+  give YouTube a long threshold or leave it off.
+- **Transparency + diagnostics** (Config → Doomscroll): a *Recently detected*
+  panel lists the sessions the detector logged (so you can verify it on-device);
+  *Test alert* posts a sample notice.
+- **Not** a limiter/blocker — that's what Digital Wellbeing is for. This never
+  restricts, only reflects and scores.
 
 ---
 

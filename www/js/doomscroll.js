@@ -5,11 +5,13 @@
 // Instagram" — never instructs, scolds, or warns. No streak-broken framing, no
 // red styling. A factual mirror at a moment meant to break the trance.
 //
-// The real detection loop runs in a native Android foreground service
-// (DoomscrollService.java) polling UsageStats — the webview isn't alive when the
-// app is backgrounded, so JS can't do it. THIS module holds (1) a thin bridge to
-// that native plugin and (2) the pure session/threshold/copy logic that the
-// service mirrors, so the important behaviour is unit-tested here.
+// Detection runs natively: DoomscrollAccessibilityService gets pushed foreground-
+// app changes by the OS (event-driven, real-time, low battery) and records raw
+// session facts to a ledger — the webview isn't alive when the app is
+// backgrounded, so JS can't detect. THIS module holds (1) a thin bridge to that
+// plugin, (2) the pure session/threshold/copy logic the native side mirrors, and
+// (3) pure helpers that turn the ledger into UI + (future) Spirit scoring — kept
+// here so the behaviour is unit-tested and the scoring is OTA-tunable.
 
 // ---- native bridge -------------------------------------------------------
 
@@ -57,6 +59,33 @@ export async function isMonitoring() {
   const p = plugin();
   if (!p) return false;
   try { return !!(await p.isMonitoring()).active; } catch { return false; }
+}
+
+// ---- accessibility detector (event-driven, real-time, low battery) --------
+
+// Is our accessibility detector enabled in system settings?
+export async function isAccessibilityEnabled() {
+  const p = plugin();
+  if (!p) return false;
+  try { return !!(await p.isAccessibilityEnabled()).enabled; } catch { return false; }
+}
+
+// Opens Settings → Accessibility so the user can turn the detector on/off.
+export async function openAccessibilitySettings() {
+  const p = plugin();
+  if (p) { try { await p.openAccessibilitySettings(); } catch { /* ignore */ } }
+}
+
+// Read the raw session ledger the detector has recorded. Returns { events, seq }.
+// The native side only records facts; all scoring is computed here in JS (so the
+// mechanic is OTA-tunable). Callers track the last `seq` they processed.
+export async function readUsageEvents() {
+  const p = plugin();
+  if (!p) return { events: [], seq: 0 };
+  try {
+    const r = await p.readEvents();
+    return { events: Array.isArray(r.events) ? r.events : [], seq: Number(r.seq) || 0 };
+  } catch { return { events: [], seq: 0 }; }
 }
 
 // Diagnostics: read the current foreground app + elapsed session time.
@@ -176,4 +205,41 @@ export function nextFireDelayMs({ session, thresholdMin, lastAlertMin, retrigger
     return null; // once-per-session, already alerted
   }
   return Math.max(0, fireAt - now);
+}
+
+// ---- ledger reading (pure) ----------------------------------------------
+//
+// The detector records raw `session` and `threshold` events. These helpers turn
+// that ledger into what the UI shows and what future scoring consumes — kept
+// pure so they're unit-tested and can evolve over-the-air.
+
+// The most recent completed *watched* sessions, newest first.
+export function watchedSessions(events, limit = 20) {
+  return (Array.isArray(events) ? events : [])
+    .filter((e) => e && e.type === 'session' && e.watched)
+    .sort((a, b) => (b.ts || 0) - (a.ts || 0))
+    .slice(0, limit);
+}
+
+// A factual one-line description of a recorded session for the transparency
+// panel. `label` is resolved by the caller (events store only the package).
+export function sessionLine(ev, label) {
+  const mins = Math.max(0, Math.round((ev.durationSec || 0) / 60));
+  const name = label || ev.package || 'app';
+  let tail = '';
+  if (ev.alerted) {
+    const left = Number(ev.leftAfterAlertSec);
+    tail = left >= 0 && left < 90
+      ? ' · left soon after the nudge'
+      : ' · stayed after the nudge';
+  }
+  return `${name} · ${mins} min${tail}`;
+}
+
+// Total watched minutes today (local day), per the ledger — the raw signal a
+// future "total usage over time" view would build on. `now` and `dayStart` in ms.
+export function watchedMinutesSince(events, sinceMs) {
+  return (Array.isArray(events) ? events : [])
+    .filter((e) => e && e.type === 'session' && e.watched && (e.end || e.ts || 0) >= sinceMs)
+    .reduce((sum, e) => sum + Math.max(0, (e.durationSec || 0) / 60), 0);
 }

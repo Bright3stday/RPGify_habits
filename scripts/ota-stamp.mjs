@@ -33,17 +33,24 @@ function channelUrl() {
   return `https://${owner.toLowerCase()}.github.io/${name}/updates`;
 }
 
-// Minimum native versionCode a web bundle needs = the versionCode currently in
-// android/app/build.gradle. Bumping it (for native changes) automatically gates
-// new web bundles to phones that installed the matching APK.
-function nativeVersionCode() {
+// Minimum native versionCode a web bundle needs. This is set INTENTIONALLY in
+// www/ota.json (`minNative`), NOT auto-derived from the current versionCode:
+// most web bundles run fine on older APKs (JS degrades gracefully when a native
+// method is absent), so we only raise this when a web change genuinely requires
+// a newer native capability. Auto-deriving from versionCode would wrongly block
+// JS-only updates from reaching phones on the previous APK.
+function minNative() {
   try {
-    const gradle = readFileSync('android/app/build.gradle', 'utf8');
-    const m = gradle.match(/versionCode\s+(\d+)/);
-    return m ? Number(m[1]) : 1;
+    const cfg = JSON.parse(readFileSync('www/ota.json', 'utf8'));
+    return Number(cfg.minNative) || 1;
   } catch (e) {
     return 1;
   }
+}
+
+// Preserve the committed minNative when we re-stamp the baseline file.
+function readBaselineMinNative() {
+  return minNative();
 }
 
 // A short change summary for the in-app "what's new" prompt: the subject lines
@@ -65,9 +72,9 @@ const build = buildNumber();
 const channel = channelUrl();
 
 if (mode === 'baseline') {
-  const out = { build, channel };
+  const out = { build, channel, minNative: readBaselineMinNative() };
   writeFileSync('www/ota.json', `${JSON.stringify(out, null, 2)}\n`);
-  console.log(`Stamped www/ota.json → build ${build}, channel ${channel || '(none)'}`);
+  console.log(`Stamped www/ota.json → build ${build}, channel ${channel || '(none)'}, minNative ${out.minNative}`);
 } else if (mode === 'manifest') {
   const outDir = process.argv[3] || 'dist/updates';
   mkdirSync(outDir, { recursive: true });
@@ -75,7 +82,7 @@ if (mode === 'baseline') {
     build,
     version: `web-${build}`,
     url: `${channel}/bundle-${build}.zip`,
-    minNative: nativeVersionCode(),
+    minNative: minNative(),
     notes: releaseNotes(),
     publishedAt: new Date().toISOString(),
   };

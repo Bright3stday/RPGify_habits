@@ -4,4 +4,7 @@
     <string name="title_activity_main">RPGify Habits</string>
     <string name="package_name">com.rpgifyhabits.app</string>
     <string name="custom_url_scheme">com.rpgifyhabits.app</string>
+    <string name="doomscroll_accessibility_label">RPGify focus detector</string>
+    <string name="doomscroll_accessibility_summary">Detects long continuous sessions in the apps you choose.</string>
+    <string name="doomscroll_accessibility_desc">Lets RPGify notice when you\'ve spent a long stretch in an app you picked (like Instagram), so it can show a factual self-reflection note and feed your character\'s growth. It only reads which app is in front — never the content on your screen — and watches only the apps you select.</string>
 </resources>

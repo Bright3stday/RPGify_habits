@@ -27,6 +27,8 @@ import {
   isNativeAvailable as doomNative, hasUsageAccess, openUsageAccessSettings,
   getInstalledApps, startMonitoring, stopMonitoring, sanitizeConfig, observationCopy,
   probe, fireTestAlert, probeSummary,
+  isAccessibilityEnabled, openAccessibilitySettings, readUsageEvents,
+  watchedSessions, sessionLine,
 } from './doomscroll.js';
 import {
   SLOTS, SLOT_LABEL, slotForItem, equipItem, unequipSlot, isKeyEquipped,
@@ -789,8 +791,8 @@ function doomscrollSection(state) {
     <div class="window">
       <div class="window-title">◆ DOOMSCROLL MIRROR</div>
       <label class="field"><span>ENABLE <input type="checkbox" id="ds-on" ${d.enabled ? 'checked' : ''}></span></label>
-      <div class="bar-caption" id="ds-access">Checking usage access…</div>
-      <button class="btn small block" id="ds-grant" style="margin:8px 0">GRANT USAGE ACCESS</button>
+      <div class="bar-caption" id="ds-access">Checking detector…</div>
+      <button class="btn small block" id="ds-grant" style="margin:8px 0">ENABLE DETECTOR (Accessibility)</button>
       <div class="section-label" style="margin-left:0">WATCHED APPS · alert after N continuous min</div>
       ${appRows}
       <button class="btn small block" id="ds-add" style="margin-top:8px">＋ CHOOSE APPS</button>
@@ -802,15 +804,16 @@ function doomscrollSection(state) {
         </select></label>
         <label class="field" style="width:84px" id="ds-everywrap"><span>N MIN</span><input type="number" id="ds-every" min="1" max="240" value="${d.retrigger.everyMin}"></label>
       </div>
-      <label class="field"><span>CHECK EVERY (min) — how often it re-checks the foreground app</span><input type="number" id="ds-poll" min="1" max="30" value="${d.pollMinutes}"></label>
       <button class="btn primary block" id="ds-apply">APPLY</button>
+      <div class="section-label" style="margin-left:0">RECENTLY DETECTED</div>
+      <div class="bar-caption" id="ds-recent">—</div>
       <div class="section-label" style="margin-left:0">DIAGNOSTICS</div>
       <div class="btn-row">
         <button class="btn small" id="ds-probe">🔍 PROBE CURRENT APP</button>
         <button class="btn small gold" id="ds-test">🔔 TEST ALERT</button>
       </div>
       <div class="bar-caption" id="ds-probe-out" style="margin-top:6px">Probe reads whatever app is in the foreground right now + how long you've been in it.</div>
-      <div class="bar-caption" style="margin-top:8px">Disruptive timing, calm message — e.g. “${esc(observationCopy('Instagram', 28))}”. It only notices; it never tells you what to do. Runs as a foreground service (a persistent notice, more battery) that reads app usage times; the alert is scheduled to fire <b>exactly</b> at your threshold from the real session start.</div>
+      <div class="bar-caption" style="margin-top:8px">Disruptive timing, calm message — e.g. “${esc(observationCopy('Instagram', 28))}”. It only notices; it never tells you what to do. Detection is event-driven via an Accessibility service (real-time, no persistent notice, low battery) that reads only <b>which</b> app is in front — never your screen content. Soon: leaving a watched app on the nudge will feed your <b>Spirit</b>, and bingeing will wear it — shown transparently here.</div>
     </div>`;
 }
 
@@ -832,15 +835,27 @@ function wireDoomscroll(container, ctx) {
 
   (async () => {
     const el = container.querySelector('#ds-access');
-    if (!doomNative()) { el.textContent = 'Usage access is Android-only (no effect on web).'; return; }
-    const ok = await hasUsageAccess();
-    el.textContent = ok ? 'Usage access granted ✓' : 'Usage access not granted yet — tap below.';
+    if (!doomNative()) { el.textContent = 'The detector is Android-only (no effect on web).'; return; }
+    const ok = await isAccessibilityEnabled();
+    el.textContent = ok ? 'Detector enabled ✓' : 'Detector off — tap below and turn on “RPGify focus detector”.';
     el.style.color = ok ? 'var(--green)' : 'var(--ink-dim)';
   })();
 
+  // Transparency panel: show the most recent watched sessions the detector logged.
+  (async () => {
+    const el = container.querySelector('#ds-recent');
+    if (!el) return;
+    if (!doomNative()) { el.textContent = 'Detected sessions appear here in the Android app.'; return; }
+    const { events } = await readUsageEvents();
+    const rows = watchedSessions(events, 6);
+    if (!rows.length) { el.textContent = 'No sessions detected yet. Enable the detector and use a watched app.'; return; }
+    const labelFor = (pkg) => (d.apps.find((a) => a.package === pkg) || {}).label || pkg;
+    el.innerHTML = rows.map((ev) => `• ${esc(sessionLine(ev, labelFor(ev.package)))}`).join('<br>');
+  })();
+
   container.querySelector('#ds-grant').addEventListener('click', async () => {
-    await openUsageAccessSettings();
-    ctx.toast('Enable "Usage access" for RPGify, then return.', 2600);
+    await openAccessibilitySettings();
+    ctx.toast('Turn on “RPGify focus detector”, then return.', 2800);
   });
   container.querySelector('#ds-probe').addEventListener('click', async () => {
     const out = container.querySelector('#ds-probe-out');
@@ -857,19 +872,21 @@ function wireDoomscroll(container, ctx) {
     d.enabled = container.querySelector('#ds-on').checked;
     d.retrigger.mode = rtSel.value;
     d.retrigger.everyMin = Math.max(1, Math.min(240, Number(container.querySelector('#ds-every').value) || 15));
-    d.pollMinutes = Math.max(1, Math.min(30, Number(container.querySelector('#ds-poll').value) || 1));
     state.settings.doomscroll = sanitizeConfig(d);
     await ctx.save();
-    if (!doomNative()) { ctx.toast('Saved. Monitoring runs in the Android app.'); return; }
+    if (!doomNative()) { ctx.toast('Saved. Detection runs in the Android app.'); return; }
     if (state.settings.doomscroll.enabled) {
-      if (!(await hasUsageAccess())) { ctx.toast('Grant usage access first.'); return; }
       const { ensurePermission } = await import('./notifications.js');
       await ensurePermission();
-      await startMonitoring(state.settings.doomscroll);
-      ctx.toast('Focus monitor started.');
+      await startMonitoring(state.settings.doomscroll); // persist watched-apps config
+      if (!(await isAccessibilityEnabled())) {
+        ctx.toast('Saved. Now enable the detector under Accessibility.', 2800);
+      } else {
+        ctx.toast('Focus detector active.');
+      }
     } else {
       await stopMonitoring();
-      ctx.toast('Focus monitor stopped.');
+      ctx.toast('Detection paused.');
     }
   });
 }

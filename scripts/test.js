@@ -27,6 +27,7 @@ import { equipItem, slotForItem } from '../www/js/equipment.js';
 import { spreadMinutes } from '../www/js/notifications.js';
 import {
   currentSession, shouldAlert, observationCopy, sanitizeConfig, nextFireDelayMs, probeSummary,
+  watchedSessions, sessionLine, watchedMinutesSince,
 } from '../www/js/doomscroll.js';
 import { shouldApply, describeStatus } from '../www/js/ota.js';
 
@@ -349,6 +350,40 @@ test('doomscroll sanitizeConfig clamps and filters', () => {
   assert.equal(c.apps[0].thresholdMin, 600);
   assert.equal(c.retrigger.mode, 'once');
   assert.equal(c.retrigger.everyMin, 1);
+});
+
+// ---- doomscroll ledger (raw event log the native detector records) ------
+
+test('watchedSessions: only watched sessions, newest first, capped', () => {
+  const events = [
+    { type: 'session', package: 'a', watched: true, ts: 100, durationSec: 600 },
+    { type: 'session', package: 'b', watched: false, ts: 200, durationSec: 60 }, // not watched
+    { type: 'threshold', package: 'a', ts: 250 }, // not a session
+    { type: 'session', package: 'c', watched: true, ts: 300, durationSec: 120 },
+  ];
+  const out = watchedSessions(events, 10);
+  assert.equal(out.length, 2);
+  assert.equal(out[0].package, 'c'); // newest first
+  assert.equal(out[1].package, 'a');
+  assert.equal(watchedSessions(events, 1).length, 1); // capped
+});
+
+test('sessionLine: factual, reflects leaving on the nudge', () => {
+  assert.equal(sessionLine({ durationSec: 1980, package: 'x' }, 'Instagram'), 'Instagram · 33 min');
+  assert.ok(sessionLine({ durationSec: 1200, alerted: true, leftAfterAlertSec: 20 }, 'IG')
+    .includes('left soon after the nudge'));
+  assert.ok(sessionLine({ durationSec: 1200, alerted: true, leftAfterAlertSec: 600 }, 'IG')
+    .includes('stayed after the nudge'));
+});
+
+test('watchedMinutesSince: sums watched session minutes in window', () => {
+  const events = [
+    { type: 'session', watched: true, end: 1000, durationSec: 600 }, // before window
+    { type: 'session', watched: true, end: 5000, durationSec: 1200 }, // 20 min
+    { type: 'session', watched: false, end: 6000, durationSec: 6000 }, // not watched
+    { type: 'session', watched: true, end: 7000, durationSec: 300 }, // 5 min
+  ];
+  assert.equal(Math.round(watchedMinutesSince(events, 2000)), 25);
 });
 
 // ---- OTA update logic ---------------------------------------------------
