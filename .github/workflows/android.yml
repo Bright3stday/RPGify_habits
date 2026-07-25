@@ -84,14 +84,16 @@ jobs:
           name: rpgify-habits-apk
           path: ${{ steps.named.outputs.path }}
 
-      # Always publish the APK to the Releases page as a direct, phone-tappable
-      # file. Version tags (v1, v2, …) make a normal release; any other run
-      # updates a rolling "latest-build" prerelease.
+      # Publish the APK to the Releases page as a direct, phone-tappable file.
+      # Only on version tags (v1, v2, …): this repo has immutable releases
+      # enabled, so a reused "latest-build" tag can't be re-uploaded to — each
+      # tag must be unique. Branch/manual runs still produce the artifact above;
+      # for a phone install, push a tag (see docs/INSTALL_AND_UPDATE.md).
       - name: Publish to Releases
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
           files: ${{ steps.named.outputs.path }}
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'latest-build' }}
-          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Latest build' }}
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
-          generate_release_notes: ${{ startsWith(github.ref, 'refs/tags/') }}
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
