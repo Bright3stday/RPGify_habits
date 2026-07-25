@@ -1,8 +1,8 @@
 {
-  "build": 38,
-  "version": "web-38",
-  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-38.zip",
+  "build": 39,
+  "version": "web-39",
+  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-39.zip",
   "minNative": 1,
-  "notes": "• Add hidden developer/test panel + a trust/verification guide\n• Make Spirit gain/wear visible: reward beats + Status fatigue chip\n• web-ota: write a root index.html to the Pages site\n• Spirit scoring from the doomscroll ledger (OTA, schema v4)\n• Add a root index.html to the Pages site (browsable landing page)",
-  "publishedAt": "2026-07-25T15:38:12.184Z"
+  "notes": "• Add styled docs website generated from Markdown, published to Pages root\n• Add hidden developer/test panel + a trust/verification guide\n• Make Spirit gain/wear visible: reward beats + Status fatigue chip\n• web-ota: write a root index.html to the Pages site\n• Spirit scoring from the doomscroll ledger (OTA, schema v4)",
+  "publishedAt": "2026-07-25T18:44:51.657Z"
 }
