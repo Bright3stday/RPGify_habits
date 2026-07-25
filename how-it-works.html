@@ -324,9 +324,10 @@ new&quot; — and downloads/installs it <strong>only if you tap UPDATE NOW</stro
 restart). Choosing <strong>LATER</strong> snoozes that build until a newer one appears. You
 can also pull anytime via <strong>CHECK FOR UPDATES</strong> in <strong>Config → APP UPDATES</strong>.
 Nothing is ever downloaded or applied without your consent. No APK download.</li>
-<li><strong>Native changes</strong> (step counter, doomscroll service, a new plugin, icon,
-permissions) need a <strong>new APK</strong>, published to the Releases page when you push a
-version tag (<code>v2</code>, <code>v3</code>, …).</li>
+<li><strong>Native changes</strong> (step counter, doomscroll detector, a new plugin, icon,
+permissions) need a <strong>new APK</strong> — downloaded from the project site (the same
+place the app first came from), which installs over the old one and keeps your
+data.</li>
 </ul>
 <p><strong>How it stays consistent:</strong> every build has a number = <code>git rev-list --count HEAD</code> (commit count), stamped into both the APK&#39;s baked-in <code>www/ota.json</code> and
 each published <code>updates/latest.json</code>. The app runs whichever is newer — the APK&#39;s
@@ -358,7 +359,7 @@ detects — it never downloads.</p>
 scripts/
   ota-stamp.mjs   CI helper: stamps build number + channel into ota.json/manifest
 .github/workflows/
-  android.yml     builds/signs the APK, publishes to Releases on version tags
+  android.yml     builds/signs the APK, publishes it to GitHub Pages
   web-ota.yml     publishes web bundles to GitHub Pages for OTA
 android/app/src/main/java/com/rpgifyhabits/app/
   StepCounterPlugin.java   pedometer bridge

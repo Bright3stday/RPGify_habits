@@ -52,12 +52,12 @@
   <a class="dl" href="apk/rpgify-latest.apk">Download APK</a>
 </header>
 <main><article><h1>Is this app safe? — how to verify it yourself</h1>
-<p>RPGify Habits is a hobby app shared with a few friends, not a Play Store listing.
-That means Android will show &quot;unknown source / unverified&quot; warnings when you
-install it — those are Android&#39;s <strong>default caution for any sideloaded app</strong>, not
-a verdict that this app is unsafe. This page explains exactly what the app does,
-what it can and can&#39;t touch, and how you can <strong>verify that for yourself</strong> instead
-of taking anyone&#39;s word for it.</p>
+<p>RPGify Habits is a personal, non-commercial project distributed directly rather
+than through an app store. That means Android shows &quot;unknown source / unverified&quot;
+warnings when you install it — those are Android&#39;s <strong>default caution for any
+sideloaded app</strong>, not a verdict that this app is unsafe. This page explains
+exactly what the app does, what it can and can&#39;t touch, and how you can <strong>verify
+that for yourself</strong> instead of taking anyone&#39;s word for it.</p>
 <p>The short version: <strong>the entire app is open source and built in public</strong>, so you
 don&#39;t have to trust the author — you can read every line and check that the APK
 you installed was built from that public code.</p>
@@ -129,9 +129,9 @@ JavaScript under <code>www/js/</code>; the native Android code is a handful of s
 files under <code>android/app/src/main/java/</code>. There&#39;s no obfuscation and no
 minification.</p>
 </li>
-<li><p><strong>The APK is built in public, not on someone&#39;s laptop.</strong> Every release is
-built by <strong>GitHub Actions</strong> from a specific public commit — the build logs are
-public (Actions tab), so you can see exactly what went in. Nothing is
+<li><p><strong>The APK is built in public, not on someone&#39;s laptop.</strong> Every build is
+produced by <strong>GitHub Actions</strong> from a specific public commit — the build logs
+are public (Actions tab), so you can see exactly what went in. Nothing is
 hand-assembled off-repo.</p>
 </li>
 <li><p><strong>Verify your download wasn&#39;t tampered with.</strong> Each published APK has a
@@ -146,7 +146,7 @@ key, so an imposter build can&#39;t install over a genuine one. Check the signin
 certificate fingerprint:</p>
 <pre><code class="language-bash">apksigner verify --print-certs rpgify-latest.apk
 </code></pre>
-<p>The fingerprint should match across releases (and match what the author
+<p>The fingerprint should match across versions (and match what the author
 publishes).</p>
 </li>
 <li><p><strong>Scan it.</strong> Upload the APK to <strong>VirusTotal</strong> for a ~70-engine scan, and note
@@ -161,13 +161,13 @@ and diff it against the published one to confirm they match.</p>
 </li>
 </ol>
 <hr>
-<h2>Do you need the Play Store for this?</h2>
-<p>For a handful of friends, <strong>no</strong>. The Play Store mainly adds Google&#39;s review +
-distribution; it doesn&#39;t make the <em>code</em> any safer than reading the public source
-and verifying the build. Sideloading with the checks above is a reasonable trust
-model for a small, non-commercial circle. If this ever grows into something you
-hand to strangers, <em>then</em> a Play Store listing (and its review/signing) becomes
-worth the overhead.</p>
+<h2>Why it isn&#39;t on the Play Store</h2>
+<p>It&#39;s a personal, non-commercial project, so it&#39;s distributed directly rather than
+through an app store — which is why you install it by sideloading and see
+Android&#39;s &quot;unknown source&quot; prompts. That&#39;s normal for this kind of app. A store
+listing mainly adds Google&#39;s review and distribution; it doesn&#39;t make the <em>code</em>
+any safer than reading the public source and verifying the build, which you can
+do with the steps above.</p>
 <hr>
 <h2>Further hardening (possible additions)</h2>
 <p>Beyond the checks above, two measures can strengthen assurance further:</p>

@@ -214,116 +214,18 @@ and collect in the <strong>Bag</strong>, where you can equip weapon/armour into 
 (<code>www/js/equipment.js</code>). Equipping is <strong>cosmetic only</strong> — it changes nothing
 about your stats. The focus is real growth, not item min-maxing.</p>
 <hr>
-<h2>Project layout</h2>
-<pre><code>www/                     the web app (this is what Capacitor wraps)
-  index.html
-  styles/main.css        8-bit / JRPG theme
-  assets/fonts/          Press Start 2P, bundled for true offline use
-  js/
-    store.js             storage: Capacitor Preferences native / localStorage web
-    game.js              engine: state, habit CRUD, completion, XP, migration
-    attributes.js        the six primaries, character level, derived stats
-    condition.js         cadence-aware decay / attribute condition
-    leveling.js          attribute + character XP -&gt; level curves
-    cadence.js           cadence periods &amp; due timing
-    skilltree.js         user-authored mastery nodes + Growth Points currency
-    sprites.js           the single procedural hero (adventurer..mage, imp, slime)
-    items.js             loot table, drop rolls, pixel item icons
-    equipment.js         cosmetic equip slots (no bonuses)
-    pedometer.js         steps source: native sensor (live poll) / manual fallback
-    doomscroll.js        doomscroll session/threshold/copy logic + native bridge
-    notifications.js     local notifications (native) / no-op (web)
-    backup.js            JSON export/import
-    ota.js               over-the-air web-update check/apply (native updater bridge)
-    views.js             the five screens + editor modals
-    app.js               orchestrator: routing, persistence, reward beats
-  ota.json               baked-in OTA baseline { build, channel } (CI-stamped)
-android/                 generated Capacitor Android project (build in Studio)
-scripts/                 dev server, tests, icon + OTA-stamp helpers (not shipped)
-.github/workflows/       android.yml (APK build/sign/release) · web-ota.yml (OTA publish)
-capacitor.config.json
-</code></pre>
+<h2>Get it</h2>
+<p>Install straight from the project site — no app store, no account:
+<strong><a href="https://bright3stday.github.io/RPGify_habits/">https://bright3stday.github.io/RPGify_habits/</a></strong> → <strong>Download APK</strong>. Updates then
+arrive over-the-air (the app shows what&#39;s new and asks before installing). Full
+steps and troubleshooting: <a href="install.html"><code>docs/INSTALL_AND_UPDATE.md</code></a>.</p>
 <hr>
-<h2>Develop &amp; test (web)</h2>
-<pre><code class="language-bash">npm install
-npm run serve          # http://localhost:5173
-npm test               # dependency-free logic tests
-node scripts/smoke.mjs # headless-browser end-to-end smoke test
-</code></pre>
-<blockquote>
-<p>On plain web, storage falls back to <code>localStorage</code> and reminders are a no-op
-(browsers can&#39;t reliably fire scheduled local notifications without a service
-worker). Everything else — the full game loop — runs in the browser.</p>
-</blockquote>
-<hr>
-<h2>Build the Android app</h2>
-<p>The <code>android/</code> Capacitor project is committed and ready. You need:</p>
-<ul>
-<li><strong>JDK 17+</strong></li>
-<li><strong>Android Studio</strong> (or the Android command-line SDK) with an SDK platform +
-build-tools installed</li>
-</ul>
-<p>Then either open <code>android/</code> in Android Studio and press <strong>Run</strong>, or from the CLI:</p>
-<pre><code class="language-bash">npm install
-npx cap sync android
-cd android
-./gradlew assembleDebug          # -&gt; android/app/build/outputs/apk/debug/app-debug.apk
-</code></pre>
-<p>After changing anything in <code>www/</code>, re-run <code>npx cap sync android</code> to copy the web
-assets into the native project.</p>
-<blockquote>
-<p><strong>Note:</strong> the APK was <em>not</em> compiled in the authoring environment — it has no
-Android SDK provisioned and <code>dl.google.com</code> is blocked there, so the SDK can&#39;t
-be fetched. The Capacitor project is complete and builds normally in Android
-Studio / any machine with the SDK.</p>
-</blockquote>
-<h3>App icon &amp; splash</h3>
-<p>The launcher icon (a glowing 8-bit sword in the app palette), round/adaptive
-variants, and the splash screen are committed under <code>android/app/src/main/res/</code>.
-They&#39;re generated from a hand-drawn pixel emblem by <code>scripts/make-icons.mjs</code>
-(rasterized with headless Chromium) — re-run <code>node scripts/make-icons.mjs</code> if
-you tweak the emblem. <code>cap sync</code> does not touch these.</p>
-<h3>Steps on device</h3>
-<p>The step sensor is bridged by a small committed Capacitor plugin
-(<code>StepCounterPlugin.java</code>, registered in <code>MainActivity</code>) reading
-<code>TYPE_STEP_COUNTER</code> — no Google Fit / Health Connect / network. It requests the
-<code>ACTIVITY_RECOGNITION</code> runtime permission the first time steps are read. This
-native path can only be exercised on a real device/build; the JS logic,
-auto-complete, and avatar behaviour are covered by the tests above using the
-manual step source.</p>
-<h3>Notifications on device</h3>
-<p>The Local Notifications plugin merges the needed permissions
-(<code>POST_NOTIFICATIONS</code>, boot receiver, etc.) at build time. On Android 13+ the
-app requests notification permission the first time you tap <strong>APPLY</strong> or <strong>TEST</strong>
-in Config. A notification <strong>channel</strong> (<code>rpgify</code>) is created before scheduling —
-Android 8+ silently drops notifications posted to an unknown channel, so this is
-required. Config has a <strong>🔔 TEST (5s)</strong> button that fires a notification a few
-seconds out to confirm the pipeline; scheduled water/posture nudges land at a
-random minute within each active hour, so the first real one can be up to an
-hour away.</p>
-<hr>
-<h2>Updating the app (OTA web + APK)</h2>
-<p>Two update paths, so everyday changes never need an APK:</p>
-<ul>
-<li><strong>Web changes</strong> (anything in <code>www/</code> — screens, logic, text) ship
-<strong>over-the-air</strong>. Pushing them to the main branch triggers
-<code>.github/workflows/web-ota.yml</code>, which publishes the web bundle to <strong>GitHub
-Pages</strong>; the installed app checks that channel on launch (and via
-<strong>Config → APP UPDATES</strong>) and, when a newer bundle exists, <strong>prompts the user
-with a &quot;what&#39;s new&quot; summary and installs only on their consent</strong> (UPDATE NOW /
-LATER) — no reinstall, nothing applied silently. Uses
-<code>@capgo/capacitor-updater</code>; hosting is self-served on Pages (no third-party
-account).</li>
-<li><strong>Native changes</strong> (step counter, doomscroll service, a new plugin, icon,
-permissions) need a <strong>new APK</strong> — push a version tag (<code>v2</code>, <code>v3</code>, …) and
-<code>android.yml</code> builds a <strong>signed</strong> APK and publishes it to the Releases page.</li>
-</ul>
-<p>Build numbers are the commit count (<code>git rev-list --count HEAD</code>), stamped by
-<code>scripts/ota-stamp.mjs</code> into both the APK&#39;s baked-in <code>www/ota.json</code> and each
-published manifest, so the two paths stay consistent and never downgrade. Each
-web bundle records the minimum native <code>versionCode</code> it needs, so OTA can&#39;t push
-web that a stale APK can&#39;t run. <strong>Full setup (signing key, GitHub secrets, Pages)
-and troubleshooting live in <a href="install.html"><code>docs/INSTALL_AND_UPDATE.md</code></a>.</strong></p>
+<h2>For developers</h2>
+<p>Running, building, signing, and self-hosting are in
+<a href="https://github.com/Bright3stday/RPGify_habits/blob/HEAD/DEVELOPING.md"><code>DEVELOPING.md</code></a>. In short: a vanilla HTML/CSS/JS web app
+(<code>www/</code>, unit-tested with <code>npm test</code>) wrapped by Capacitor into an Android APK.
+Web changes ship over-the-air via GitHub Pages; native changes as a new APK from
+the same site. No git tags, no app store.</p>
 <hr>
 <h2>Data &amp; privacy</h2>
 <ul>
