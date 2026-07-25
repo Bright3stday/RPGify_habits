@@ -1,0 +1,293 @@
+# RPGify Habits — How It Actually Works
+
+A plain-English, example-driven tour of every system, and *exactly* what each
+number/threshold reads from. This is the intuitive companion to the README.
+
+The one sentence version: **you do real habits → they pour XP into six fixed
+attributes → your attributes drive a character level, derived stats, and a hero
+sprite → you spend a scarce time-granted currency to unlock self-authored
+"mastery" milestones. Neglect makes attributes visibly decay.**
+
+---
+
+## 1. Quests (habits) — the only thing you log
+
+A **quest** is a habit. You tap to complete it (or it auto-completes from steps).
+Each quest has:
+
+- a **cadence** (daily / every N days / weekly) — controls when it's "due" and
+  how fast its decay bites,
+- an **XP per completion**,
+- and **which attribute(s) it trains** (one or more of the six).
+
+That last one — "trains attribute X" — is the *only* connection between a quest
+and the rest of the game. A quest named "Bench press" that trains **Strength**
+is, to the engine, just "+XP to Strength, +1 Strength completion." **The name is
+never read by any logic.** Rename it freely.
+
+Completing a quest does four things:
+1. adds XP to each attribute it trains,
+2. increments that quest's lifetime **completion counter** (uncapped),
+3. resets that quest's decay clock, bumps its streak,
+4. rolls for cosmetic loot.
+
+---
+
+## 2. Attributes & the character sheet
+
+Six **fixed** attributes (you can't add/remove them): **Strength, Magic,
+Vitality, Spirit, Luck, Speed**. Each accumulates XP from the quests that train
+it.
+
+- **Score** (the number on the Status screen, e.g. "Strength 13") grows
+  *permanently* from XP — you never lose it. Formula: `8 + attribute level`,
+  where level comes from the XP curve.
+- **Character Level** comes from the **sum of all six attributes' XP** (a
+  steeper curve). It drives:
+  - **Derived stats**: Attack = STR·2 + Lv, Magic Attack = MAG·2 + Lv,
+    Defense = VIT + Lv/2, Magic Defense = SPR + Lv/2, Speed = SPD, Luck = LCK.
+  - **HP** (from Vitality), **MP** (from Magic/Spirit).
+- **GP** on the sheet = your **Growth Points** balance (see §6).
+
+These derived numbers are a flavourful mirror of growth — there's no combat, so
+they exist to make "the numbers go up as I build habits" feel real.
+
+---
+
+## 3. Condition & decay — the loss-aversion half
+
+Separate from permanent score, each attribute has a **condition** (0–100%) =
+its *upkeep*. It is **derived live from the health of the quests feeding it**,
+never stored as a ticking counter:
+
+- A quest is at 100% health for one full cadence period past its due time
+  (grace), then decays to 0 over the next ~3 periods.
+- This is **cadence-scaled**: a lapsed *weekly* quest rots far slower (in real
+  time) than a lapsed *daily* one.
+- An attribute's condition = the average health of its non-retired quests.
+
+Condition shows as a dot per attribute (`STEADY / FADING / CRACKED / BROKEN`)
+and drives your hero's look (§4). Because it's recomputed from timestamps, being
+away from the app for 3 weeks decays exactly as much as 3 weeks of real neglect.
+
+Unlocking certain mastery nodes can grant **decay resistance**, which softens
+(never eliminates) the drop.
+
+---
+
+## 4. Your hero (one sprite)
+
+A single pixel avatar = *you*. It's chosen from two axes:
+
+- **Character level → class:** Adventurer (1–3) → Warrior (4–6) → Knight (7–10)
+  → Mage (11+).
+- **Overall condition → devolution:** if the *average* condition across all six
+  attributes goes cracked → **Imp**, or broken → **Slime**. A worn-but-not-broken
+  hero just looks desaturated.
+
+So: do your habits and your class climbs; neglect everything and your leveled-up
+hero visibly melts into a slime.
+
+---
+
+## 5. The Mastery Tree (read this carefully — it answers the common questions)
+
+This is the self-authored progression layer. **You** create the nodes.
+
+### What a node is
+
+Each node lives in **one attribute-tree** (you pick Strength / Magic / … when
+creating it). A node has:
+
+| Field | What it does |
+|-------|--------------|
+| **Title** | A label. **Purely cosmetic — never matched against anything.** |
+| **Criteria** | Free text: what "cleared" means *to you*. The app never checks it; it's your honesty prompt. |
+| **Eligibility threshold** | Either **Attribute level ≥ N**, or **Practice count ≥ N**. |
+| **Depends on** (optional) | Other **nodes** in the same tree that must be unlocked first — "all of them" or "any N of them". |
+| **Reward** (optional) | +X% XP to that attribute, or +Y% decay resistance, applied once unlocked. |
+
+### What "practice count" actually counts
+
+> **Practice = the sum of lifetime completions of *every* quest that trains this
+> node's attribute.** It has **nothing to do with names.**
+
+Example: your **Strength** tree. You have three Strength quests — "Gym"
+(done 8×), "Run" (done 5×), "Push-ups" (done 2×). The Strength practice count is
+**8 + 5 + 2 = 15**. A Strength node with "Practice ≥ 15" is now eligible. It did
+not need to be named "Gym" or match any quest — it just watches the whole
+Strength attribute.
+
+(Completions are counted for retired quests too, so retiring a quest doesn't
+erase the practice you already banked.)
+
+### The lifecycle: locked → eligible → unlocked
+
+1. **locked** — threshold not met, or its parent nodes aren't unlocked yet.
+2. **eligible** — threshold met **and** parents satisfied. Now it *offers* an
+   unlock, but nothing happens automatically.
+3. **unlocked** — you tick **"I genuinely met this"** *and* spend **1 Growth
+   Point**. Eligibility alone is never enough — the point + your honest
+   confirmation are the real gate.
+
+### Your specific question: an overarching node that depends on a few quests
+
+The engine has **no "require these 3 specific quests" gate**. A node's own
+trigger is only *attribute level* or *attribute-wide practice*. Specific
+prerequisites are expressed **node-to-node**, not node-to-quest. Two ways to get
+what you want:
+
+**Pattern A — parent nodes (recommended for "depends on a few things").**
+Make a small node for each milestone, then a general node that requires them:
+
+```
+Strength tree:
+  ● "Consistency"   practice ≥ 20     (aggregate Strength reps)
+  ● "Heavy lifts"   Strength level ≥ 6
+  ◆ "Strength Base" depends on: ALL of [Consistency, Heavy lifts]
+                    (its own threshold can be trivial, e.g. level ≥ 1)
+```
+
+"Strength Base" only becomes eligible once *both* parents are unlocked. Use
+**"any N of them"** instead of "all" for non-linear gates — e.g. a capstone that
+needs "any 2 of 3" sub-paths.
+
+**Pattern B — a single aggregate threshold.**
+If "a few quests being done" really just means "I've put in the reps across this
+domain," skip parents and set one **Practice ≥ N** threshold. It already sums all
+quests in that attribute.
+
+**What you can't (yet) do:** gate a node on one *named* quest hitting a count
+(e.g. "Meditate specifically, 30 times"), independent of other Spirit quests.
+Practice is per-attribute, not per-quest. If you want per-quest criteria, that's
+a small addition — say the word and I'll add a "specific quest ≥ N" threshold
+type.
+
+### Cross-tree trade-off
+
+When several nodes across *different* trees are eligible at once, you usually
+can't afford them all (points are scarce). Choosing where the point goes is the
+intended mechanic, not a limitation.
+
+---
+
+## 6. Growth Points (the unlock currency)
+
+- You're granted a small fixed number **per period** — default **3 / week**
+  (switchable to monthly, and the amount is editable in Config).
+- They **roll over** but are **capped at 2× one period's grant** (default cap 6):
+  a busy week isn't punished, but you can't hoard forever.
+- Points accrue automatically when you open the app (it back-fills any periods
+  you missed, up to the cap).
+- Spending **1 point** is what converts an *eligible* node to *unlocked*.
+
+That's the whole loop: **real habits → attribute growth makes nodes eligible →
+scarce weekly points force you to choose which mastery to actually claim.**
+
+---
+
+## 7. Loot & gear — cosmetic only
+
+Every quest completion has a chance to **drop loot** (weapons/armour/treasure/
+potions, five rarities). Longer streaks and a higher **Luck** attribute improve
+your odds. Loot collects in the **Bag**, and you can **equip** it into five slots
+to change how your hero looks.
+
+**Gear grants zero stat bonuses.** It's collection + customization. All real
+power comes from habits → levels → mastery nodes, by design (you asked for no
+item min-maxing).
+
+---
+
+## 8. Steps (auto-quests)
+
+A quest can be **"auto (steps)"** instead of tap-to-log: it has a daily step
+goal and **auto-completes the moment you hit it** (awards XP, resets decay),
+once per day.
+
+- On **Android**, steps come from the phone's hardware pedometer
+  (`TYPE_STEP_COUNTER`), read live while the app is open; a per-day baseline
+  converts "steps since boot" into "steps today," handling reboots.
+- On the **web preview** (no sensor), you log steps manually with the +/SET
+  buttons.
+
+The seeded "Daily Steps" quest trains **Strength**; you can retarget it.
+
+---
+
+## 9. Reminders (local, on-device)
+
+Three kinds, all fired by Android's local-notifications (no server):
+
+- **Weekly check-in** — prompts you to review/keep/adjust/retire quests.
+- **Water / posture nudges** — fire at a **random minute inside each active
+  hour**, but now **evenly spread** so 2/hour won't land a minute apart (buckets
+  the hour and jitters within each, ≥ several minutes apart).
+- A **🔔 TEST (5s)** button in Config fires one immediately so you can confirm
+  permission + the notification channel work (a missing channel was silently
+  eating notifications before — now created explicitly).
+
+Reminders schedule for the next few days each time you press APPLY.
+
+---
+
+## 10. Doomscroll reflection alert
+
+Opt-in. You pick apps (e.g. Instagram) and a **continuous-session** threshold
+(e.g. 20 min). When you've been in that app that long *in one sitting*, a
+notification fires that only **observes** — "28 minutes on Instagram" — never
+instructs or scolds, no red/warning styling.
+
+- Runs as a **foreground service** (a persistent notice + more battery — an
+  accepted tradeoff) that reads app usage via the **Usage Access** permission.
+  (The OS's zero-poll observer APIs need a *privileged* permission a normal app
+  can't hold, so polling is the only workable route.)
+- **Precise:** it computes the exact crossing time from the real session start
+  and fires a one-shot *exactly* at `start + threshold` — the poll interval only
+  affects how soon a brand-new session is noticed.
+- **Per session:** switching away resets it; the next open counts from zero.
+- **Retrigger** is configurable: once per session, or every N further minutes.
+- **YouTube caveat:** usage stats can't tell Shorts from long-form, so give
+  YouTube a long threshold or leave it off.
+- **Diagnostics** (Config → Doomscroll): *Probe* shows the current foreground
+  app + how long you've been in it; *Test alert* posts a sample. Use these to
+  confirm detection on-device without waiting for a real threshold.
+
+---
+
+## 11. Data, privacy, offline
+
+100% on-device. No accounts, no server, no analytics. Your save lives in local
+storage (Capacitor Preferences on device, localStorage on web). **Export**
+writes a JSON backup you can save/share; **Import** replaces your save from one.
+That's the only way data leaves or enters the app.
+
+---
+
+## 12. Where things live (quick map)
+
+```
+www/js/
+  game.js         completion, XP, migration, default state
+  attributes.js   the six attributes, character level, derived stats
+  condition.js    cadence-aware decay / attribute condition
+  skilltree.js    mastery nodes + Growth Points  ← §5, §6
+  sprites.js      the single hero sprite
+  items.js        loot table + drop rolls
+  equipment.js    cosmetic gear slots
+  pedometer.js    steps source
+  notifications.js reminders (spacing, test, channel)
+  doomscroll.js   doomscroll session/threshold/copy logic + native bridge
+  views.js        all screens
+android/app/src/main/java/com/rpgifyhabits/app/
+  StepCounterPlugin.java   pedometer bridge
+  DoomscrollService.java   usage-stats polling + precise-fire scheduling
+  DoomscrollPlugin.java    doomscroll bridge (probe / test / start / stop)
+  DoomscrollUtil.java      shared: session read + alert notification
+```
+
+Pure logic (levels, decay, mastery eligibility, growth points, doomscroll
+timing, reminder spacing) is unit-tested in `scripts/test.js`; the UI loop is
+covered by `scripts/smoke.mjs`. Native code (pedometer, doomscroll service)
+can't be compiled in the authoring environment — it's written to the Android
+APIs and verified on-device.
