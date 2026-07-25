@@ -21,9 +21,9 @@ on:
 permissions:
   contents: write   # needed to push the bundle to the gh-pages branch
 
-# Never let two publishes race on the gh-pages branch.
+# Never let two publishes race on the gh-pages branch (shared with android.yml).
 concurrency:
-  group: web-ota
+  group: rpgify-gh-pages
   cancel-in-progress: false
 
 jobs:

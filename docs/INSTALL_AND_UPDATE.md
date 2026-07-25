@@ -92,18 +92,22 @@ it offers the update for you to accept.
 > updater (built after this feature was added). Install that APK once (below);
 > from then on web changes arrive over-the-air.
 
-### Native changes → new APK
+### Native changes → new APK (from a stable Pages URL, no tags)
 
 When native code changes, bump `versionCode` in `android/app/build.gradle`, then
-push a version tag:
+run the APK build: repo → **Actions → Build Android APK → Run workflow**. Every
+run publishes the **signed** APK to GitHub Pages at a **stable URL**:
 
-```bash
-git tag v2 && git push origin v2      # next time v3, v4, …
+```
+https://<your-username>.github.io/rpgify_habits/apk/rpgify-latest.apk
 ```
 
-`android.yml` builds a signed APK and attaches it to a **GitHub Release**. On the
-phone, open the repo's **Releases** page → tap the `.apk` → install (it updates
-in place, keeping your data, because it's signed with your key).
+On the phone, just open that URL and tap to install — it updates in place,
+keeping your data (same signing key). No git tag, no Release page. (A dated copy
+is kept alongside for history, and pushing a version tag *also* tries to publish
+a GitHub Release — but tags aren't required, and this repo's rulesets/immutable
+releases may restrict creating them, which is exactly why the Pages URL is the
+primary path.)
 
 The OTA system is aware of this: each web bundle records the minimum native
 `versionCode` it needs — set intentionally in `www/ota.json` (`minNative`), and

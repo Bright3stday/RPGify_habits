@@ -1,14 +1,23 @@
 name: Build Android APK
 
-# Run it manually from the Actions tab, or automatically when you push a version
-# tag like v1, v2, v1.3 (which also publishes a GitHub Release with the APK).
+# Run it manually from the Actions tab (Run workflow), or by pushing a version
+# tag. Every run publishes the signed APK to GitHub Pages at a stable URL:
+#   https://<owner>.github.io/<repo>/apk/rpgify-latest.apk
+# so you can install straight from your phone — no git tag or Release needed
+# (this repo's rulesets restrict tag creation). Tag pushes additionally try to
+# publish a GitHub Release.
 on:
   workflow_dispatch:
   push:
     tags: ['v*']
 
 permissions:
-  contents: write   # needed to publish the APK to Releases
+  contents: write   # needed to push the APK to gh-pages / publish Releases
+
+# Serialize with the web-OTA workflow so two jobs never race on gh-pages.
+concurrency:
+  group: rpgify-gh-pages
+  cancel-in-progress: false
 
 jobs:
   build:
@@ -93,6 +102,32 @@ jobs:
         with:
           name: rpgify-habits-apk
           path: ${{ steps.named.outputs.path }}
+
+      # Publish the signed APK to GitHub Pages as a direct, phone-tappable file at
+      # a STABLE url — no git tag, no Release, so repo tag-rulesets don't apply.
+      # Lands at https://<owner>.github.io/<repo>/apk/rpgify-latest.apk (plus a
+      # dated copy kept for history). Only real signed builds are published.
+      - name: Stage APK for Pages
+        if: steps.signing.outputs.signed == 'true'
+        run: |
+          mkdir -p apk-site/apk
+          cp "${{ steps.named.outputs.path }}" "apk-site/apk/${{ steps.named.outputs.path }}"
+          cp "${{ steps.named.outputs.path }}" "apk-site/apk/rpgify-latest.apk"
+          # Tiny index so the folder is browsable.
+          {
+            echo "<h1>RPGify Habits APKs</h1>"
+            echo "<p>Latest: <a href=\"rpgify-latest.apk\">rpgify-latest.apk</a></p>"
+          } > apk-site/apk/index.html
+
+      - name: Publish APK to GitHub Pages
+        if: steps.signing.outputs.signed == 'true'
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./apk-site
+          destination_dir: .
+          keep_files: true
+          commit_message: "APK build ${{ steps.named.outputs.path }}"
 
       # Publish the APK to the Releases page as a direct, phone-tappable file.
       # Only on version tags (v1, v2, …): this repo has immutable releases
