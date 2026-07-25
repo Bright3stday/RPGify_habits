@@ -1,8 +1,8 @@
 {
-  "build": 35,
-  "version": "web-35",
-  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-35.zip",
+  "build": 36,
+  "version": "web-36",
+  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-36.zip",
   "minNative": 1,
-  "notes": "• Spirit scoring from the doomscroll ledger (OTA, schema v4)\n• Add a root index.html to the Pages site (browsable landing page)\n• Publish signed APK to GitHub Pages (stable URL, no tags needed)\n• Doomscroll detector: only treat launchable apps as foreground switches\n• Doomscroll: event-driven detector + raw session ledger (Spirit tie-in next)",
-  "publishedAt": "2026-07-25T14:36:39.765Z"
+  "notes": "• web-ota: write a root index.html to the Pages site\n• Spirit scoring from the doomscroll ledger (OTA, schema v4)\n• Add a root index.html to the Pages site (browsable landing page)\n• Publish signed APK to GitHub Pages (stable URL, no tags needed)\n• Doomscroll detector: only treat launchable apps as foreground switches",
+  "publishedAt": "2026-07-25T14:44:09.823Z"
 }
