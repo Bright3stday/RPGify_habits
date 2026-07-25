@@ -103,9 +103,14 @@ android/app/src/main/java/com/rpgifyhabits/app/
   observer API is unusable (reverted); the old UsageStats foreground-service poll
   is a dormant fallback. **Native/APK-locked:** the detector + the raw session
   ledger (`DoomscrollUtil.appendEvent`, read via the plugin's `readEvents`).
-  **OTA-tunable (JS):** all scoring — the effect on **Spirit** (leave-on-nudge →
-  gain, binge → wear), thresholds, curves, copy, UI. The ledger is rich enough to
-  also power a future optional "total usage over time" view without a new APK.
+  **OTA-tunable (JS):** all scoring — implemented in `www/js/spirit.js`
+  (`SPIRIT_TUNING`): restraint (leave within ~90s of the nudge) grants Spirit XP
+  with a daily cap (anti-farm); bingeing (>~5 min past) adds capped, self-healing
+  wear to Spirit's condition that also burns down as you complete quests. Drained
+  from the ledger on open/resume (`app.js drainDoomscroll`), folded into Spirit XP
+  (`attributes.js attrXp`) and condition (`condition.js`). The ledger is rich
+  enough to also power a future optional "total usage over time" view without a
+  new APK. Schema is v4 (adds `state.spiritTrack`).
 - **`minNative` is set intentionally, not auto-derived.** Each OTA manifest's
   `minNative` comes from the committed `www/ota.json` field (default 1), bumped by
   hand only when a web change truly needs a newer native capability. (Auto-reading

@@ -14,8 +14,9 @@ import { rollLoot } from './items.js';
 import { emptyEquipment } from './equipment.js';
 import { ATTRIBUTES, scoreOf } from './attributes.js';
 import { defaultDoomscroll } from './doomscroll.js';
+import { defaultSpiritTrack, recoverOnQuest } from './spirit.js';
 
-export const SCHEMA_VERSION = 3;
+export const SCHEMA_VERSION = 4;
 
 export function defaultState() {
   const state = {
@@ -25,6 +26,7 @@ export function defaultState() {
     habits: {},
     tree: { nodes: {} }, // user-authored mastery nodes
     growth: defaultGrowth(), // Growth Points currency
+    spiritTrack: defaultSpiritTrack(), // doomscroll → Spirit XP/wear (OTA-scored)
     inventory: [],      // cosmetic loot collected from completions
     equipment: emptyEquipment(), // cosmetic only — no stat bonuses
     reminders: {},
@@ -115,6 +117,7 @@ export function migrate(state) {
   }
   if (!state.settings) state.settings = {};
   if (!state.settings.doomscroll) state.settings.doomscroll = defaultDoomscroll();
+  if (!state.spiritTrack) state.spiritTrack = defaultSpiritTrack();
   state.version = SCHEMA_VERSION;
   refreshConditions(state);
   return state;
@@ -252,6 +255,9 @@ export function completeHabit(state, id, at = now()) {
   // Loot roll — streak (consistency) plus your Luck attribute improve drops.
   const loot = rollLoot(h, Math.random, { luck: luckFactor(state) });
   if (loot) addLoot(state, loot);
+
+  // Doing a real habit burns down some doomscroll "wear" on Spirit.
+  state.spiritTrack = recoverOnQuest(state.spiritTrack, at);
 
   refreshConditions(state, at);
   return { awards, levelUps, loot };

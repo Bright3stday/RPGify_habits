@@ -8,6 +8,8 @@ import { activeEffects, grantDue } from './skilltree.js';
 import { rescheduleAll } from './notifications.js';
 import { refreshSteps } from './pedometer.js';
 import { notifyReady, checkForUpdate, isDismissed } from './ota.js';
+import { readUsageEvents } from './doomscroll.js';
+import { applyLedger } from './spirit.js';
 import { RARITY, itemIconSvg } from './items.js';
 import { esc } from './util.js';
 import {
@@ -160,6 +162,25 @@ const ctx = {
   },
 };
 
+// ---- Doomscroll → Spirit --------------------------------------------------
+
+// Drain the native detector's session ledger and fold it into Spirit (XP for
+// restraint, wear for bingeing). Native-only; a no-op on the web preview.
+async function drainDoomscroll({ silent = false } = {}) {
+  let events;
+  try { ({ events } = await readUsageEvents()); } catch (e) { return; }
+  if (!events || !events.length) return;
+  const prevSeq = (state.spiritTrack && state.spiritTrack.lastSeq) || 0;
+  const res = applyLedger(state.spiritTrack, events, Date.now());
+  state.spiritTrack = res.track;
+  if (res.track.lastSeq !== prevSeq || res.gainedXp || res.addedWear) {
+    refreshConditions(state);
+    await saveState(state);
+  }
+  if (!silent && res.gainedXp) toast(`☯ Spirit +${res.gainedXp} — you left on the nudge`);
+  else if (!silent && res.addedWear) toast('☯ Spirit wears a little — long session');
+}
+
 // ---- OTA update prompt --------------------------------------------------
 
 // Check for a newer web bundle and, if one is available and not snoozed, ask
@@ -199,11 +220,13 @@ async function boot() {
   });
 
   await ctx.syncSteps({ silent: true }); // catch up steps from time away
+  await drainDoomscroll({ silent: true }); // fold any doomscroll sessions into Spirit
   render();
   // Re-check steps + conditions when returning to the app after time away.
   document.addEventListener('visibilitychange', async () => {
     if (!document.hidden) {
       await ctx.syncSteps();
+      await drainDoomscroll();
       render();
     }
   });

@@ -34,6 +34,7 @@ import {
   SLOTS, SLOT_LABEL, slotForItem, equipItem, unequipSlot, isKeyEquipped,
 } from './equipment.js';
 import { applyUpdate, markDismissed, describeStatus } from './ota.js';
+import { spiritSummary } from './spirit.js';
 
 // ---- small shared bits --------------------------------------------------
 
@@ -805,6 +806,9 @@ function doomscrollSection(state) {
         <label class="field" style="width:84px" id="ds-everywrap"><span>N MIN</span><input type="number" id="ds-every" min="1" max="240" value="${d.retrigger.everyMin}"></label>
       </div>
       <button class="btn primary block" id="ds-apply">APPLY</button>
+      <div class="section-label" style="margin-left:0">SPIRIT IMPACT</div>
+      <div class="bar-caption">${esc(spiritSummary(state))}</div>
+      <div class="bar-caption" style="margin-top:2px">Leaving on the nudge grows Spirit (capped per day); long binges add wear to Spirit's condition that heals over time and as you complete quests.</div>
       <div class="section-label" style="margin-left:0">RECENTLY DETECTED</div>
       <div class="bar-caption" id="ds-recent">—</div>
       <div class="section-label" style="margin-left:0">DIAGNOSTICS</div>

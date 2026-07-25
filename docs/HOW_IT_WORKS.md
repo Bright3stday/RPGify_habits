@@ -252,10 +252,18 @@ been in that app that long *in one sitting*, a notification only **observes** �
   without a new APK. The ledger captures each session (app, start, end, duration,
   whether the nudge fired, and how soon you left after it) — rich enough to also
   power a future "total usage over time" view.
-- **Tied to Spirit (transparent).** Leaving a watched app soon after the nudge is
-  meant to *feed Spirit*; bingeing past it *wears* it — the same loss-aversion
-  loop as habit decay, with the effect shown plainly in Config. (The detector +
-  ledger ship first; the Spirit scoring is layered on via OTA.)
+- **Tied to Spirit (transparent, tunable).** Scoring is pure JS
+  (`www/js/spirit.js`), drained from the ledger on app open/resume:
+  - **Restraint → Spirit XP.** Leaving a watched app within ~90s of the nudge
+    grants Spirit XP, **capped per day** (default 18) so it can't be farmed by
+    open/close spam.
+  - **Bingeing → Spirit wear.** Staying well past the nudge (default 5 min) adds
+    capped wear (≤ 0.6) to Spirit's *condition* — never a hard break. Wear
+    **self-heals** (half-life ~2 days) **and each completed quest burns some
+    down**, so doing real habits is what clears doomscroll fatigue.
+  - The effect is shown plainly in Config (SPIRIT IMPACT: "+X XP · Y% wear") and
+    in Spirit's condition dot on the Status screen. All magnitudes live in
+    `SPIRIT_TUNING` and ship over-the-air.
 - **Per session:** switching away (including to the launcher) resets it.
 - **Retrigger** is configurable: once per session, or every N further minutes.
 - **YouTube caveat:** the foreground signal can't tell Shorts from long-form, so

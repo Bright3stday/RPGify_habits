@@ -13,6 +13,7 @@
 import { periodMs } from './cadence.js';
 import { clamp } from './util.js';
 import { activeEffects } from './skilltree.js';
+import { spiritWear } from './spirit.js';
 
 // Condition stays pristine for one full grace period past due, then falls to
 // zero over this many further periods.
@@ -44,13 +45,21 @@ export function statCondition(state, statId, at = Date.now()) {
   const feeders = Object.values(state.habits).filter(
     (h) => !h.retired && h.statIds.includes(statId),
   );
-  if (feeders.length === 0) return 100;
-  const sum = feeders.reduce((acc, h) => acc + habitHealth(h, at), 0);
-  const raw = sum / feeders.length;
-  // Skill-tree Steadfast/Master nodes soften the loss (never full immunity).
-  const resist = activeEffects(state).decayResist;
-  const resisted = 100 - (100 - raw) * (1 - resist);
-  return Math.round(resisted);
+  let base;
+  if (feeders.length === 0) {
+    base = 100;
+  } else {
+    const sum = feeders.reduce((acc, h) => acc + habitHealth(h, at), 0);
+    const raw = sum / feeders.length;
+    // Skill-tree Steadfast/Master nodes soften the loss (never full immunity).
+    const resist = activeEffects(state).decayResist;
+    base = 100 - (100 - raw) * (1 - resist);
+  }
+  // Spirit additionally carries doomscroll "wear" — recent bingeing lowers its
+  // condition (self-heals over time / with completed quests), applied even when
+  // Spirit has no feeding quests.
+  if (statId === 'spr') base *= (1 - spiritWear(state, at));
+  return Math.round(base);
 }
 
 // Discrete visual bucket for a condition value.

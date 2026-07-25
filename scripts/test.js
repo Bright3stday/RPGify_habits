@@ -30,6 +30,9 @@ import {
   watchedSessions, sessionLine, watchedMinutesSince,
 } from '../www/js/doomscroll.js';
 import { shouldApply, describeStatus } from '../www/js/ota.js';
+import {
+  applyLedger, recoverOnQuest, decayedWear, defaultSpiritTrack, spiritWear, SPIRIT_TUNING,
+} from '../www/js/spirit.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -384,6 +387,66 @@ test('watchedMinutesSince: sums watched session minutes in window', () => {
     { type: 'session', watched: true, end: 7000, durationSec: 300 }, // 5 min
   ];
   assert.equal(Math.round(watchedMinutesSince(events, 2000)), 25);
+});
+
+// ---- doomscroll → Spirit scoring ----------------------------------------
+
+const now0 = Date.UTC(2026, 0, 10, 12, 0, 0);
+const sess = (seq, over) => ({
+  seq, type: 'session', watched: true, alerted: true, leftAfterAlertSec: over, ts: now0,
+});
+
+test('spirit: leaving soon after the nudge grants capped XP', () => {
+  const t0 = defaultSpiritTrack();
+  const events = [sess(1, 20), sess(2, 45), sess(3, 10)]; // 3 restrained exits
+  const { track, gainedXp } = applyLedger(t0, events, now0);
+  // 3 * 6 = 18, exactly the daily cap.
+  assert.equal(gainedXp, 18);
+  assert.equal(track.xp, 18);
+  // A 4th restrained exit the same day earns nothing (cap reached).
+  const r2 = applyLedger(track, [sess(4, 15)], now0);
+  assert.equal(r2.gainedXp, 0);
+  assert.equal(r2.track.xp, 18);
+});
+
+test('spirit: bingeing past the nudge adds capped wear', () => {
+  const t0 = defaultSpiritTrack();
+  const events = [sess(1, 600), sess(2, 600), sess(3, 600), sess(4, 600)]; // 4 binges
+  const { track } = applyLedger(t0, events, now0);
+  assert.equal(track.wear, SPIRIT_TUNING.wearMax); // capped, not 0.8
+});
+
+test('spirit: only NEW ledger events (seq > lastSeq) are scored', () => {
+  const t0 = { ...defaultSpiritTrack(), lastSeq: 2 };
+  const { gainedXp, track } = applyLedger(t0, [sess(1, 10), sess(2, 10), sess(3, 10)], now0);
+  assert.equal(gainedXp, 6); // only seq 3 counts
+  assert.equal(track.lastSeq, 3);
+});
+
+test('spirit: wear self-heals over time and drops to zero eventually', () => {
+  const t = { ...defaultSpiritTrack(), wear: 0.4, wearAt: now0 };
+  const oneHalfLife = now0 + SPIRIT_TUNING.wearHalfLifeMs;
+  assert.ok(Math.abs(decayedWear(t, oneHalfLife) - 0.2) < 1e-9);
+  assert.equal(decayedWear(t, now0 + 100 * SPIRIT_TUNING.wearHalfLifeMs), 0); // snaps to 0
+});
+
+test('spirit: completing a quest burns down wear', () => {
+  const t = { ...defaultSpiritTrack(), wear: 0.3, wearAt: now0 };
+  const after = recoverOnQuest(t, now0);
+  assert.ok(Math.abs(after.wear - (0.3 - SPIRIT_TUNING.recoverPerQuest)) < 1e-9);
+});
+
+test('spirit: neutral events (not watched / not alerted) never score', () => {
+  const t0 = defaultSpiritTrack();
+  const events = [
+    { seq: 1, type: 'session', watched: false, alerted: true, leftAfterAlertSec: 10, ts: now0 },
+    { seq: 2, type: 'session', watched: true, alerted: false, leftAfterAlertSec: -1, ts: now0 },
+    { seq: 3, type: 'threshold', watched: true, ts: now0 },
+  ];
+  const { gainedXp, addedWear, track } = applyLedger(t0, events, now0);
+  assert.equal(gainedXp, 0);
+  assert.equal(addedWear, 0);
+  assert.equal(track.lastSeq, 3); // still advances the cursor
 });
 
 // ---- OTA update logic ---------------------------------------------------

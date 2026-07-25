@@ -9,6 +9,7 @@
 // plus your character level, exactly like a JRPG status screen.
 
 import { levelFromXp, charLevelFromXp, charProgress } from './leveling.js';
+import { spiritBonusXp } from './spirit.js';
 
 export const ATTRIBUTES = [
   { id: 'str', name: 'Strength', abbr: 'STR', color: '#e05a5a', glyph: '⚔', desc: 'Physical training & exertion' },
@@ -26,13 +27,20 @@ export function attributeScore(xp) {
   return 8 + levelFromXp(xp);
 }
 
+// Effective XP for an attribute = its accumulated XP, plus (for Spirit) the
+// bonus earned by resisting doomscroll. Kept in one place so score, level and
+// character level all agree.
+export function attrXp(state, id) {
+  const base = state.stats[id]?.xp || 0;
+  return id === 'spr' ? base + spiritBonusXp(state) : base;
+}
+
 export function totalXp(state) {
-  return Object.values(state.stats).reduce((a, s) => a + (s.xp || 0), 0);
+  return Object.keys(state.stats).reduce((a, id) => a + attrXp(state, id), 0);
 }
 
 export function scoreOf(state, id) {
-  const s = state.stats[id];
-  return s ? attributeScore(s.xp) : 8;
+  return state.stats[id] ? attributeScore(attrXp(state, id)) : 8;
 }
 
 // The full derived character sheet.
