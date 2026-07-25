@@ -617,6 +617,13 @@ export function renderSettings(container, ctx) {
     </div>
 
     <div class="window">
+      <div class="window-title">◆ APP UPDATES</div>
+      <div class="bar-caption" id="ota-status">Checking current version…</div>
+      <button class="btn primary block" id="ota-check" style="margin-top:8px">CHECK FOR UPDATES</button>
+      <div class="bar-caption" style="margin-top:8px">Web changes install over-the-air here — no APK download needed. Only brand-new native features require a fresh APK from the Releases page.</div>
+    </div>
+
+    <div class="window">
       <div class="window-title">◆ DATA</div>
       <div class="btn-row">
         <button class="btn" id="export">⬇ EXPORT</button>
@@ -665,6 +672,26 @@ export function renderSettings(container, ctx) {
     if (res.ok) ctx.toast('Test sent — watch for it in ~5s.');
     else if (res.reason === 'permission') ctx.toast('Notifications not permitted — allow them in Android settings.', 2600);
     else ctx.toast('Reminders only work in the installed Android app.', 2600);
+  });
+
+  // App updates (OTA) — show current build, allow a manual check.
+  (async () => {
+    const { otaSupported, currentBuild, describeStatus } = await import('./ota.js');
+    const statusEl = container.querySelector('#ota-status');
+    if (!statusEl) return;
+    if (!otaSupported()) {
+      statusEl.textContent = describeStatus({ status: 'web' });
+    } else {
+      statusEl.textContent = `Current version: build ${await currentBuild()}.`;
+    }
+  })();
+  container.querySelector('#ota-check').addEventListener('click', async () => {
+    const { checkForUpdate, describeStatus } = await import('./ota.js');
+    const statusEl = container.querySelector('#ota-status');
+    statusEl.textContent = 'Checking for updates…';
+    const r = await checkForUpdate({ manual: true });
+    statusEl.textContent = describeStatus(r);
+    ctx.toast(describeStatus(r), 2600);
   });
 
   // Data

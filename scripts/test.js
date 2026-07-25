@@ -28,6 +28,7 @@ import { spreadMinutes } from '../www/js/notifications.js';
 import {
   currentSession, shouldAlert, observationCopy, sanitizeConfig, nextFireDelayMs, probeSummary,
 } from '../www/js/doomscroll.js';
+import { shouldApply, describeStatus } from '../www/js/ota.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -348,6 +349,43 @@ test('doomscroll sanitizeConfig clamps and filters', () => {
   assert.equal(c.apps[0].thresholdMin, 600);
   assert.equal(c.retrigger.mode, 'once');
   assert.equal(c.retrigger.everyMin, 1);
+});
+
+// ---- OTA update logic ---------------------------------------------------
+
+test('ota shouldApply: newer applicable bundle applies', () => {
+  const d = shouldApply(10, { build: 12, url: 'x.zip', minNative: 1 }, 1);
+  assert.equal(d.apply, true);
+  assert.equal(d.reason, 'ready');
+});
+
+test('ota shouldApply: same or older build is up-to-date', () => {
+  assert.equal(shouldApply(12, { build: 12, url: 'x.zip' }, 1).reason, 'up-to-date');
+  assert.equal(shouldApply(12, { build: 9, url: 'x.zip' }, 1).reason, 'up-to-date');
+});
+
+test('ota shouldApply: bundle needing newer native waits for an APK', () => {
+  const d = shouldApply(10, { build: 20, url: 'x.zip', minNative: 3 }, 1);
+  assert.equal(d.apply, false);
+  assert.equal(d.reason, 'needs-apk');
+});
+
+test('ota shouldApply: unknown native version does not block', () => {
+  // If we can't read the installed versionCode, don't wrongly gate the update.
+  const d = shouldApply(10, { build: 20, url: 'x.zip', minNative: 3 }, null);
+  assert.equal(d.apply, true);
+});
+
+test('ota shouldApply: malformed manifest is rejected', () => {
+  assert.equal(shouldApply(10, null, 1).reason, 'invalid');
+  assert.equal(shouldApply(10, { build: 'x', url: 'y' }, 1).reason, 'invalid');
+  assert.equal(shouldApply(10, { build: 12 }, 1).reason, 'invalid'); // no url
+});
+
+test('ota describeStatus covers each status', () => {
+  for (const s of ['web', 'current', 'needs-apk', 'applied', 'offline', 'error']) {
+    assert.ok(describeStatus({ status: s, build: 1 }).length > 0);
+  }
 });
 
 console.log(`\n${passed} checks passed.`);

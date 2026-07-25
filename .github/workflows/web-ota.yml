@@ -1,0 +1,72 @@
+name: Publish web OTA update
+
+# Publishes a new *web* bundle over-the-air, so web-only changes reach the
+# installed app without building or downloading an APK. Runs when web assets
+# change on the main development branch (or manually). A fresh APK is only
+# needed when native code changes — see docs/INSTALL_AND_UPDATE.md.
+#
+# One-time setup: enable GitHub Pages for this repo (Settings → Pages → Build
+# and deployment → Deploy from a branch → branch: gh-pages, folder: / root).
+# The first run creates the gh-pages branch; Pages then serves the manifest at
+# https://<owner>.github.io/<repo>/updates/latest.json.
+on:
+  push:
+    branches: [ main, master, claude/habit-skill-rpg-android-xir4qv ]
+    paths:
+      - 'www/**'
+      - 'scripts/ota-stamp.mjs'
+      - '.github/workflows/web-ota.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # needed to push the bundle to the gh-pages branch
+
+# Never let two publishes race on the gh-pages branch.
+concurrency:
+  group: web-ota
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so the build number is monotonic
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Compute build number
+        id: build
+        run: echo "n=$(git rev-list --count HEAD)" >> "$GITHUB_OUTPUT"
+
+      # Stamp www/ota.json so the bundle we ship carries the same build/channel
+      # the running app will read back after it's applied.
+      - name: Stamp OTA baseline into the bundle
+        run: node scripts/ota-stamp.mjs baseline
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      # The OTA bundle is a zip of the web root (index.html at the top level).
+      - name: Package web bundle
+        run: |
+          mkdir -p dist/updates
+          ( cd www && zip -r -q "../dist/updates/bundle-${{ steps.build.outputs.n }}.zip" . )
+
+      - name: Write update manifest
+        run: node scripts/ota-stamp.mjs manifest dist/updates
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+
+      # Publish to gh-pages/updates/. keep_files retains older bundles so phones
+      # mid-download aren't broken by a new publish.
+      - name: Publish to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./dist
+          destination_dir: .
+          keep_files: true
+          commit_message: "web OTA build ${{ steps.build.outputs.n }}"

@@ -7,6 +7,7 @@ import { refreshConditions } from './condition.js';
 import { activeEffects, grantDue } from './skilltree.js';
 import { rescheduleAll } from './notifications.js';
 import { refreshSteps } from './pedometer.js';
+import { notifyReady, checkForUpdate } from './ota.js';
 import { RARITY, itemIconSvg } from './items.js';
 import { esc } from './util.js';
 import {
@@ -161,6 +162,11 @@ const ctx = {
 // ---- Boot ---------------------------------------------------------------
 
 async function boot() {
+  // Confirm this web bundle booted OK so the OTA updater doesn't roll it back,
+  // then quietly check for a newer bundle (applying one reloads the app).
+  notifyReady();
+  checkForUpdate({ silent: true }).catch(() => {});
+
   state = migrate(await loadState());
   if (!state) {
     state = defaultState();

@@ -264,21 +264,55 @@ That's the only way data leaves or enters the app.
 
 ---
 
-## 12. Where things live (quick map)
+## 12. Updates — OTA (web) & APK (native)
+
+There are two kinds of change, and they reach your phone differently:
+
+- **Web changes** (screens, game logic, text — anything in `www/`) ship
+  **over-the-air**. On every launch the app checks a small manifest on GitHub
+  Pages; if a newer web bundle is published and your installed APK is new enough
+  to run it, the app downloads and swaps it in (a brief restart). There's also a
+  **CHECK FOR UPDATES** button in **Config → APP UPDATES**. No APK download.
+- **Native changes** (step counter, doomscroll service, a new plugin, icon,
+  permissions) need a **new APK**, published to the Releases page when you push a
+  version tag (`v2`, `v3`, …).
+
+**How it stays consistent:** every build has a number = `git rev-list --count
+HEAD` (commit count), stamped into both the APK's baked-in `www/ota.json` and
+each published `updates/latest.json`. The app runs whichever is newer — the APK's
+baked-in build or the last OTA bundle it applied. Each web bundle also records
+the minimum native `versionCode` it needs; if your APK is older, the app declines
+the web update and tells you to grab a new APK, so it can never half-update into
+a broken state. Full setup and mechanics: `docs/INSTALL_AND_UPDATE.md`.
+
+The pure decision (`shouldApply`) is unit-tested in `scripts/test.js`; the
+download/apply glue runs only inside the installed Android app (no-op on web).
+
+---
+
+## 13. Where things live (quick map)
 
 ```
-www/js/
-  game.js         completion, XP, migration, default state
-  attributes.js   the six attributes, character level, derived stats
-  condition.js    cadence-aware decay / attribute condition
-  skilltree.js    mastery nodes + Growth Points  ← §5, §6
-  sprites.js      the single hero sprite
-  items.js        loot table + drop rolls
-  equipment.js    cosmetic gear slots
-  pedometer.js    steps source
-  notifications.js reminders (spacing, test, channel)
-  doomscroll.js   doomscroll session/threshold/copy logic + native bridge
-  views.js        all screens
+www/
+  ota.json        baked-in OTA baseline { build, channel } (CI-stamped)
+  js/
+    game.js         completion, XP, migration, default state
+    attributes.js   the six attributes, character level, derived stats
+    condition.js    cadence-aware decay / attribute condition
+    skilltree.js    mastery nodes + Growth Points  ← §5, §6
+    sprites.js      the single hero sprite
+    items.js        loot table + drop rolls
+    equipment.js    cosmetic gear slots
+    pedometer.js    steps source
+    notifications.js reminders (spacing, test, channel)
+    doomscroll.js   doomscroll session/threshold/copy logic + native bridge
+    ota.js          OTA update check/apply + native updater bridge  ← §12
+    views.js        all screens
+scripts/
+  ota-stamp.mjs   CI helper: stamps build number + channel into ota.json/manifest
+.github/workflows/
+  android.yml     builds/signs the APK, publishes to Releases on version tags
+  web-ota.yml     publishes web bundles to GitHub Pages for OTA
 android/app/src/main/java/com/rpgifyhabits/app/
   StepCounterPlugin.java   pedometer bridge
   DoomscrollService.java   usage-stats polling + precise-fire scheduling

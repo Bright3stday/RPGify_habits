@@ -37,7 +37,7 @@ scheduled locally.
 | **Quests** (habits) | Add / edit / retire habits. Set cadence (daily / every N days / weekly), XP per completion, and which attribute(s) each trains. |
 | **Skills** | Your Growth Points balance + a mastery tree per attribute. Author nodes with your own "cleared" criteria, dependency edges, and optional rewards; when a node is eligible, confirm it and spend a point to unlock. |
 | **Bag** | Your hero + cosmetic gear slots, and the loot collected from completions. Tap gear to equip (looks only — no bonuses). |
-| **Config** | The (fixed) attribute list, reminders (weekly check-in + water/posture nudges), and export/import your save. |
+| **Config** | The (fixed) attribute list, reminders (weekly check-in + water/posture nudges), doomscroll mirror, Growth Point settings, **app updates** (OTA check), and export/import your save. |
 
 ---
 
@@ -189,10 +189,13 @@ www/                     the web app (this is what Capacitor wraps)
     doomscroll.js        doomscroll session/threshold/copy logic + native bridge
     notifications.js     local notifications (native) / no-op (web)
     backup.js            JSON export/import
+    ota.js               over-the-air web-update check/apply (native updater bridge)
     views.js             the five screens + editor modals
     app.js               orchestrator: routing, persistence, reward beats
+  ota.json               baked-in OTA baseline { build, channel } (CI-stamped)
 android/                 generated Capacitor Android project (build in Studio)
-scripts/                 dev server + tests (not shipped in the app)
+scripts/                 dev server, tests, icon + OTA-stamp helpers (not shipped)
+.github/workflows/       android.yml (APK build/sign/release) · web-ota.yml (OTA publish)
 capacitor.config.json
 ```
 
@@ -203,7 +206,7 @@ capacitor.config.json
 ```bash
 npm install
 npm run serve          # http://localhost:5173
-npm test               # 11 dependency-free logic tests
+npm test               # dependency-free logic tests
 node scripts/smoke.mjs # headless-browser end-to-end smoke test
 ```
 
@@ -264,6 +267,30 @@ required. Config has a **🔔 TEST (5s)** button that fires a notification a few
 seconds out to confirm the pipeline; scheduled water/posture nudges land at a
 random minute within each active hour, so the first real one can be up to an
 hour away.
+
+---
+
+## Updating the app (OTA web + APK)
+
+Two update paths, so everyday changes never need an APK:
+
+- **Web changes** (anything in `www/` — screens, logic, text) ship
+  **over-the-air**. Pushing them to the main branch triggers
+  `.github/workflows/web-ota.yml`, which publishes the web bundle to **GitHub
+  Pages**; the installed app checks that channel on every launch (and via
+  **Config → APP UPDATES**) and applies newer bundles itself — no download,
+  no reinstall. Uses `@capgo/capacitor-updater`; hosting is self-served on Pages
+  (no third-party account).
+- **Native changes** (step counter, doomscroll service, a new plugin, icon,
+  permissions) need a **new APK** — push a version tag (`v2`, `v3`, …) and
+  `android.yml` builds a **signed** APK and publishes it to the Releases page.
+
+Build numbers are the commit count (`git rev-list --count HEAD`), stamped by
+`scripts/ota-stamp.mjs` into both the APK's baked-in `www/ota.json` and each
+published manifest, so the two paths stay consistent and never downgrade. Each
+web bundle records the minimum native `versionCode` it needs, so OTA can't push
+web that a stale APK can't run. **Full setup (signing key, GitHub secrets, Pages)
+and troubleshooting live in [`docs/INSTALL_AND_UPDATE.md`](docs/INSTALL_AND_UPDATE.md).**
 
 ---
 

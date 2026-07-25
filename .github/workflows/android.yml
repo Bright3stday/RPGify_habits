@@ -15,12 +15,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # full history so `git rev-list --count` is the real build number
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
       - run: npm ci
+
+      # Bake the current web build number + OTA update channel into the APK, so
+      # the installed app knows what it shipped with and where to look for
+      # over-the-air web updates (see docs/INSTALL_AND_UPDATE.md).
+      - name: Stamp OTA baseline
+        run: node scripts/ota-stamp.mjs baseline
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
 
       - uses: actions/setup-java@v4
         with:

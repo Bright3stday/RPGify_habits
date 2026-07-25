@@ -5,6 +5,10 @@
   "plugins": {
     "LocalNotifications": {
       "iconColor": "#48c8ff"
+    },
+    "CapacitorUpdater": {
+      "autoUpdate": false,
+      "resetWhenUpdate": true
     }
   }
 }
