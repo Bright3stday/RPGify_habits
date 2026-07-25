@@ -1,7 +1,7 @@
 # RPGify Habits — How It Actually Works
 
 A plain-English, example-driven tour of every system, and *exactly* what each
-number/threshold reads from. This is the intuitive companion to the README.
+number/threshold reads from — a deeper companion to the Overview.
 
 The one sentence version: **you do real habits → they pour XP into six fixed
 attributes → your attributes drive a character level, derived stats, and a hero
@@ -50,7 +50,7 @@ it.
 - **GP** on the sheet = your **Growth Points** balance (see §6).
 
 These derived numbers are a flavourful mirror of growth — there's no combat, so
-they exist to make "the numbers go up as I build habits" feel real.
+they exist to make "the numbers go up as you build habits" feel real.
 
 ---
 
@@ -130,12 +130,12 @@ erase the practice you already banked.)
    Point**. Eligibility alone is never enough — the point + your honest
    confirmation are the real gate.
 
-### Your specific question: an overarching node that depends on a few quests
+### An overarching node that depends on a few milestones
 
 The engine has **no "require these 3 specific quests" gate**. A node's own
 trigger is only *attribute level* or *attribute-wide practice*. Specific
-prerequisites are expressed **node-to-node**, not node-to-quest. Two ways to get
-what you want:
+prerequisites are expressed **node-to-node**, not node-to-quest. There are two
+ways to build this:
 
 **Pattern A — parent nodes (recommended for "depends on a few things").**
 Make a small node for each milestone, then a general node that requires them:
@@ -153,15 +153,14 @@ Strength tree:
 needs "any 2 of 3" sub-paths.
 
 **Pattern B — a single aggregate threshold.**
-If "a few quests being done" really just means "I've put in the reps across this
-domain," skip parents and set one **Practice ≥ N** threshold. It already sums all
-quests in that attribute.
+If "a few quests being done" really just means "you've put in the reps across
+this domain," skip parents and set one **Practice ≥ N** threshold. It already
+sums all quests in that attribute.
 
-**What you can't (yet) do:** gate a node on one *named* quest hitting a count
-(e.g. "Meditate specifically, 30 times"), independent of other Spirit quests.
-Practice is per-attribute, not per-quest. If you want per-quest criteria, that's
-a small addition — say the word and I'll add a "specific quest ≥ N" threshold
-type.
+**What isn't supported (yet):** gating a node on one *named* quest hitting a
+count (e.g. "Meditate specifically, 30 times"), independent of other Spirit
+quests. Practice is per-attribute, not per-quest. A per-quest ("specific quest
+≥ N") threshold type is a possible future addition.
 
 ### Cross-tree trade-off
 
@@ -194,8 +193,8 @@ your odds. Loot collects in the **Bag**, and you can **equip** it into five slot
 to change how your hero looks.
 
 **Gear grants zero stat bonuses.** It's collection + customization. All real
-power comes from habits → levels → mastery nodes, by design (you asked for no
-item min-maxing).
+power comes from habits → levels → mastery nodes, by design — the focus is real
+growth, not item min-maxing.
 
 ---
 

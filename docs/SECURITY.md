@@ -106,12 +106,13 @@ worth the overhead.
 
 ---
 
-## For the author: strengthening assurance further (optional)
+## Further hardening (possible additions)
 
-- **Build provenance attestation** — add `actions/attest-build-provenance` to the
-  APK workflow so each APK carries a cryptographic, GitHub-signed statement of
-  *which repo + commit + workflow* produced it, verifiable with
-  `gh attestation verify`. This is the gold standard for "this binary came from
-  this public source."
-- **Publish the signing certificate fingerprint** in the repo so friends have a
-  known-good value to compare step 4 against.
+Beyond the checks above, two measures can strengthen assurance further:
+
+- **Build provenance attestation** — each APK can carry a cryptographic,
+  GitHub-signed statement of *which repository, commit, and workflow* produced
+  it, verifiable with `gh attestation verify`. This is the gold standard for
+  proving a binary came from a specific public source.
+- **A published signing-certificate fingerprint** — a known-good value to compare
+  the signature check (step 4) against.
