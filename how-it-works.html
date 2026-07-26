@@ -118,10 +118,14 @@ away from the app for 3 weeks decays exactly as much as 3 weeks of real neglect.
 (never eliminates) the drop.</p>
 <hr>
 <h2>4. Your hero (one sprite)</h2>
-<p>A single pixel avatar = <em>you</em>. It&#39;s chosen from two axes:</p>
+<p>A single pixel avatar = <em>you</em>. It&#39;s chosen from three axes:</p>
 <ul>
-<li><strong>Character level → class:</strong> Adventurer (1–3) → Warrior (4–6) → Knight (7–10)
-→ Mage (11+).</li>
+<li><strong>Character level → base or archetype:</strong> Wanderer (level 1–3, everyone
+starts here) → your chosen <strong>growth path</strong>&#39;s archetype from level 4 on.</li>
+<li><strong>Growth path → archetype:</strong> a short diagnostic quiz on first run (<code>www/js/ views.js showWalkthrough</code>) sorts you into one of three paths — The Anchor
+(→ <strong>Druid</strong>), The Architect (→ <strong>Scholar</strong>), or The Catalyst (→ <strong>Ranger</strong>) —
+stored as <code>state.settings.path</code>. Skipped the quiz, or on an older save? It
+falls back to whichever path your current stats lean toward (<code>www/js/ sprites.js</code>, comparing vit+spr / mag+spr / spd+str).</li>
 <li><strong>Overall condition → devolution:</strong> if the <em>average</em> condition across the
 attributes you&#39;re actually training (ones with quests) goes cracked → <strong>Imp</strong>,
 or broken → <strong>Slime</strong>. A worn-but-not-broken hero just looks desaturated.
@@ -129,8 +133,8 @@ Untrained attributes sit at 100% and are ignored here, so a focused user&#39;s
 lapse in their one domain still shows on the hero (they aren&#39;t masked by five
 pristine-but-empty stats).</li>
 </ul>
-<p>So: do your habits and your class climbs; neglect everything and your leveled-up
-hero visibly melts into a slime.</p>
+<p>So: do your habits and you grow into your archetype; neglect everything and
+your leveled-up hero visibly melts into a slime.</p>
 <hr>
 <h2>5. The Mastery Tree (read this carefully — it answers the common questions)</h2>
 <p>This is the self-authored progression layer. <strong>You</strong> create the nodes.</p>

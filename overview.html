@@ -130,17 +130,21 @@ Growth Points, not by character level — see below.)</p>
 <h3>One hero, who levels and devolves</h3>
 <p>A single hero sprite (<code>www/js/sprites.js</code>) — <em>you</em> — driven by character level
 and overall condition, not one-per-attribute:</p>
-<pre><code>character level 1-3  -&gt; Adventurer
-character level 4-6  -&gt; Warrior   (leather + sword)
-character level 7-10 -&gt; Knight    (plate, shield, plumed helm)
-character level 11+  -&gt; Mage      (robe, staff, arcane aura)
-overall condition worn    -&gt; the current class, desaturated (early warning)
+<pre><code>character level 1-3  -&gt; Wanderer  (base traveler, every path starts here)
+character level 4+   -&gt; your chosen growth path&#39;s archetype:
+                          The Anchor    -&gt; Druid    (earthy greens/browns)
+                          The Architect -&gt; Scholar  (clean blues/whites)
+                          The Catalyst  -&gt; Ranger   (practical greys/leathers)
+overall condition worn    -&gt; the current archetype, desaturated (early warning)
 overall condition cracked -&gt; Imp   (devolved into a lesser monster)
 overall condition broken  -&gt; Slime (your hero literally melts into goo)
 </code></pre>
-<p>Do your habits and your hero climbs the class ladder; neglect them and it
-devolves toward a slime — the loss-aversion thesis made literal. Drawn
-procedurally as inline SVG (no image assets).</p>
+<p>The growth path is set by a short diagnostic quiz on first run (or picked up
+from whichever stats you&#39;ve trained most, if you skipped it) — see
+<code>www/js/recipes.js</code> (<code>GROWTH_PATHS</code>, <code>pathFromQuiz</code>). Do your habits and your
+hero grows into that archetype; neglect them and it devolves toward a slime —
+the loss-aversion thesis made literal. Drawn procedurally as inline SVG (no
+image assets).</p>
 <h3>Steps</h3>
 <p>A habit can be <strong>auto (steps)</strong> instead of tap-to-log: it carries a daily step
 goal and <strong>auto-completes the moment you hit it</strong> (awarding XP, resetting decay),
