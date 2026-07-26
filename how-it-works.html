@@ -270,42 +270,56 @@ layer: you pick apps (e.g. Instagram) and a threshold (e.g. 20 min); when you&#3
 been in that app that long <em>in one sitting</em>, a notification only <strong>observes</strong> —
 &quot;28 minutes on Instagram&quot; — never instructs, scolds, or blocks. No red styling.</p>
 <ul>
-<li><strong>Detection is event-driven</strong> via an <strong>AccessibilityService</strong>
-(<code>DoomscrollAccessibilityService</code>): once you enable it under Settings →
-Accessibility, the OS <em>pushes</em> foreground-app changes — real-time, no polling
-loop, no persistent notification, low battery. It reads only <em>which</em> app is in
-front (<code>canRetrieveWindowContent=false</code>), never screen content, and only for
-the apps you chose. (The zero-poll <em>usage-session observer</em> API needs a
-privileged permission a normal app can&#39;t hold; the old UsageStats
-foreground-service poll remains in the tree as a dormant fallback.)</li>
-<li><strong>Dumb native, smart JS.</strong> The service only <em>records raw facts</em> to a session
-ledger; <strong>all scoring lives in JS</strong>, so the mechanic is tunable over-the-air
-without a new APK. The ledger captures each session (app, start, end, duration,
-whether the nudge fired, and how soon you left after it) — rich enough to also
-power a future &quot;total usage over time&quot; view.</li>
+<li><strong>Two paths — you choose (framed in the first-run walkthrough).</strong> Both read
+Android <strong>Usage Access</strong> (never Accessibility, never screen content — only which
+app is in front, for how long, for the apps you picked):<ul>
+<li><strong>Oracle</strong> (default, reflect-on-return): nothing runs in the background. When
+you open RPGify, <code>DoomscrollPlugin.syncUsage</code> reconstructs the completed
+sessions since last time into the ledger, and the reckoning plays. No
+notification, no battery cost — but no nudge in the moment.</li>
+<li><strong>Sentinel</strong> (opt-in, real-time): a foreground service (<code>DoomscrollService</code>)
+records the same sessions <em>and</em> fires the live nudge at the threshold. Costs a
+persistent &quot;watching&quot; notification and a little battery.</li>
+<li>The on-return reckoning is common to <strong>both</strong> paths; Sentinel just adds the
+live nudge. Switch paths anytime in Config; skipping the walkthrough leaves you
+on Oracle. If Oracle keeps losing to the scroll (repeated binges with no
+restraint gains, or wear pinned at the cap), RPGify <em>offers</em> Sentinel — never
+forces it.</li>
+</ul>
+</li>
+<li><strong>Dumb native, smart JS.</strong> The native side only <em>records raw facts</em> to a session
+ledger (via <code>DoomscrollUtil.syncSessions</code>, shared by both paths through one
+cursor so they never double-count); <strong>all scoring lives in JS</strong>, so the mechanic
+is tunable over-the-air without a new APK. Each session row carries app, start,
+end, <code>durationSec</code>, and the app&#39;s <code>thresholdMin</code> — enough to also power a future
+&quot;total usage over time&quot; view.</li>
 <li><strong>Tied to Spirit (transparent, tunable).</strong> Scoring is pure JS
-(<code>www/js/spirit.js</code>), drained from the ledger on app open/resume:<ul>
-<li><strong>Restraint → Spirit XP.</strong> Leaving a watched app within ~90s of the nudge
-grants Spirit XP, <strong>capped per day</strong> (default 18) so it can&#39;t be farmed by
-open/close spam.</li>
-<li><strong>Bingeing → Spirit wear.</strong> Staying well past the nudge (default 5 min) adds
-capped wear (≤ 0.6) to Spirit&#39;s <em>condition</em> — never a hard break. Wear
+(<code>www/js/spirit.js</code>), drained from the ledger on app open/resume, and is
+<strong>duration-based so it works identically on both paths</strong>:<ul>
+<li><strong>Restraint → Spirit XP.</strong> Crossing an app&#39;s threshold but <em>not</em> bingeing past
+it grants Spirit XP, <strong>capped per day</strong> (default 18). Normal short use (ending
+before the threshold) is neutral, so nothing is farmable by open/close spam.</li>
+<li><strong>Bingeing → Spirit wear.</strong> Staying well past the threshold (default 5 min)
+adds capped wear (≤ 0.6) to Spirit&#39;s <em>condition</em> — never a hard break. Wear
 <strong>self-heals</strong> (half-life ~2 days) <strong>and each completed quest burns some
 down</strong>, so doing real habits is what clears doomscroll fatigue.</li>
+<li>Spirit is <em>also</em> trained by quests, like any attribute — doomscroll only layers
+this bonus/wear on top.</li>
 <li><strong>Feedback:</strong> when you return to the app it plays an animated <strong>reward beat</strong>
-(&quot;SPIRIT +6&quot; / &quot;SPIRIT WEARS&quot;); the Status screen shows an explicit <strong>fatigue
+(&quot;SPIRIT +6&quot; / &quot;SPIRIT WORN&quot;); the Status screen shows an explicit <strong>fatigue
 chip</strong> (😵‍💫 N%) on the Spirit row while worn (a single binge&#39;s dip can hide
 inside the condition bucket); and Config shows the running SPIRIT IMPACT line.
 All magnitudes live in <code>SPIRIT_TUNING</code> and ship over-the-air.</li>
 </ul>
 </li>
 <li><strong>Per session:</strong> switching away (including to the launcher) resets it.</li>
-<li><strong>Retrigger</strong> is configurable: once per session, or every N further minutes.</li>
+<li><strong>Retrigger</strong> (Sentinel only) is configurable: once per session, or every N
+further minutes.</li>
 <li><strong>YouTube caveat:</strong> the foreground signal can&#39;t tell Shorts from long-form, so
 give YouTube a long threshold or leave it off.</li>
 <li><strong>Transparency + diagnostics</strong> (Config → Doomscroll): a <em>Recently detected</em>
 panel lists the sessions the detector logged (so you can verify it on-device);
-<em>Test alert</em> posts a sample notice.</li>
+<em>Test nudge</em> posts a sample notice.</li>
 <li><strong>Not</strong> a limiter/blocker — that&#39;s what Digital Wellbeing is for. This never
 restricts, only reflects and scores.</li>
 </ul>
