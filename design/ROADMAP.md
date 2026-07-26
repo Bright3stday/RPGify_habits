@@ -16,12 +16,13 @@ APKs. See `CLAUDE.md` for how things ship.
   enable toggle (nothing applies when disabled).
 - Delivery: OTA web updates (consent-based) + signed APK — both via GitHub Pages.
   Docs website generated from Markdown. Hidden dev/test panel. Security/verify doc.
+- **Recipes** — curated, editable quest/mastery starting points per stat
+  (`www/js/recipes.js`); browse/add modal that pre-fills the editor; multi-node
+  mastery paths with wired dependencies. Spec: `design/RECIPES.md`.
 
 ## Next — OTA-only (no reinstall)
 
-1. **Recipes** — curated, editable quest/mastery starting points per stat.
-   Spec: `design/RECIPES.md`. (Prompt handed to a build session.)
-2. **Decay/avatar tweak** — compute overall/hero condition from *engaged* stats
+1. **Decay/avatar tweak** — compute overall/hero condition from *engaged* stats
    (ones with quests) only, so single-domain users' lapses actually show. Small.
    (Needs its own short spec before building.)
 3. **Tracking ⁄ mirror split + transparency** — separate "usage tracking" from the
