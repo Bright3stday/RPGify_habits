@@ -77,10 +77,16 @@ Unlocking certain mastery nodes can grant **decay resistance**, which softens
 
 ## 4. Your hero (one sprite)
 
-A single pixel avatar = *you*. It's chosen from two axes:
+A single pixel avatar = *you*. It's chosen from three axes:
 
-- **Character level → class:** Adventurer (1–3) → Warrior (4–6) → Knight (7–10)
-  → Mage (11+).
+- **Character level → base or archetype:** Wanderer (level 1–3, everyone
+  starts here) → your chosen **growth path**'s archetype from level 4 on.
+- **Growth path → archetype:** a short diagnostic quiz on first run (`www/js/
+  views.js showWalkthrough`) sorts you into one of three paths — The Anchor
+  (→ **Druid**), The Architect (→ **Scholar**), or The Catalyst (→ **Ranger**) —
+  stored as `state.settings.path`. Skipped the quiz, or on an older save? It
+  falls back to whichever path your current stats lean toward (`www/js/
+  sprites.js`, comparing vit+spr / mag+spr / spd+str).
 - **Overall condition → devolution:** if the *average* condition across the
   attributes you're actually training (ones with quests) goes cracked → **Imp**,
   or broken → **Slime**. A worn-but-not-broken hero just looks desaturated.
@@ -88,8 +94,8 @@ A single pixel avatar = *you*. It's chosen from two axes:
   lapse in their one domain still shows on the hero (they aren't masked by five
   pristine-but-empty stats).
 
-So: do your habits and your class climbs; neglect everything and your leveled-up
-hero visibly melts into a slime.
+So: do your habits and you grow into your archetype; neglect everything and
+your leveled-up hero visibly melts into a slime.
 
 ---
 

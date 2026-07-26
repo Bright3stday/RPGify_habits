@@ -89,6 +89,10 @@ export const QUEST_RECIPES = [
     description: 'Cook ahead so the healthy choice is the easy one.',
     cadence: { type: 'weekly' }, xpPerCompletion: 50, source: 'manual',
     why: 'Prep removes the willpower tax from eating well all week.' },
+  { id: 'vit-sunlight', statIds: ['vit', 'spr'], title: 'Morning Sunlight',
+    description: 'Ten minutes of natural daylight within an hour of waking.',
+    cadence: { type: 'daily' }, xpPerCompletion: 15, source: 'manual',
+    why: 'Morning light anchors your body clock and steadies mood all day.' },
 
   // ---- Spirit — mindfulness & emotion ----
   { id: 'spr-meditate', statIds: ['spr'], title: 'Meditate 10 minutes',
@@ -282,6 +286,69 @@ export const MASTERY_RECIPES = [
 ];
 
 export const ALL_RECIPES = [...QUEST_RECIPES, ...MASTERY_RECIPES];
+
+// ---- Growth paths (onboarding quiz) ----------------------------------------
+//
+// The first-run quiz (views.js showWalkthrough) sorts a new player into one of
+// three broad growth paths from a short diagnostic, rather than handing them a
+// blank editor. Each path names a hero archetype (sprites.js) and a small
+// starter loadout — 3 quests + 1 mastery node — pulled from the catalog above,
+// so "Accept Recommended Loadout" has something concrete to add.
+
+export const GROWTH_PATHS = {
+  anchor: {
+    id: 'anchor', name: 'The Anchor', archetype: 'Druid', statIds: ['vit', 'spr'],
+    tagline: 'Steady, grounded, resilient — health and calm as the foundation.',
+  },
+  architect: {
+    id: 'architect', name: 'The Architect', archetype: 'Scholar', statIds: ['mag', 'spr'],
+    tagline: 'Deep focus and calm clarity — mastery through the mind.',
+  },
+  catalyst: {
+    id: 'catalyst', name: 'The Catalyst', archetype: 'Ranger', statIds: ['spd', 'str'],
+    tagline: 'Momentum and execution — turning intent into action, fast.',
+  },
+};
+
+// Each quiz question offers the same three options in the same order, so a
+// single a/b/c -> path mapping scores all three: (a) exhausted/physical ->
+// Anchor, (b) mentally scattered/reflective -> Architect, (c) reactive/fast ->
+// Catalyst. Ties are broken by the third question ("who do you want to
+// become") since it's the most direct identity signal of the three.
+const OPTION_PATH = { a: 'anchor', b: 'architect', c: 'catalyst' };
+
+export function pathFromQuiz(answers = {}) {
+  const tally = { anchor: 0, architect: 0, catalyst: 0 };
+  for (const key of ['q1', 'q2', 'q3']) {
+    const p = OPTION_PATH[answers[key]];
+    if (p) tally[p] += 1;
+  }
+  const top = Math.max(...Object.values(tally));
+  const winners = Object.keys(tally).filter((p) => tally[p] === top);
+  if (winners.length === 1) return winners[0];
+  return OPTION_PATH[answers.q3] || 'architect';
+}
+
+const PATH_STARTERS = {
+  anchor: { questIds: ['vit-sunlight', 'vit-water', 'spr-meditate'], masteryId: 'vit-base' },
+  architect: { questIds: ['mag-read', 'mag-practice-skill', 'spr-breathe'], masteryId: 'mag-scholar' },
+  catalyst: { questIds: ['spd-mit', 'spd-plan-day', 'str-pushups'], masteryId: 'spd-momentum' },
+};
+
+// The recommended starter loadout for a growth path: the 3 quest recipes plus
+// the foundational (parent-free) node of one mastery path — ready to pass
+// straight to addHabit/addNode. Each of the three referenced mastery recipes
+// is built as two independent base nodes feeding one capstone, so their first
+// ordered node never depends on a sibling that hasn't been created yet.
+export function starterLoadout(pathId) {
+  const cfg = PATH_STARTERS[pathId] || PATH_STARTERS.architect;
+  const quests = cfg.questIds
+    .map((id) => QUEST_RECIPES.find((r) => r.id === id))
+    .filter(Boolean);
+  const masteryRecipe = MASTERY_RECIPES.find((r) => r.id === cfg.masteryId);
+  const node = masteryRecipe ? recipeToNodeSpecs(masteryRecipe)[0] : null;
+  return { quests, node };
+}
 
 // Recipes for one attribute (both kinds), preserving catalog order.
 export function recipesForStat(statId) {

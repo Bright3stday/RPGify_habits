@@ -39,7 +39,7 @@ Java, it ships to existing users without a reinstall.
 | `pedometer.js` | Step counter — native TYPE_STEP_COUNTER or manual fallback. | `stepsToday`, `addManualSteps`, `hasSensor`, `refreshSteps` |
 | `items.js` + `equipment.js` | Cosmetic loot table, drop rolls, gear slots. No stat effects — cosmetic only. | `rollLoot`, `RARITY`, `equipItem`, `unequipSlot` |
 | `recipes.js` | Curated quest/mastery starting points per stat. Editable, not prescriptive. | `QUEST_RECIPES`, `MASTERY_RECIPES`, `recipeToHabit`, `recipeToNodeSpecs` |
-| `sprites.js` | Procedural hero SVG: adventurer → mage → imp → slime based on level + condition. | `heroSpriteSvg`, `heroTierName` |
+| `sprites.js` | Procedural hero SVG: wanderer → your growth path's archetype (druid/scholar/ranger) → imp → slime, based on level + condition + `state.settings.path`. | `heroSpriteSvg`, `heroTierName` |
 | `util.js` | Tiny shared utilities: `uid`, `esc`, `clamp`, `dayKey`, `DAY_MS`, `fmtRelative`. |
 | `backup.js` | Export/import state JSON. | `exportState`, `parseImport` |
 
@@ -171,6 +171,17 @@ bump and a migration step there whenever you add required state fields.
 ### New Spirit/doomscroll tuning
 - Change numbers in `SPIRIT_TUNING` in `spirit.js` only — ships OTA.
 - Never hardcode thresholds in other files.
+
+### New growth path / archetype (onboarding quiz)
+- `recipes.js` — add an entry to `GROWTH_PATHS` (id, name, archetype, statIds,
+  tagline), a case in `PATH_STARTERS` (3 quest recipe ids + 1 mastery recipe
+  id whose first ordered node has no parents), and a bucket in `pathFromQuiz`'s
+  `OPTION_PATH` map if you're adding a 4th quiz answer column.
+- `sprites.js` — add the matching builder function + `PATH_TO_TIER` entry so
+  the hero actually renders as the new archetype.
+- `views.js` — the quiz UI (`showWalkthrough`) reads `GROWTH_PATHS`/
+  `pathFromQuiz`/`starterLoadout` directly; no changes needed there for a new
+  path beyond wiring the two files above.
 
 ### Inn / rest modes (your next feature)
 Key files to touch:

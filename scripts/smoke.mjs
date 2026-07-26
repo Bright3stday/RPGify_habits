@@ -34,15 +34,33 @@ try {
   await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle' });
   await wait(300);
 
-  // First run shows the walkthrough (intro + doomscroll path picker). Verify it
-  // appears, exercise the path picker, then skip it to reach the app.
+  // First run shows the walkthrough (intro cards -> growth-path quiz -> result
+  // -> doomscroll path picker). Verify it appears, answer the quiz, accept the
+  // recommended loadout, exercise the doomscroll path picker, then skip out.
   const wtShown = await page.$('.wt');
   check(!!wtShown, 'first-run walkthrough appears');
   if (wtShown) {
-    // Advance to the paths card and pick Sentinel, then Oracle (toggle selection).
+    // Advance through the 4 intro cards to the quiz.
     for (let i = 0; i < 4; i += 1) { await page.click('#wt-next'); await wait(80); }
+    const hasQuiz = await page.$('[data-quiz="q1:b"]');
+    check(!!hasQuiz, 'walkthrough presents the growth-path quiz');
+    // Answer all three questions (b/b/b -> Architect), advancing after each.
+    for (const q of ['q1', 'q2', 'q3']) {
+      await page.click(`[data-quiz="${q}:b"]`);
+      await wait(60);
+      await page.click('#wt-next');
+      await wait(80);
+    }
+    const hasLoadout = await page.$('#wt-accept-loadout');
+    check(!!hasLoadout, 'quiz result offers the recommended loadout');
+    if (hasLoadout) {
+      await page.click('#wt-accept-loadout');
+      await wait(80);
+      await page.click('#wt-result-continue');
+      await wait(80);
+    }
     const hasPaths = await page.$('.path-opt[data-path="sentinel"]');
-    check(!!hasPaths, 'walkthrough presents the two paths');
+    check(!!hasPaths, 'walkthrough presents the two doomscroll paths');
     if (hasPaths) {
       await page.click('.path-opt[data-path="sentinel"]');
       await wait(60);
@@ -85,9 +103,11 @@ try {
   const recipeQuest = await page.$$eval('.h-name', (els) => els.some((e) => e.textContent.includes('Strength session')));
   check(recipeQuest, 'added quest recipe appears in Quests');
 
-  // Complete it -> should award XP and pop LEVEL UP (120 xp -> level 2).
-  // Use [data-do] so we hit the manual button, not the seeded steps AUTO badge.
-  await page.click('[data-do]:not([disabled])');
+  // Complete "Morning Run" -> should award 120 XP and pop LEVEL UP (level 2).
+  // Target it by name rather than "first [data-do]" — other quests (the
+  // onboarding quiz's accepted starter loadout, the seeded steps habit) also
+  // render complete buttons, and their order isn't something to depend on.
+  await page.locator('.habit', { hasText: 'Morning Run' }).locator('[data-do]:not([disabled])').click();
   await wait(300);
   const leveled = await page.$('.levelup');
   check(!!leveled, 'completing habit triggers LEVEL UP! beat');

@@ -37,7 +37,7 @@ www/js/
   cadence.js      cadence periods & due timing
   condition.js    cadence-aware decay (derived from timestamps, never stored)
   skilltree.js    self-authored mastery nodes + Growth Points currency
-  sprites.js      single procedural hero (adventurer..mage, imp, slime)
+  sprites.js      single procedural hero (wanderer -> druid/scholar/ranger, imp, slime)
   items.js        loot table + drop rolls   equipment.js  cosmetic gear slots
   pedometer.js    steps (native TYPE_STEP_COUNTER live-poll / manual on web)
   notifications.js local reminders (spacing, test, channel creation)

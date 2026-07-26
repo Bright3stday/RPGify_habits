@@ -35,6 +35,7 @@ import {
 } from '../www/js/spirit.js';
 import {
   QUEST_RECIPES, MASTERY_RECIPES, recipeToHabit, recipeToNodeSpecs, recipesForStat,
+  GROWTH_PATHS, pathFromQuiz, starterLoadout,
 } from '../www/js/recipes.js';
 import { ATTRIBUTE_IDS } from '../www/js/attributes.js';
 
@@ -237,13 +238,25 @@ test('eligibleNodes lists cross-tree candidates for the forced trade-off', () =>
 });
 
 // ---- Hero sprite ----------------------------------------------------------
-test('hero: single class by character level, monster by condition', () => {
+test('hero: Wanderer by level, then the archetype for the chosen growth path, monster by condition', () => {
   const s = defaultState();
-  assert.equal(heroTierOf(s), 'adventurer'); // level 1
-  for (const id of Object.keys(s.stats)) s.stats[id].xp = 1200; // total high -> knight/mage
-  assert.ok(['knight', 'mage'].includes(heroTierOf(s)));
+  assert.equal(heroTierOf(s), 'wanderer'); // level 1
+  s.settings.path = 'architect';
+  for (const id of Object.keys(s.stats)) s.stats[id].xp = 1200; // total high -> past base
+  assert.equal(heroTierOf(s), 'scholar');
+  s.settings.path = 'anchor';
+  assert.equal(heroTierOf(s), 'druid');
+  s.settings.path = 'catalyst';
+  assert.equal(heroTierOf(s), 'ranger');
   for (const id of Object.keys(s.stats)) s.stats[id].condition = 5; // broken
   assert.equal(heroTierOf(s), 'slime');
+});
+
+test('hero: no chosen path falls back to the archetype matching current stats', () => {
+  const s = defaultState();
+  for (const id of Object.keys(s.stats)) s.stats[id].xp = 1200; // past base level, path unset
+  s.stats.mag.xp = 5000; s.stats.spr.xp = 5000; // clearly strongest pair -> Architect
+  assert.equal(heroTierOf(s), 'scholar');
 });
 
 // ---- Loot (cosmetic) + luck from Luck attribute --------------------------
@@ -715,6 +728,29 @@ test('recipesForStat: returns both kinds for a stat', () => {
   assert.ok(quests.length >= 1 && mastery.length >= 1);
   assert.ok(quests.every((r) => r.statIds.includes('str')));
   assert.ok(mastery.every((r) => r.statId === 'str'));
+});
+
+// ---- Growth-path onboarding quiz -------------------------------------------
+
+test('pathFromQuiz: a clean sweep picks the matching path', () => {
+  assert.equal(pathFromQuiz({ q1: 'a', q2: 'a', q3: 'a' }), 'anchor');
+  assert.equal(pathFromQuiz({ q1: 'b', q2: 'b', q3: 'b' }), 'architect');
+  assert.equal(pathFromQuiz({ q1: 'c', q2: 'c', q3: 'c' }), 'catalyst');
+});
+
+test('pathFromQuiz: majority wins; a tie breaks on the identity question (q3)', () => {
+  assert.equal(pathFromQuiz({ q1: 'a', q2: 'a', q3: 'b' }), 'anchor'); // 2-1 majority
+  assert.equal(pathFromQuiz({ q1: 'a', q2: 'b', q3: 'c' }), 'catalyst'); // 1-1-1 tie -> q3
+});
+
+test('starterLoadout: every growth path yields 3 real quests + 1 parentless node', () => {
+  for (const pathId of Object.keys(GROWTH_PATHS)) {
+    const { quests, node } = starterLoadout(pathId);
+    assert.equal(quests.length, 3, `${pathId} has 3 starter quests`);
+    quests.forEach((r) => assert.ok(QUEST_RECIPES.includes(r), `${pathId} quest is a real recipe`));
+    assert.ok(node && node.title, `${pathId} has a starter node`);
+    assert.equal(node.parents.length, 0, `${pathId} starter node has no unmet dependency`);
+  }
 });
 
 console.log(`\n${passed} checks passed.`);

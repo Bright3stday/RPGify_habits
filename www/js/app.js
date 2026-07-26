@@ -44,7 +44,7 @@ function render() {
   });
   const { titles } = activeEffects(state);
   const badge = document.getElementById('title-badge');
-  badge.textContent = titles.length ? titles[titles.length - 1] : 'Adventurer';
+  badge.textContent = titles.length ? titles[titles.length - 1] : 'Wanderer';
 }
 
 function go(r) {
@@ -376,7 +376,7 @@ async function boot() {
   if (!state) {
     state = defaultState();
     await saveState(state);
-    toast('Welcome, adventurer!');
+    toast('Welcome, wanderer!');
   } else {
     await saveState(state); // persist any migration
   }

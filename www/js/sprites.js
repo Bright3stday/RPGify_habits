@@ -1,43 +1,52 @@
-// Your hero — one character, drawn as an FF-style job class.
+// Your hero — one character, drawn as a cozy-fantasy archetype.
 //
-//   character LEVEL  -> EVOLUTION  (Adventurer -> Warrior -> Knight -> Mage)
+//   character LEVEL   -> from Wanderer (base) into the archetype for your
+//                        chosen growth path (Druid / Scholar / Ranger).
 //   overall CONDITION -> DEVOLUTION (worn look -> Imp when cracked -> SLIME when broken)
 //
 // Leveling comes from doing real habits; devolution comes from neglect. Sprites
 // are drawn procedurally on a 16x16 grid and rendered as inline SVG, so they
 // stay crisp at any size, tint on decay, and need no image assets.
 
-import { characterLevel, overallCondition } from './attributes.js';
+import { characterLevel, overallCondition, scoreOf } from './attributes.js';
 
 // palette
 const SKIN = '#e8b088';
-const SKIND = '#c88860';
 const HAIR = '#3a2a1a';
 const EYE = '#1a1a2a';
 const SLIME = '#6ad46a';
 const SLIMED = '#3a9a3a';
 const SLIMEL = '#a8f0a8';
 const WHITE = '#f4f4fb';
-const GREY = '#9a9ab0';
-const GREYD = '#5a5a70';
 const GOLD = '#f0c020';
 const GOLDL = '#ffe070';
-const RED = '#e05a5a';
-const GREEN = '#6ad46a';
-const BLUE = '#48c8ff';
-const NAVY = '#2a4a8a';
 // job-class materials
 const LEATHER = '#8a5a2a';
 const LEATHERL = '#a87038';
-const STEEL = '#a8a8c0';
-const STEELD = '#6a6a8a';
-const STEELL = '#dcdcec';
-const ROBE = '#5a3aaa';
-const ROBED = '#3a2070';
-const ROBEL = '#7a5aca';
 const IMP = '#b0484a';
 const IMPD = '#7a2a2c';
 const GEM_C = '#48c8ff';
+// wanderer (base traveler) — warm, neutral, plain-clothes
+const CLOAK = '#a8783a';
+// druid (Anchor — earthy greens/browns)
+const MOSS = '#5a8a4a';
+const MOSSL = '#7ab868';
+const BARK = '#6a4a2a';
+const BARKD = '#4a3218';
+const BARKL = '#8a6a44';
+const LEAF = '#7ec850';
+// scholar (Architect — clean blues/whites)
+const SCHOLAR = '#3a6ab0';
+const SCHOLARL = '#dce8f8';
+const SCHOLARD = '#274a80';
+const PAPER = '#f4f0e0';
+// ranger (Catalyst — practical greys/leathers)
+const HOOD = '#6a6a70';
+const HOODD = '#48484e';
+const RANGERC = '#7a6a56';
+const RANGERD = '#4a3e30';
+const BOWWOOD = '#5a3a20';
+const BOWSTR = '#e8e8e8';
 
 // tiny pixel canvas
 class Px {
@@ -100,98 +109,113 @@ function imp() { // cracked -> a lesser monster (partway to slime)
   return { grid: p };
 }
 
-function adventurer() {
+// Base traveler — everyone starts here, regardless of path.
+function wanderer() {
   const p = new Px();
   p.disc(8, 3, 2, SKIN);
   p.rect(6, 1, 5, 1, HAIR);
   p.put(7, 3, EYE); p.put(9, 3, EYE);
-  p.rect(6, 6, 4, 5, GREEN);        // green tunic
-  p.rect(6, 10, 4, 1, LEATHER);     // belt
-  p.put(7, 6, LEATHERL); p.put(8, 7, LEATHERL); // shoulder strap
+  p.rect(6, 6, 4, 5, CLOAK);         // simple travel cloak
+  p.rect(6, 10, 4, 1, LEATHER);      // belt
+  p.put(7, 6, LEATHERL); p.put(8, 7, LEATHERL); // satchel strap
   p.rect(5, 6, 1, 4, SKIN); p.rect(10, 6, 1, 4, SKIN); // arms
   p.rect(6, 11, 2, 4, LEATHER); p.rect(8, 11, 2, 4, LEATHER); // legs
   p.rect(6, 15, 2, 1, EYE); p.rect(8, 15, 2, 1, EYE);  // boots
   return { grid: p };
 }
 
-function warrior() {
+// The Anchor — steady, grounded, resilient. Earthy greens and browns.
+function druid() {
   const p = new Px();
-  p.disc(8, 3, 2, SKIN);            // head first...
-  p.rect(6, 1, 5, 1, HAIR);         // ...then hair
-  p.rect(6, 2, 5, 1, RED);          // ...then red bandana on top
+  p.disc(8, 3, 2, SKIN);
+  p.rect(6, 1, 5, 1, HAIR);
+  p.put(6, 1, LEAF); p.put(10, 1, LEAF); // leaf-crown sprigs
   p.put(7, 3, EYE); p.put(9, 3, EYE);
-  p.rect(4, 6, 7, 1, LEATHERL);     // broad shoulders
-  p.rect(5, 6, 5, 5, LEATHER);      // leather cuirass
-  p.put(6, 7, LEATHERL); p.put(7, 8, LEATHERL); // strap
-  p.rect(4, 7, 1, 3, SKIN);         // left arm
-  p.rect(10, 7, 1, 3, SKIN);        // right arm (sword hand)
-  p.rect(12, 2, 1, 7, GOLD);        // sword blade
-  p.put(12, 2, GOLDL);
-  p.rect(11, 8, 3, 1, STEELL);      // guard
-  p.rect(6, 11, 2, 4, STEELD); p.rect(8, 11, 2, 4, STEELD); // greaves
+  p.rect(4, 6, 7, 1, BARKL);         // broad wrap collar
+  p.rect(5, 6, 5, 5, MOSS);          // mossy-green robe
+  p.put(6, 7, MOSSL); p.put(7, 8, MOSSL);
+  p.rect(4, 7, 1, 3, SKIN); p.rect(10, 7, 1, 3, SKIN); // arms
+  p.rect(12, 2, 1, 7, BARK);         // wooden staff
+  p.put(12, 2, LEAF);                // leaf tip
+  p.rect(11, 8, 3, 1, BARKL);        // staff binding
+  p.rect(6, 11, 2, 4, BARKD); p.rect(8, 11, 2, 4, BARKD); // leggings
   p.rect(6, 15, 2, 1, EYE); p.rect(8, 15, 2, 1, EYE);
   return { grid: p };
 }
 
-function knight() {
+// The Architect — deep focus, calm clarity. Clean blues and whites.
+function scholar() {
   const p = new Px();
-  p.rect(8, 0, 1, 2, RED);          // plume
-  p.rect(6, 2, 5, 3, STEEL);        // helm
-  p.rect(6, 2, 5, 1, STEELL);
-  p.rect(7, 3, 3, 1, EYE);          // visor slit
-  p.rect(4, 6, 8, 1, STEELL);       // pauldrons
-  p.rect(6, 6, 4, 5, STEEL);        // plate cuirass
-  p.put(7, 7, STEELL); p.put(8, 8, GEM_C); // emblem
-  p.rect(3, 7, 3, 4, STEELD);       // shield
-  p.rect(3, 7, 3, 1, STEELL);
-  p.put(4, 8, GOLD); p.put(4, 9, GOLD); p.put(3, 9, GOLD); p.put(5, 9, GOLD); // shield cross
-  p.rect(11, 7, 1, 3, STEEL);       // sword arm
-  p.rect(12, 1, 1, 8, STEELL);      // longsword
-  p.rect(11, 8, 3, 1, GOLD);        // guard
-  p.rect(6, 11, 2, 4, STEELD); p.rect(8, 11, 2, 4, STEELD);
-  p.rect(6, 15, 2, 1, GOLD); p.rect(8, 15, 2, 1, GOLD); // sabatons
-  return { grid: p };
-}
-
-function mage() {
-  const p = new Px();
-  p.put(8, 0, GOLD);                // hat tip star
-  p.put(8, 1, ROBE);
-  p.rect(7, 2, 2, 1, ROBE);
-  p.rect(6, 3, 4, 1, ROBED);        // hat brim
-  p.rect(6, 4, 5, 1, SKIN);         // face
-  p.put(7, 4, EYE); p.put(9, 4, EYE);
-  p.rect(6, 5, 5, 1, WHITE);        // white beard
-  p.rect(6, 6, 4, 2, ROBE);         // robe shoulders
-  p.rect(5, 8, 6, 2, ROBE);
-  p.rect(4, 10, 8, 3, ROBEL);       // flared robe
-  p.rect(4, 13, 8, 1, GOLD);        // hem trim
-  p.rect(4, 14, 8, 1, ROBED);
-  p.rect(12, 5, 1, 10, LEATHER);    // staff
-  p.rect(11, 3, 2, 2, GEM_C);       // orb
-  p.put(12, 3, WHITE);
+  p.disc(8, 3, 2, SKIN);
+  p.rect(6, 1, 5, 1, HAIR);
+  p.put(7, 3, EYE); p.put(9, 3, EYE);
+  p.rect(4, 6, 8, 1, SCHOLARL);      // trimmed shoulders
+  p.rect(5, 6, 6, 5, SCHOLAR);       // clean robe
+  p.put(6, 7, SCHOLARL); p.put(9, 8, GEM_C); // trim + small emblem
+  p.rect(4, 7, 1, 3, SCHOLARD);      // book-holding arm sleeve
+  p.rect(3, 8, 2, 2, PAPER);         // open book
+  p.rect(11, 7, 1, 3, SCHOLARD);     // other sleeve
+  p.rect(6, 11, 2, 4, SCHOLARD); p.rect(8, 11, 2, 4, SCHOLARD);
+  p.rect(6, 15, 2, 1, SCHOLARL); p.rect(8, 15, 2, 1, SCHOLARL);
   return { grid: p, aura: true };
 }
 
+// The Catalyst — momentum, execution. Practical greys and worn leathers.
+function ranger() {
+  const p = new Px();
+  p.rect(6, 1, 5, 2, HOOD);          // hood over head
+  p.rect(7, 3, 3, 1, SKIN);          // face peeking out
+  p.put(7, 3, EYE); p.put(9, 3, EYE);
+  p.rect(6, 5, 5, 1, HOODD);         // hood trim
+  p.rect(5, 6, 6, 5, RANGERC);       // leather-grey travel coat
+  p.rect(4, 13, 8, 1, RANGERD);      // hem
+  p.rect(4, 6, 1, 4, RANGERD); p.rect(11, 6, 1, 4, RANGERD); // side straps
+  p.rect(12, 3, 1, 9, BOWWOOD);      // bow stave
+  p.put(12, 3, BOWSTR); p.put(12, 11, BOWSTR); // bowstring nocks
+  p.rect(3, 9, 1, 2, RANGERD);       // quiver hint
+  p.rect(6, 11, 2, 4, RANGERD); p.rect(8, 11, 2, 4, RANGERD);
+  p.rect(6, 15, 2, 1, EYE); p.rect(8, 15, 2, 1, EYE);
+  return { grid: p };
+}
+
 const BUILDERS = {
-  slime, imp, adventurer, warrior, knight, mage,
+  slime, imp, wanderer, druid, scholar, ranger,
 };
 export const TIER_NAMES = {
-  slime: 'Slime', imp: 'Imp', adventurer: 'Adventurer', warrior: 'Warrior', knight: 'Knight', mage: 'Mage',
+  slime: 'Slime', imp: 'Imp', wanderer: 'Wanderer', druid: 'Druid', scholar: 'Scholar', ranger: 'Ranger',
 };
 
-// The hero's class by character level; monster devolution by overall condition.
-function heroTier(level, cond) {
+// Growth path (from the onboarding quiz, `state.settings.path`) -> the sprite
+// tier it evolves into once past the base Wanderer stage.
+const PATH_TO_TIER = { anchor: 'druid', architect: 'scholar', catalyst: 'ranger' };
+
+// Which growth path the hero currently embodies. Uses the path chosen in the
+// onboarding quiz when set; older saves that never took the quiz (or players
+// who skipped it) fall back to whichever path their stats already lean
+// toward, so a returning user still sees an archetype that fits them.
+function archetypeId(state) {
+  const chosen = state.settings && state.settings.path;
+  if (PATH_TO_TIER[chosen]) return chosen;
+  const anchor = scoreOf(state, 'vit') + scoreOf(state, 'spr');
+  const architect = scoreOf(state, 'mag') + scoreOf(state, 'spr');
+  const catalyst = scoreOf(state, 'spd') + scoreOf(state, 'str');
+  const top = Math.max(anchor, architect, catalyst);
+  if (top === catalyst) return 'catalyst';
+  if (top === architect) return 'architect';
+  return 'anchor';
+}
+
+// The hero's class by character level + chosen path; monster devolution by
+// overall condition.
+function heroTier(level, cond, pathId) {
   if (cond < 15) return 'slime';    // broken -> goo
   if (cond < 40) return 'imp';      // cracked -> lesser monster
-  if (level <= 3) return 'adventurer';
-  if (level <= 6) return 'warrior';
-  if (level <= 10) return 'knight';
-  return 'mage';
+  if (level <= 3) return 'wanderer';
+  return PATH_TO_TIER[pathId] || 'wanderer';
 }
 
 export function heroTierOf(state) {
-  return heroTier(characterLevel(state), overallCondition(state));
+  return heroTier(characterLevel(state), overallCondition(state), archetypeId(state));
 }
 export function heroTierName(state) {
   return TIER_NAMES[heroTierOf(state)];
