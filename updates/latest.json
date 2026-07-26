@@ -1,8 +1,8 @@
 {
-  "build": 50,
-  "version": "web-50",
-  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-50.zip",
-  "minNative": 1,
-  "notes": "• Doomscroll: transparency note about accessibility conflict + relabel button\n• Overall/hero condition averages only engaged stats (trained ones)\n• Roadmap: Recipes shipped\n• Merge remote-tracking branch 'origin/claude/recipes-feature-go5kw5' into claude/habit-skill-rpg-android-xir4qv\n• Add Recipes: curated, editable quest & mastery starting points",
-  "publishedAt": "2026-07-26T09:37:54.766Z"
+  "build": 52,
+  "version": "web-52",
+  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-52.zip",
+  "minNative": 4,
+  "notes": "• Doomscroll paths: Usage-Access migration + first-run walkthrough\n• Roadmap: doomscroll paths (Sentinel/Oracle), Spirit framing fix, Inn\n• Doomscroll: transparency note about accessibility conflict + relabel button\n• Overall/hero condition averages only engaged stats (trained ones)\n• Roadmap: Recipes shipped",
+  "publishedAt": "2026-07-26T12:53:19.183Z"
 }
