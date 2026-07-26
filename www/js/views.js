@@ -1101,7 +1101,8 @@ function doomscrollSection(state) {
       <div class="window-title">◆ DOOMSCROLL MIRROR</div>
       <label class="field"><span>ENABLE <input type="checkbox" id="ds-on" ${d.enabled ? 'checked' : ''}></span></label>
       <div class="bar-caption" id="ds-access">Checking detector…</div>
-      <button class="btn small block" id="ds-grant" style="margin:8px 0">ENABLE DETECTOR (Accessibility)</button>
+      <button class="btn small block" id="ds-grant" style="margin:8px 0">MANAGE DETECTOR (Accessibility settings)</button>
+      <div class="bar-caption" style="margin:6px 0;color:var(--cond-worn)">⚠ Heads-up: some banking / secure apps refuse to run while <b>any</b> accessibility service is on. If one blocks you, open the settings above and turn <b>RPGify focus detector</b> off — turning it back on resumes detection. A future app update will move detection to a method that avoids this conflict.</div>
       <div class="section-label" style="margin-left:0">WATCHED APPS · alert after N continuous min</div>
       ${appRows}
       <button class="btn small block" id="ds-add" style="margin-top:8px">＋ CHOOSE APPS</button>
