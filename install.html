@@ -17,7 +17,10 @@
   header.top nav{display:flex;gap:14px;flex-wrap:wrap}
   header.top nav a{color:var(--dim);font-size:14px}
   header.top nav a.active,header.top nav a:hover{color:var(--ink)}
-  .dl{margin-left:auto;background:var(--purple);color:#120a1f;font-weight:700;
+  .tryweb{margin-left:auto;border:2px solid var(--line);color:var(--ink);font-weight:700;
+      padding:8px 14px;border-radius:8px}
+  .tryweb:hover{text-decoration:none;border-color:var(--purple);color:var(--ink)}
+  .dl{background:var(--purple);color:#120a1f;font-weight:700;
       padding:8px 14px;border-radius:8px}
   .dl:hover{text-decoration:none;filter:brightness(1.08)}
   main{max-width:820px;margin:0 auto;padding:28px 20px 80px}
@@ -49,11 +52,35 @@
 <header class="top">
   <a class="brand" href="index.html">RPGify Habits</a>
   <nav><a href="overview.html" class="">Overview</a><a href="how-it-works.html" class="">How It Works</a><a href="install.html" class="active">Install & Update</a><a href="security.html" class="">Is It Safe?</a></nav>
+  <a class="tryweb" href="app/">Try in Browser</a>
   <a class="dl" href="apk/rpgify-latest.apk">Download APK</a>
 </header>
 <main><article><h1>Installing &amp; Updating</h1>
 <p>RPGify Habits installs straight from this site — no app store, no account.</p>
-<h2>Install it on your phone</h2>
+<h2>Try it in your browser first — no install</h2>
+<p>Not on Android, or don&#39;t want to install an APK yet? Open
+<strong><a href="app/">Try in Browser</a></strong> — it runs the whole core game (quests, attributes,
+decay, your mastery tree, loot) right in the browser, on iOS, Android, or
+desktop. Your data stays on your device either way, no account, no server.</p>
+<ul>
+<li><strong>iPhone/iPad (Safari):</strong> open the link, then <strong>Share → Add to Home
+Screen</strong> to get a full-screen icon like a real app.</li>
+<li><strong>Android (Chrome):</strong> open the link; Chrome will usually offer <strong>Install</strong>
+or <strong>Add to Home screen</strong> itself, or use the <strong>⋮ menu → Add to Home
+screen</strong>.</li>
+<li><strong>Desktop:</strong> most browsers show an install icon in the address bar.</li>
+</ul>
+<p>Two features need the installed Android app and don&#39;t work in the browser
+version: the <strong>Doomscroll Mirror</strong> (it reads <em>which app</em> is in front of you
+system-wide, a permission only a real Android app can hold) and <strong>local
+reminders</strong> (water/posture nudges, which need a background OS scheduler).
+Everything else is the same app. The Settings screen simply won&#39;t show those
+two sections in the browser build — nothing is broken, they just don&#39;t apply.
+You can always install the full APK later without losing anything: <strong>Config →
+Export</strong> in the browser, then <strong>Import</strong> in the installed app.</p>
+<h2>Install the Android app</h2>
+<p>Want the full feature set (or you&#39;d rather have an app icon than a browser
+tab)?</p>
 <ol>
 <li>On your phone, tap <strong>Download APK</strong> (top of the page), or open:
 <code>https://bright3stday.github.io/RPGify_habits/apk/rpgify-latest.apk</code></li>
