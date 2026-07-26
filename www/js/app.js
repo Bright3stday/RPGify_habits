@@ -8,6 +8,7 @@ import { activeEffects, grantDue } from './skilltree.js';
 import { rescheduleAll } from './notifications.js';
 import { refreshSteps } from './pedometer.js';
 import { notifyReady, checkForUpdate, isDismissed } from './ota.js';
+import { registerServiceWorker } from './pwa.js';
 import { readUsageEvents, syncUsage, startMonitoring, hasUsageAccess } from './doomscroll.js';
 import { applyLedger, spiritWear, defaultSpiritTrack, SPIRIT_TUNING } from './spirit.js';
 import { DAY_MS } from './util.js';
@@ -371,6 +372,7 @@ async function boot() {
   // if one is found (and not previously snoozed) we prompt for consent.
   notifyReady();
   maybePromptUpdate();
+  registerServiceWorker(); // no-op inside the installed Android app
 
   state = migrate(await loadState());
   if (!state) {

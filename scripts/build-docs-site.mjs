@@ -63,7 +63,10 @@ const STYLE = `
   header.top nav{display:flex;gap:14px;flex-wrap:wrap}
   header.top nav a{color:var(--dim);font-size:14px}
   header.top nav a.active,header.top nav a:hover{color:var(--ink)}
-  .dl{margin-left:auto;background:var(--purple);color:#120a1f;font-weight:700;
+  .tryweb{margin-left:auto;border:2px solid var(--line);color:var(--ink);font-weight:700;
+      padding:8px 14px;border-radius:8px}
+  .tryweb:hover{text-decoration:none;border-color:var(--purple);color:var(--ink)}
+  .dl{background:var(--purple);color:#120a1f;font-weight:700;
       padding:8px 14px;border-radius:8px}
   .dl:hover{text-decoration:none;filter:brightness(1.08)}
   main{max-width:820px;margin:0 auto;padding:28px 20px 80px}
@@ -103,6 +106,7 @@ function shell(title, activeSlug, bodyHtml) {
 <header class="top">
   <a class="brand" href="index.html">RPGify Habits</a>
   <nav>${nav}</nav>
+  <a class="tryweb" href="app/">Try in Browser</a>
   <a class="dl" href="apk/rpgify-latest.apk">Download APK</a>
 </header>
 ${bodyHtml}
@@ -119,6 +123,7 @@ const landing = `
      neglect makes it visibly decay.</p>
   <div class="cta">
     <a class="primary" href="apk/rpgify-latest.apk">Download the APK</a>
+    <a class="ghost" href="app/">Try in Browser — no install</a>
     <a class="ghost" href="how-it-works.html">How it works</a>
     <a class="ghost" href="security.html">Is it safe?</a>
   </div>

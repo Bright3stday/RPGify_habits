@@ -1,9 +1,11 @@
 name: Publish web OTA update
 
 # Publishes a new *web* bundle over-the-air, so web-only changes reach the
-# installed app without building or downloading an APK. Runs when web assets
-# change on the main development branch (or manually). A fresh APK is only
-# needed when native code changes — see docs/INSTALL_AND_UPDATE.md.
+# installed app without building or downloading an APK. Also republishes
+# www/ as a live, directly-browsable PWA at /app/ (no APK at all — see
+# js/pwa.js). Runs when web assets change on the main development branch (or
+# manually). A fresh APK is only needed when native code changes — see
+# docs/INSTALL_AND_UPDATE.md.
 #
 # One-time setup: enable GitHub Pages for this repo (Settings → Pages → Build
 # and deployment → Deploy from a branch → branch: gh-pages, folder: / root).
@@ -59,6 +61,15 @@ jobs:
         run: node scripts/ota-stamp.mjs manifest dist/updates
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
+
+      # Also publish www/ itself as a live, directly-browsable PWA (installable
+      # on iOS/desktop/Android without an APK — see js/pwa.js + manifest.json).
+      # Distinct from the OTA zip bundles above, which only the already-
+      # installed native app fetches; this is a normal website.
+      - name: Package the browsable PWA
+        run: |
+          mkdir -p dist/app
+          cp -r www/. dist/app/
 
       # (The Pages root landing page is owned by the docs-site workflow.)
 

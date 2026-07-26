@@ -40,6 +40,24 @@ APKs. See `CLAUDE.md` for how things ship.
   are sessions; Spirit beats carry a "SESSION HISTORY ▸" tap-through; entry
   point also in Config → Doomscroll Mirror. `doomscroll.js usageStats()` /
   `statsSummaryLine()` are the pure logic functions (OTA-tunable).
+- **Cozy-fantasy archetypes + onboarding quiz** — replaced the JRPG job-class
+  hero (Adventurer/Warrior/Knight/Mage) with a base **Wanderer** that evolves
+  into **Druid** / **Scholar** / **Ranger** depending on a 3-question
+  first-run diagnostic quiz sorting into growth paths **The Anchor** /
+  **The Architect** / **The Catalyst** (`recipes.js GROWTH_PATHS`,
+  `pathFromQuiz`, `starterLoadout`; `sprites.js`; walkthrough quiz cards in
+  `views.js showWalkthrough`). Result screen offers a primary "Accept
+  Recommended Loadout" (3 quests + 1 mastery node) or a secondary manual
+  path with a burnout warning.
+- **Browser PWA (no APK, no Android-only)** — `www/manifest.json` + `sw.js`
+  (registered from `js/pwa.js`, native no-op) make the app installable on iOS
+  Safari, Android Chrome, and desktop, for users who aren't on Android or
+  don't want to sideload an APK. `web-ota.yml` publishes `www/` verbatim to
+  `gh-pages/app/` on every push. The Doomscroll Mirror and local reminders are
+  native-only and **hidden entirely** in that build (`doomNative()` /
+  `notificationsSupported()` checks in `views.js`) — everything else (quests,
+  attributes, decay, mastery tree, loot) is identical. Linked from the docs
+  site and `docs/INSTALL_AND_UPDATE.md`.
 
 ## Next — OTA-only (no reinstall)
 
@@ -63,6 +81,10 @@ records sessions on open.
 
 ## Decisions log
 
+- **The PWA hides native-only features, never shows them disabled.** A
+  browser user isn't a degraded Android user — Doomscroll Mirror and
+  Reminders sections don't render at all rather than appearing greyed out
+  with an explanation. Keeps the browser build feeling complete on its own.
 - **OTA-first cadence.** Minimize APK reinstalls for testers; batch native.
 - **Doomscroll = user-chosen "paths", no forced default.** Onboarding explains the
   feature and lets the user pick Sentinel (real-time) vs Oracle (reflect-on-return);

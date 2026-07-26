@@ -40,6 +40,7 @@ import {
   SLOTS, SLOT_LABEL, slotForItem, equipItem, unequipSlot, isKeyEquipped,
 } from './equipment.js';
 import { applyUpdate, markDismissed, describeStatus, currentBuild } from './ota.js';
+import { notificationsSupported } from './notifications.js';
 import {
   spiritSummary, spiritWear, SPIRIT_TUNING, defaultSpiritTrack,
 } from './spirit.js';
@@ -119,6 +120,11 @@ export function showWalkthrough(ctx, { fromSettings = false } = {}) {
   const ds = state.settings.doomscroll;
   let idx = 0;
   let chosen = ds.path === 'sentinel' ? 'sentinel' : 'oracle';
+  // Both need native Android — on the browser PWA build, skip the doomscroll
+  // intro/path-picker cards and the reminders mention entirely, rather than
+  // walking someone through a feature they can't actually use.
+  const nativeDoomscroll = doomNative();
+  const nativeReminders = notificationsSupported();
 
   // Growth-path quiz state (the a/b/c diagnostic that recommends Anchor /
   // Architect / Catalyst) — separate from the doomscroll path above.
@@ -228,16 +234,23 @@ export function showWalkthrough(ctx, { fromSettings = false } = {}) {
     { body: () => `
       <div class="wt-title">◆ THE COST OF NEGLECT</div>
       <div class="wt-body">Stop training an attribute and it visibly <b>decays</b>. A faded stat is a loss you can see — the quiet pressure that keeps a habit alive.</div>`, valid: () => true },
-    { body: () => `
+    nativeDoomscroll ? { body: () => `
       <div class="wt-title">◆ SPIRIT & THE DOOMSCROLL</div>
-      <div class="wt-body"><b>Spirit</b> is trained by quests like any attribute — but it also answers to the endless scroll. Long binges in apps you choose <b>wear it down</b>; catching yourself and stepping away <b>feeds it</b>. Normal, short use? Neither — you're only mirrored, never scolded.</div>`, valid: () => true },
-    quizQ1, quizQ2, quizQ3, resultCard, pathsCard,
-    { body: () => `
-      <div class="wt-title">◆ YOUR STORY BEGINS</div>
-      <div class="wt-body">You walk <b>${pathName(chosen)}</b>, and grow as a <b>${esc(GROWTH_PATHS[growthPath || pathFromQuiz(quiz)].archetype)}</b> — ${esc(GROWTH_PATHS[growthPath || pathFromQuiz(quiz)].name)}.</div>
-      <div class="wt-body">Choose which apps to watch — and grant <b>Usage Access</b> — anytime in <b>Config → Doomscroll Mirror</b>. Until you do, nothing is watched.</div>
-      <div class="wt-body">Turn on <b>water and posture reminders</b> in <b>Config → Reminders</b>. They fire quietly during your active hours — small nudges to stay sharp through the day.</div>`, valid: () => true },
-  ];
+      <div class="wt-body"><b>Spirit</b> is trained by quests like any attribute — but it also answers to the endless scroll. Long binges in apps you choose <b>wear it down</b>; catching yourself and stepping away <b>feeds it</b>. Normal, short use? Neither — you're only mirrored, never scolded.</div>`, valid: () => true } : null,
+    quizQ1, quizQ2, quizQ3, resultCard,
+    nativeDoomscroll ? pathsCard : null,
+    { body: () => {
+        const archetype = GROWTH_PATHS[growthPath || pathFromQuiz(quiz)];
+        const parts = [`<div class="wt-body">You grow as a <b>${esc(archetype.archetype)}</b> — ${esc(archetype.name)}.</div>`];
+        if (nativeDoomscroll) {
+          parts.push(`<div class="wt-body">You walk <b>${pathName(chosen)}</b> for the doomscroll mirror. Choose which apps to watch — and grant <b>Usage Access</b> — anytime in <b>Config → Doomscroll Mirror</b>. Until you do, nothing is watched.</div>`);
+        }
+        if (nativeReminders) {
+          parts.push(`<div class="wt-body">Turn on <b>water and posture reminders</b> in <b>Config → Reminders</b>. They fire quietly during your active hours — small nudges to stay sharp through the day.</div>`);
+        }
+        return `<div class="wt-title">◆ YOUR STORY BEGINS</div>${parts.join('')}`;
+      }, valid: () => true },
+  ].filter(Boolean);
 
   const overlay = document.createElement('div');
   overlay.className = 'wt';
@@ -1131,6 +1144,11 @@ export function renderSettings(container, ctx) {
   const { state } = ctx;
   const s = state.settings;
   const weekdays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  // Reminders (local notifications) and the Doomscroll Mirror (Usage Access)
+  // both need native Android — hide them entirely on the browser PWA build
+  // rather than showing a permanently-disabled section.
+  const showReminders = notificationsSupported();
+  const showDoomscroll = doomNative();
 
   container.innerHTML = `
     <div class="window">
@@ -1143,6 +1161,7 @@ export function renderSettings(container, ctx) {
       <div class="bar-caption" style="margin-top:8px">The six attributes are fixed. Assign each quest to the ones it trains.</div>
     </div>
 
+    ${showReminders ? `
     <div class="window">
       <div class="window-title">◆ REMINDERS</div>
       <label class="field">
@@ -1169,9 +1188,9 @@ export function renderSettings(container, ctx) {
         <button class="btn gold" id="test-rem">🔔 TEST (5s)</button>
       </div>
       <div class="bar-caption" style="margin-top:8px">Reminders fire on-device only (Android build). Water/posture nudges land at a random minute within each active hour, so the first can be up to an hour away — use TEST to confirm they work now.</div>
-    </div>
+    </div>` : ''}
 
-    ${doomscrollSection(state)}
+    ${showDoomscroll ? doomscrollSection(state) : ''}
 
     <div class="window">
       <div class="window-title">◆ GROWTH POINTS</div>
@@ -1205,23 +1224,33 @@ export function renderSettings(container, ctx) {
     ${state.settings.devMode ? devPanelHtml() : ''}
   `;
 
-  // Reminders — persist on apply.
-  container.querySelector('#apply-rem').addEventListener('click', async () => {
-    s.checkIn.enabled = container.querySelector('#ci-on').checked;
-    s.checkIn.weekday = Number(container.querySelector('#ci-day').value);
-    s.checkIn.hour = Number(container.querySelector('#ci-hour').value);
-    s.general.water.enabled = container.querySelector('#w-on').checked;
-    s.general.water.perHour = Number(container.querySelector('#w-n').value);
-    s.general.posture.enabled = container.querySelector('#p-on').checked;
-    s.general.posture.perHour = Number(container.querySelector('#p-n').value);
-    s.activeHours.start = Number(container.querySelector('#ah-s').value);
-    s.activeHours.end = Number(container.querySelector('#ah-e').value);
-    await ctx.save();
-    const { ensurePermission } = await import('./notifications.js');
-    await ensurePermission();
-    await ctx.reschedule();
-    ctx.toast('Reminders applied.');
-  });
+  // Reminders — persist on apply. (Section isn't rendered on the web PWA.)
+  if (showReminders) {
+    container.querySelector('#apply-rem').addEventListener('click', async () => {
+      s.checkIn.enabled = container.querySelector('#ci-on').checked;
+      s.checkIn.weekday = Number(container.querySelector('#ci-day').value);
+      s.checkIn.hour = Number(container.querySelector('#ci-hour').value);
+      s.general.water.enabled = container.querySelector('#w-on').checked;
+      s.general.water.perHour = Number(container.querySelector('#w-n').value);
+      s.general.posture.enabled = container.querySelector('#p-on').checked;
+      s.general.posture.perHour = Number(container.querySelector('#p-n').value);
+      s.activeHours.start = Number(container.querySelector('#ah-s').value);
+      s.activeHours.end = Number(container.querySelector('#ah-e').value);
+      await ctx.save();
+      const { ensurePermission } = await import('./notifications.js');
+      await ensurePermission();
+      await ctx.reschedule();
+      ctx.toast('Reminders applied.');
+    });
+    // Fire a test notification ~5s out to verify permission + channel + display.
+    container.querySelector('#test-rem').addEventListener('click', async () => {
+      const { testNotification } = await import('./notifications.js');
+      const res = await testNotification();
+      if (res.ok) ctx.toast('Test sent — watch for it in ~5s.');
+      else if (res.reason === 'permission') ctx.toast('Notifications not permitted — allow them in Android settings.', 2600);
+      else ctx.toast('Reminders only work in the installed Android app.', 2600);
+    });
+  }
 
   // Growth Points config.
   container.querySelector('#gp-apply').addEventListener('click', async () => {
@@ -1234,16 +1263,7 @@ export function renderSettings(container, ctx) {
     ctx.render();
   });
 
-  wireDoomscroll(container, ctx);
-
-  // Fire a test notification ~5s out to verify permission + channel + display.
-  container.querySelector('#test-rem').addEventListener('click', async () => {
-    const { testNotification } = await import('./notifications.js');
-    const res = await testNotification();
-    if (res.ok) ctx.toast('Test sent — watch for it in ~5s.');
-    else if (res.reason === 'permission') ctx.toast('Notifications not permitted — allow them in Android settings.', 2600);
-    else ctx.toast('Reminders only work in the installed Android app.', 2600);
-  });
+  if (showDoomscroll) wireDoomscroll(container, ctx);
 
   // App updates (OTA) — show current build, allow a manual check.
   (async () => {
