@@ -174,33 +174,77 @@ public final class DoomscrollUtil {
 
     UsageEvents events = usm.queryEvents(queryStart, now);
     UsageEvents.Event e = new UsageEvents.Event();
-    String fg = null;
-    long fgStart = 0;
+
+    // Gap-merging state. Every FOREGROUND event for a non-watched app (keyboard,
+    // system UI, permission dialogs, etc.) starts a gap timer rather than
+    // immediately ending the current watched session. If the same watched app
+    // returns within SESSION_GAP_MIN the gap is folded in silently; only a gap
+    // that exceeds the threshold actually closes the session. This prevents the
+    // keyboard and brief overlays from fragmenting a long session into many tiny
+    // sub-minute rows.
+    String watchedPkg = null;   // watched app whose session we are accumulating
+    long watchedStart = 0;      // session start (stays fixed across short gaps)
+    long gapStart = 0;          // when the watched app left foreground (0 = still fg)
+    final long gapThreshMs = SESSION_GAP_MIN * 60_000L;
+
     int added = 0;
 
     while (events.hasNextEvent()) {
       events.getNextEvent(e);
       int type = e.getEventType();
       long ts = e.getTimeStamp();
+      String pkg = e.getPackageName();
+
       if (type == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-        // A new app comes forward: close the previous one as a completed session.
-        if (fg != null) added += maybeRecord(ctx, fg, fgStart, ts, thresholds);
-        fg = e.getPackageName();
-        fgStart = ts;
-      } else if (type == UsageEvents.Event.MOVE_TO_BACKGROUND) {
-        if (fg != null && e.getPackageName().equals(fg)) {
-          added += maybeRecord(ctx, fg, fgStart, ts, thresholds);
-          fg = null;
-          fgStart = 0;
+        if (pkg.equals(watchedPkg)) {
+          // Same watched app returned from an interruption.
+          long gapMs = (gapStart > 0) ? ts - gapStart : 0;
+          if (gapMs > gapThreshMs) {
+            // Long gap → close the previous session, start a new one.
+            added += maybeRecord(ctx, watchedPkg, watchedStart, gapStart, thresholds);
+            watchedStart = ts;
+          }
+          // Short gap (keyboard, overlay, etc.) → silently continue same session.
+          gapStart = 0;
+
+        } else if (thresholds.containsKey(pkg)) {
+          // A different watched app takes over.
+          if (watchedPkg != null) {
+            long sessionEnd = (gapStart > 0) ? gapStart : ts;
+            added += maybeRecord(ctx, watchedPkg, watchedStart, sessionEnd, thresholds);
+          }
+          watchedPkg = pkg;
+          watchedStart = ts;
+          gapStart = 0;
+
+        } else {
+          // Non-watched app (keyboard, launcher, UI chrome): start gap timer.
+          if (watchedPkg != null && gapStart == 0) gapStart = ts;
         }
+
+      } else if (type == UsageEvents.Event.MOVE_TO_BACKGROUND) {
+        // Watched app went to background explicitly.
+        if (pkg.equals(watchedPkg) && gapStart == 0) gapStart = ts;
       }
     }
 
-    // Anything still foregrounded at the end is an ONGOING session: don't record
-    // it yet, and rewind the cursor to its start so its full duration is captured
-    // when it ends (next sync). Otherwise advance the cursor to now. Never rewind
-    // past the previous cursor, so completed sessions are never reprocessed.
-    long newCursor = (fg != null) ? Math.max(last, fgStart) : now;
+    // Resolve state at end of query window.
+    long newCursor;
+    if (watchedPkg != null) {
+      if (gapStart > 0 && (now - gapStart) > gapThreshMs) {
+        // The watched app left and the gap has already exceeded the threshold:
+        // the session completed at gapStart.
+        added += maybeRecord(ctx, watchedPkg, watchedStart, gapStart, thresholds);
+        newCursor = now;
+      } else {
+        // Either still in foreground, or in a brief gap that might still resolve:
+        // rewind the cursor to the session start so its full duration is captured
+        // on the next sync. Never rewind past the previous cursor.
+        newCursor = Math.max(last, watchedStart);
+      }
+    } else {
+      newCursor = now;
+    }
     p.edit().putLong(KEY_LAST_SYNC, newCursor).apply();
     return added;
   }
