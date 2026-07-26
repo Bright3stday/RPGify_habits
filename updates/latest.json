@@ -1,8 +1,8 @@
 {
-  "build": 56,
-  "version": "web-56",
-  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-56.zip",
+  "build": 57,
+  "version": "web-57",
+  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-57.zip",
   "minNative": 4,
-  "notes": "• Fix dev panel: inject now fires Spirit beats; force sync reports drain result\n• Expand dev panel: inject sessions, force sync, reset cursor, ledger tail\n• Fix syncSessions: merge keyboard/overlay gaps instead of fragmenting sessions\n• Fix OTA \"needs-apk\" message: say project site, not Releases\n• Doomscroll paths: Usage-Access migration + first-run walkthrough",
-  "publishedAt": "2026-07-26T16:58:20.877Z"
+  "notes": "• Usage stats view, Spirit beat tap-through, reminders walkthrough, dev guide\n• Fix dev panel: inject now fires Spirit beats; force sync reports drain result\n• Expand dev panel: inject sessions, force sync, reset cursor, ledger tail\n• Fix syncSessions: merge keyboard/overlay gaps instead of fragmenting sessions\n• Fix OTA \"needs-apk\" message: say project site, not Releases",
+  "publishedAt": "2026-07-26T17:12:15.004Z"
 }
