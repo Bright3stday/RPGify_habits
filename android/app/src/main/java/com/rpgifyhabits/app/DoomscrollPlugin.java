@@ -160,4 +160,44 @@ public class DoomscrollPlugin extends Plugin {
     r.put("active", DoomscrollService.isRunningFlag());
     call.resolve(r);
   }
+
+  // Dev/test: reset the native sync cursor so the next syncUsage replays from
+  // scratch (capped at MAX_BACKFILL_MS = 24 h). Useful after installing a fresh
+  // APK to verify the gap-merging logic without waiting for new sessions.
+  @PluginMethod
+  public void resetCursor(PluginCall call) {
+    getContext().getSharedPreferences(DoomscrollUtil.PREFS, Context.MODE_PRIVATE)
+        .edit().remove(DoomscrollUtil.KEY_LAST_SYNC).apply();
+    JSObject r = new JSObject();
+    r.put("ok", true);
+    call.resolve(r);
+  }
+
+  // Dev/test: inject a fake session row into the native ledger so the full
+  // native→JS scoring pipeline can be exercised without waiting in an app.
+  @PluginMethod
+  public void injectSession(PluginCall call) {
+    String pkg = call.getString("pkg", "com.test.app");
+    int durationSec = call.getInt("durationSec", 1800);
+    int thresholdMin = call.getInt("thresholdMin", 20);
+    long now = System.currentTimeMillis();
+    try {
+      org.json.JSONObject ev = new org.json.JSONObject();
+      ev.put("type", "session");
+      ev.put("package", pkg);
+      ev.put("start", now - (long) durationSec * 1000);
+      ev.put("end", now);
+      ev.put("durationSec", durationSec);
+      ev.put("watched", true);
+      ev.put("thresholdMin", thresholdMin);
+      ev.put("ts", now);
+      DoomscrollUtil.appendEvent(getContext(), ev);
+      JSObject r = new JSObject();
+      r.put("ok", true);
+      r.put("seq", DoomscrollUtil.currentSeq(getContext()));
+      call.resolve(r);
+    } catch (Exception e) {
+      call.reject("inject failed: " + e.getMessage());
+    }
+  }
 }

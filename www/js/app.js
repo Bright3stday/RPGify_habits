@@ -189,6 +189,7 @@ const ctx = {
   replaceState(next) { state = next; },
   // Re-open the first-run walkthrough on demand (from Config).
   openWalkthrough() { showWalkthrough(ctx, { fromSettings: true }); },
+  async drainDoomscroll() { return drainDoomscroll({ silent: true }); },
   // Pull today's steps and auto-complete any step-goal habits that hit target.
   async syncSteps({ silent = false } = {}) {
     await refreshSteps(state);

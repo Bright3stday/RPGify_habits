@@ -98,6 +98,26 @@ export async function readUsageEvents() {
   } catch { return { events: [], seq: 0 }; }
 }
 
+// Dev/test: reset the native sync cursor so the next syncUsage replays from
+// scratch (up to MAX_BACKFILL_MS). Useful after installing a new APK to verify
+// the gap-merging fix without waiting for new sessions to accumulate.
+export async function resetCursor() {
+  const p = plugin();
+  if (!p || !p.resetCursor) return false;
+  try { await p.resetCursor(); return true; } catch { return false; }
+}
+
+// Dev/test: inject a fake session row directly into the native ledger. Lets
+// you test Spirit scoring end-to-end without waiting 30 minutes in the app.
+// pkg defaults to the first watched app; durationSec/thresholdMin are passed
+// through to the session row so spirit.js scores it normally.
+export async function injectTestSession(pkg, durationSec, thresholdMin) {
+  const p = plugin();
+  if (!p || !p.injectSession) return { ok: false };
+  try { return await p.injectSession({ pkg, durationSec, thresholdMin }); }
+  catch { return { ok: false }; }
+}
+
 // Diagnostics: read the current foreground app + elapsed session time.
 export async function probe() {
   const p = plugin();

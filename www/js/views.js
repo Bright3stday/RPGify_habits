@@ -32,6 +32,7 @@ import {
   sanitizeConfig, observationCopy,
   probe, fireTestAlert, probeSummary, readUsageEvents,
   watchedSessions, sessionLine,
+  resetCursor, injectTestSession,
 } from './doomscroll.js';
 import {
   SLOTS, SLOT_LABEL, slotForItem, equipItem, unequipSlot, isKeyEquipped,
@@ -1117,39 +1118,68 @@ function devPanelHtml() {
   return `
     <div class="window" style="border-color:#6a4a90">
       <div class="window-title">◆ DEVELOPER / TEST</div>
-      <div class="bar-caption">Tuning tools. Simulations fire the real beats/scoring and bypass the daily cap.</div>
-      <div class="btn-row" style="margin-top:8px">
+
+      <div class="section-label" style="margin-left:0;margin-top:4px">SPIRIT SCORING</div>
+      <div class="bar-caption" style="margin-bottom:6px">Fire real scoring beats, bypassing the daily cap.</div>
+      <div class="btn-row">
         <button class="btn small" id="dev-sim-good">＋ SIM RESTRAINT</button>
         <button class="btn small" id="dev-sim-binge">＋ SIM BINGE</button>
       </div>
       <button class="btn small block" id="dev-reset-spirit" style="margin-top:8px">RESET DOOMSCROLL SCORING</button>
-      <div class="section-label" style="margin-left:0">DIAGNOSTICS</div>
-      <div class="bar-caption" id="dev-diag" style="white-space:pre-wrap">…</div>
-      <button class="btn small block" id="dev-refresh-diag" style="margin-top:6px">REFRESH</button>
-      <button class="btn small block danger" id="dev-hide" style="margin-top:10px">HIDE DEV TOOLS</button>
+
+      <div class="section-label" style="margin-left:0;margin-top:12px">DOOMSCROLL SESSIONS</div>
+      <div class="bar-caption" style="margin-bottom:6px">Test the full pipeline without waiting 30 min in an app.</div>
+      <div class="btn-row">
+        <button class="btn small" id="dev-inject-gain">INJECT GAIN SESSION</button>
+        <button class="btn small" id="dev-inject-binge">INJECT BINGE SESSION</button>
+      </div>
+      <div class="btn-row" style="margin-top:6px">
+        <button class="btn small" id="dev-force-sync">FORCE SYNC</button>
+        <button class="btn small danger" id="dev-reset-cursor">RESET CURSOR</button>
+      </div>
+      <div class="bar-caption" style="margin-top:4px">Inject adds a fake session row then drains scoring. Force sync replays Usage Stats now (Oracle). Reset cursor rewinds to 24h ago so the next sync re-scans everything.</div>
+
+      <div class="section-label" style="margin-left:0;margin-top:12px">DIAGNOSTICS</div>
+      <div class="bar-caption" id="dev-diag" style="white-space:pre-wrap;font-size:11px;line-height:1.5">…</div>
+      <button class="btn small block" id="dev-refresh-diag" style="margin-top:6px">REFRESH DIAGNOSTICS</button>
+
+      <button class="btn small block danger" id="dev-hide" style="margin-top:12px">HIDE DEV TOOLS</button>
     </div>`;
 }
 
 function wireDevPanel(container, ctx) {
   const { state } = ctx;
   const diag = container.querySelector('#dev-diag');
+
   const showDiag = async () => {
     if (!diag) return;
     const build = await currentBuild().catch(() => 0);
     const { events, seq } = await readUsageEvents();
     const t = state.spiritTrack || {};
+    const evArr = Array.isArray(events) ? events : [];
+    const tail = evArr.slice(-5).reverse().map((e) => {
+      const dur = Number(e.durationSec);
+      const thr = Number(e.thresholdMin);
+      const pkg = String(e.package || e.pkg || '?').split('.').pop();
+      const status = Number.isFinite(dur) && Number.isFinite(thr)
+        ? (dur >= thr * 60 * 1.5 ? 'BINGE' : dur >= thr * 60 ? 'GAIN' : 'neutral')
+        : (e.alerted ? 'legacy' : '?');
+      return `  ${pkg}  ${dur}s / ${thr}min  → ${status}`;
+    });
     diag.textContent = [
       `build: ${build}`,
       `spirit: xp=${t.xp || 0}  wear=${Math.round(spiritWear(state) * 100)}%  lastSeq=${t.lastSeq || 0}  cap=${t.capXp || 0}/${SPIRIT_TUNING.dailyCapXp}`,
-      `ledger: ${Array.isArray(events) ? events.length : 0} events, seq=${seq}`,
+      `ledger: ${evArr.length} events, seq=${seq}`,
+      tail.length ? `last 5 sessions (newest first):\n${tail.join('\n')}` : '(no sessions recorded yet)',
     ].join('\n');
   };
   showDiag();
   container.querySelector('#dev-refresh-diag')?.addEventListener('click', showDiag);
 
+  // Spirit scoring simulations (bypass daily cap).
   container.querySelector('#dev-sim-good')?.addEventListener('click', async () => {
     state.spiritTrack = state.spiritTrack || defaultSpiritTrack();
-    state.spiritTrack.xp += SPIRIT_TUNING.gainXp; // bypass cap for testing
+    state.spiritTrack.xp += SPIRIT_TUNING.gainXp;
     await ctx.save();
     ctx.flashBeat(`SPIRIT +${SPIRIT_TUNING.gainXp}`, 'Simulated restraint', '#b06af0');
     ctx.render();
@@ -1165,11 +1195,55 @@ function wireDevPanel(container, ctx) {
   });
   container.querySelector('#dev-reset-spirit')?.addEventListener('click', async () => {
     const { seq } = await readUsageEvents();
-    state.spiritTrack = { ...defaultSpiritTrack(), lastSeq: seq }; // skip existing ledger
+    state.spiritTrack = { ...defaultSpiritTrack(), lastSeq: seq };
     await ctx.save();
     ctx.toast('Doomscroll scoring reset.');
     ctx.render();
   });
+
+  // Inject a fake session row into the native ledger, then drain scoring so the
+  // effect shows immediately. First watched app is used; falls back to a test pkg.
+  const firstWatchedApp = () => {
+    const apps = state.settings.doomscroll?.apps || [];
+    return apps[0] ? { pkg: apps[0].package, thresholdMin: apps[0].thresholdMin || 20 } : { pkg: 'com.test.app', thresholdMin: 20 };
+  };
+  container.querySelector('#dev-inject-gain')?.addEventListener('click', async () => {
+    const { pkg, thresholdMin } = firstWatchedApp();
+    // Exactly at threshold — qualifies as a gain, not a binge.
+    await injectTestSession(pkg, thresholdMin * 60, thresholdMin);
+    await ctx.drainDoomscroll?.();
+    await showDiag();
+    ctx.toast(`Injected ${thresholdMin}-min gain session for ${pkg.split('.').pop()}.`);
+    ctx.render();
+  });
+  container.querySelector('#dev-inject-binge')?.addEventListener('click', async () => {
+    const { pkg, thresholdMin } = firstWatchedApp();
+    // Well past threshold — qualifies as a binge.
+    const bingeSec = thresholdMin * 60 + SPIRIT_TUNING.bingePastSec + 30;
+    await injectTestSession(pkg, bingeSec, thresholdMin);
+    await ctx.drainDoomscroll?.();
+    await showDiag();
+    ctx.toast(`Injected binge session (${Math.round(bingeSec / 60)} min) for ${pkg.split('.').pop()}.`);
+    ctx.render();
+  });
+
+  // Force sync: trigger Oracle's syncUsage right now, then drain scoring.
+  container.querySelector('#dev-force-sync')?.addEventListener('click', async () => {
+    const cfg = state.settings.doomscroll;
+    const added = await syncUsage(cfg);
+    await ctx.drainDoomscroll?.();
+    await showDiag();
+    ctx.toast(`Sync complete — ${added} session(s) added.`);
+    ctx.render();
+  });
+
+  // Reset cursor: clear the native KEY_LAST_SYNC so next sync re-scans 24h.
+  container.querySelector('#dev-reset-cursor')?.addEventListener('click', async () => {
+    const ok = await resetCursor();
+    ctx.toast(ok ? 'Cursor reset — next sync replays 24 h of usage.' : 'resetCursor not available on this APK.');
+    await showDiag();
+  });
+
   container.querySelector('#dev-hide')?.addEventListener('click', async () => {
     state.settings.devMode = false;
     await ctx.save();
