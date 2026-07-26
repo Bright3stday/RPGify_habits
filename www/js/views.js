@@ -1137,7 +1137,7 @@ function devPanelHtml() {
         <button class="btn small" id="dev-force-sync">FORCE SYNC</button>
         <button class="btn small danger" id="dev-reset-cursor">RESET CURSOR</button>
       </div>
-      <div class="bar-caption" style="margin-top:4px">Inject adds a fake session row then drains scoring. Force sync replays Usage Stats now (Oracle). Reset cursor rewinds to 24h ago so the next sync re-scans everything.</div>
+      <div class="bar-caption" style="margin-top:4px">Inject adds a fake session and fires scoring immediately — the Spirit beat should play. Force sync replays real phone usage (Oracle path, same as reopening the app). Reset cursor rewinds to 24 h ago so the next sync re-scans everything.</div>
 
       <div class="section-label" style="margin-left:0;margin-top:12px">DIAGNOSTICS</div>
       <div class="bar-caption" id="dev-diag" style="white-space:pre-wrap;font-size:11px;line-height:1.5">…</div>
@@ -1227,13 +1227,16 @@ function wireDevPanel(container, ctx) {
     ctx.render();
   });
 
-  // Force sync: trigger Oracle's syncUsage right now, then drain scoring.
+  // Force sync: same as closing + reopening the app — reconstructs real sessions
+  // from UsageStats and scores anything new. Injected sessions are already in the
+  // ledger and are processed immediately by the inject buttons, not by this.
   container.querySelector('#dev-force-sync')?.addEventListener('click', async () => {
-    const cfg = state.settings.doomscroll;
-    const added = await syncUsage(cfg);
-    await ctx.drainDoomscroll?.();
+    const res = await ctx.drainDoomscroll?.();
     await showDiag();
-    ctx.toast(`Sync complete — ${added} session(s) added.`);
+    const xp = res && res.gainedXp ? `Spirit +${res.gainedXp} XP` : null;
+    const wear = res && res.addedWear ? `wear added` : null;
+    const effect = [xp, wear].filter(Boolean).join(', ') || 'nothing new to score';
+    ctx.toast(`Oracle sync — ${effect}.`);
     ctx.render();
   });
 
