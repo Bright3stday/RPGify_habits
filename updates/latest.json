@@ -1,8 +1,8 @@
 {
-  "build": 42,
-  "version": "web-42",
-  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-42.zip",
+  "build": 43,
+  "version": "web-43",
+  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-43.zip",
   "minNative": 1,
-  "notes": "• Distinct 'debuff' beat for doomscroll wear (not the celebratory reward one)\n• Docs: make the site user-facing; move developer content to DEVELOPING.md\n• Docs: rephrase chat-voice/dev-facing lines for external site readers\n• Add styled docs website generated from Markdown, published to Pages root\n• Add hidden developer/test panel + a trust/verification guide",
-  "publishedAt": "2026-07-26T00:32:53.911Z"
+  "notes": "• Doomscroll scoring respects the enable toggle (no wear when disabled)\n• Distinct 'debuff' beat for doomscroll wear (not the celebratory reward one)\n• Docs: make the site user-facing; move developer content to DEVELOPING.md\n• Docs: rephrase chat-voice/dev-facing lines for external site readers\n• Add styled docs website generated from Markdown, published to Pages root",
+  "publishedAt": "2026-07-26T00:44:35.342Z"
 }
