@@ -23,12 +23,55 @@ APKs. See `CLAUDE.md` for how things ship.
   stats (ones with quests); untrained stats no longer mask a focused user's
   lapse (`attributes.js engagedStatIds`/`overallCondition`).
 
+## Next — Onboarding walkthrough + Doomscroll "paths" (spans OTA + native)
+
+The near-term headline. First run currently has **no walkthrough** at all; add
+one, and use it to let the user *choose how doomscroll watches them* rather than
+us picking a default.
+
+**First-run walkthrough** (OTA — JS/HTML). Short, skippable, re-openable from
+Settings. Cards: welcome (habits → attributes → hero) · Growth Points + mastery ·
+decay · **the Spirit & doomscroll** · **choose your path** · grant Usage Access ·
+pick apps.
+
+- Spirit framing (corrected): Spirit (`spr`) is a normal attribute **trained by
+  quests like any other**. Doomscroll only adds a layer on top — **restraint
+  grants bonus Spirit XP, binges wear its condition**. Do NOT imply Spirit is
+  only about restraint.
+
+**Two paths** (the user picks; switchable in Settings anytime):
+- **Path of the Sentinel** (real-time) — background watch + **live nudge** at the
+  limit. Cost: a persistent "watching" notification, a little more battery.
+- **Path of the Oracle** (reflect-on-return) — nothing runs in the background;
+  the reckoning appears when you next open RPGify. Cost: no in-the-moment nudge.
+- **The on-return reckoning (Spirit gain + decay-wear animation) is common to
+  BOTH paths.** Sentinel = the Oracle baseline **plus** the live nudge — opening
+  RPGify always replays what happened, regardless of path.
+- **Default = Oracle if the user skips.** Nothing watches until a path is chosen.
+- **Adaptive nudge (optional, never forced):** if an Oracle user keeps getting no
+  Spirit gain / constant decay wear / maxed wear, prompt "want to try the Sentinel
+  path and see if it helps?" — one-tap switch, dismissible.
+
+**Scoring adaptation** (`spirit.js`). `applyLedger` currently grants XP only when
+`e.alerted` is set + `leftAfterAlertSec <= graceSec` — that path only fires under
+Sentinel (a live nudge happened). Add an **Oracle gain path**: reward a session
+whose duration **ended under `bingePastSec`** (self-regulated, no nudge needed),
+still bounded by `dailyCapXp`. Keep the alert-based gain for Sentinel.
+
+**Native (batched APK).** Migrate the detector off the **AccessibilityService**
+to **Usage Access** (`PACKAGE_USAGE_STATS`) — this removes both the banking-app
+conflict and the Play Protect install friction (both accessibility-specific). Two
+native capabilities sit behind the paths:
+- Oracle: on open/resume, query UsageStats for sessions since last check → ledger.
+- Sentinel: the existing UsageStats foreground service (live nudge).
+- Detector logs **only selected apps**; then fix `docs/SECURITY.md`. Bump
+  `versionCode`.
+
 ## Next — OTA-only (no reinstall)
 
-1. **Tracking ⁄ mirror split + transparency** — separate "usage tracking" from the
-   "doomscroll mirror" (alerts + Spirit). Three honest states: tracking off /
-   tracking on + mirror off (usage awareness, no penalty) / both on. UI + copy are
-   JS; the "service physically stops logging" part is native (see backlog).
+1. **Tracking ⁄ mirror split + transparency** — largely *subsumed by the paths
+   work above* (Oracle with tracking off = nothing runs; Oracle = usage awareness;
+   Sentinel = full mirror). Keep the honest three-state copy where it still helps.
 2. **Usage stats view** — behind an explicit button: per selected-app continuous
    sessions/day/week, durations, and vs. previous period. Store small **daily
    aggregates** in state for trends. JS (reads the ledger).
@@ -37,10 +80,15 @@ APKs. See `CLAUDE.md` for how things ship.
 
 ## Native backlog — batch into the next APK
 
-Ship an APK only when these are worth a reinstall (or a real bug forces one):
+Ship an APK only when these are worth a reinstall (or a real bug forces one).
+**The next APK is the paths migration above** (accessibility → Usage Access), which
+folds in most of this list:
 
-- Detector goes **dormant when tracking is off** (currently JS ignores the data;
-  interim "off" = revoke the Accessibility permission).
+- **Accessibility → Usage Access migration** (see paths section). Drives Oracle's
+  on-return query and Sentinel's foreground service; removes the banking-app
+  conflict and Play Protect friction.
+- Detector goes **dormant when tracking is off** — trivial once migrated (Oracle
+  runs nothing in the background by construction).
 - Detector logs **only selected apps** (privacy/footprint). Then update
   `docs/SECURITY.md` wording (currently it slightly overclaims — the service logs
   every foreground app, scoring only the watched ones). **Hold the doc fix until
@@ -51,6 +99,14 @@ Ship an APK only when these are worth a reinstall (or a real bug forces one):
 ## Decisions log
 
 - **OTA-first cadence.** Minimize APK reinstalls for testers; batch native.
+- **Doomscroll = user-chosen "paths", no forced default.** Onboarding explains the
+  feature and lets the user pick Sentinel (real-time) vs Oracle (reflect-on-return);
+  skip → Oracle. On-return reckoning is common to both. Adaptive prompt to try
+  Sentinel is optional, never forced.
+- **Drop Accessibility → Usage Access** for detection (removes banking-app conflict
+  + Play Protect install friction; both are accessibility-specific).
+- **Spirit is a normal quest-trained attribute**; doomscroll only adds bonus XP
+  (restraint) and condition wear (binges) on top.
 - **Selected-only usage logging** is the default (privacy). Retroactive
   history/discovery across all apps = a future *explicit opt-in*, not default.
 - **No git tags / GitHub Releases** — blocked here; distribution is Pages.
@@ -58,6 +114,22 @@ Ship an APK only when these are worth a reinstall (or a real bug forces one):
   self-authored ethos.
 - Spirit numbers live in `SPIRIT_TUNING` (OTA-tunable): gainXp 6, dailyCap 18,
   bingePastSec 300, wearPerBinge 0.2, wearMax 0.6, ~2-day heal, recoverPerQuest 0.06.
+
+## Inn / Rest modes — pause quests, soften decay (spec in progress)
+
+An **Inn** the user can check into for unforeseen life events (illness, injury,
+travel) that block quests — so decay doesn't punish them for things outside their
+control. Pausing is manual and consensual. Two rest modes:
+
+- **Recovery mode** (illness/injury): freeze or reduce decay; **re-weight toward
+  Vitality** and gentle recovery quests (extra hydration, rest, don't strain the
+  body until recovered). Strenuous quests suppressed.
+- **Holiday mode**: **tone down strenuous quests**; let low-effort auto-quests
+  (step tracker) take center stage; reduced (not fully frozen) decay.
+
+Open questions (user will refine): freeze vs. reduce decay per mode; time-boxing /
+auto-resume; whether recovery quests grant normal XP; an abuse guard so you can't
+just live in the Inn. → promote to `design/INN.md` once specced.
 
 ## Ideas / not scheduled
 
