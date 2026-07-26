@@ -1,8 +1,8 @@
 {
-  "build": 48,
-  "version": "web-48",
-  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-48.zip",
+  "build": 49,
+  "version": "web-49",
+  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-49.zip",
   "minNative": 1,
-  "notes": "• Roadmap: Recipes shipped\n• Merge remote-tracking branch 'origin/claude/recipes-feature-go5kw5' into claude/habit-skill-rpg-android-xir4qv\n• Add Recipes: curated, editable quest & mastery starting points\n• Add CLAUDE.md orientation + design/ROADMAP.md (repo-as-memory for long-term work)\n• Add design spec for the Recipes feature (design/RECIPES.md)",
-  "publishedAt": "2026-07-26T02:44:09.508Z"
+  "notes": "• Overall/hero condition averages only engaged stats (trained ones)\n• Roadmap: Recipes shipped\n• Merge remote-tracking branch 'origin/claude/recipes-feature-go5kw5' into claude/habit-skill-rpg-android-xir4qv\n• Add Recipes: curated, editable quest & mastery starting points\n• Add CLAUDE.md orientation + design/ROADMAP.md (repo-as-memory for long-term work)",
+  "publishedAt": "2026-07-26T02:58:59.050Z"
 }
