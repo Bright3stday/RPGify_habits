@@ -1,8 +1,8 @@
 {
-  "build": 43,
-  "version": "web-43",
-  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-43.zip",
+  "build": 48,
+  "version": "web-48",
+  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-48.zip",
   "minNative": 1,
-  "notes": "• Doomscroll scoring respects the enable toggle (no wear when disabled)\n• Distinct 'debuff' beat for doomscroll wear (not the celebratory reward one)\n• Docs: make the site user-facing; move developer content to DEVELOPING.md\n• Docs: rephrase chat-voice/dev-facing lines for external site readers\n• Add styled docs website generated from Markdown, published to Pages root",
-  "publishedAt": "2026-07-26T00:44:35.342Z"
+  "notes": "• Roadmap: Recipes shipped\n• Merge remote-tracking branch 'origin/claude/recipes-feature-go5kw5' into claude/habit-skill-rpg-android-xir4qv\n• Add Recipes: curated, editable quest & mastery starting points\n• Add CLAUDE.md orientation + design/ROADMAP.md (repo-as-memory for long-term work)\n• Add design spec for the Recipes feature (design/RECIPES.md)",
+  "publishedAt": "2026-07-26T02:44:09.508Z"
 }
