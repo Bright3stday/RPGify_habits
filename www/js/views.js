@@ -8,6 +8,9 @@ import { levelFromXp } from './leveling.js';
 import { conditionState } from './condition.js';
 import { CADENCE_TYPES, cadenceLabel, isDue, dueAt } from './cadence.js';
 import {
+  QUEST_RECIPES, MASTERY_RECIPES, recipeToHabit, recipeToNodeSpecs,
+} from './recipes.js';
+import {
   addHabit, updateHabit, retireHabit, deleteHabit, completeHabit, defaultState,
 } from './game.js';
 import {
@@ -285,24 +288,38 @@ export function renderHabits(container, ctx) {
   const active = all.filter((h) => !h.retired);
   const retired = all.filter((h) => h.retired);
 
+  // Nudge newcomers toward the curated catalog instead of a blank page.
+  const nudge = active.length <= 1
+    ? `<div class="window sugg-nudge" style="margin-bottom:14px">
+         <div class="bar-caption" style="color:var(--gold)">✨ New here? You don't have to start from scratch.</div>
+         <button class="btn gold block" id="nudge-suggestions" style="margin-top:8px">BROWSE SUGGESTIONS</button>
+       </div>`
+    : '';
+
   container.innerHTML = `
     <div class="btn-row" style="margin-bottom:14px">
-      <button class="btn primary block" id="add-habit">＋ NEW QUEST</button>
+      <button class="btn primary" id="add-habit">＋ NEW QUEST</button>
+      <button class="btn gold" id="open-suggestions">✨ SUGGESTIONS</button>
     </div>
+    ${nudge}
     <div class="section-label">ACTIVE (${active.length})</div>
     ${active.map((h) => habitRow(h, ctx)).join('') || '<div class="empty">No quests yet.</div>'}
     ${retired.length ? `<div class="section-label">RETIRED (${retired.length})</div>${retired.map((h) => habitRow(h, ctx)).join('')}` : ''}
   `;
 
   container.querySelector('#add-habit').addEventListener('click', () => habitEditor(ctx, null));
+  container.querySelector('#open-suggestions').addEventListener('click', () => openSuggestions(ctx, { kind: 'quest' }));
+  container.querySelector('#nudge-suggestions')?.addEventListener('click', () => openSuggestions(ctx, { kind: 'quest' }));
   container.querySelectorAll('[data-do]').forEach((b) => b.addEventListener('click', () => doComplete(ctx, b.dataset.do, b)));
   container.querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', () => habitEditor(ctx, b.dataset.edit)));
 }
 
-function habitEditor(ctx, habitId) {
+// `prefill` (a recipe mapped through recipeToHabit) seeds a *new* quest so the
+// user reviews/tweaks before saving — the recipe is never injected silently.
+function habitEditor(ctx, habitId, prefill = null) {
   const { state } = ctx;
   const editing = habitId ? state.habits[habitId] : null;
-  const h = editing || {
+  const h = editing || prefill || {
     name: '', description: '', statIds: [], cadenceType: 'daily', cadenceN: 2,
     xpPerCompletion: 20, source: 'manual', stepGoal: 8000,
   };
@@ -440,7 +457,10 @@ function treeBlock(ctx, attr) {
     <div class="window">
       <div class="tree-stat-label" style="color:${attr.color}">${attr.glyph} ${esc(attr.name)} — Lv ${level} · ${practice} practice</div>
       ${cards}
-      <button class="btn small block" data-addnode="${attr.id}" style="margin-top:8px">＋ ADD MASTERY NODE</button>
+      <div class="btn-row" style="margin-top:8px">
+        <button class="btn small" data-addnode="${attr.id}">＋ ADD NODE</button>
+        <button class="btn small gold" data-suggest="${attr.id}">✨ SUGGESTED PATHS</button>
+      </div>
     </div>`;
 }
 
@@ -488,6 +508,7 @@ function wireTree(container, ctx) {
   const { state } = ctx;
   const points = growthInfo(state).points;
   container.querySelectorAll('[data-addnode]').forEach((b) => b.addEventListener('click', () => nodeEditor(ctx, b.dataset.addnode, null)));
+  container.querySelectorAll('[data-suggest]').forEach((b) => b.addEventListener('click', () => openSuggestions(ctx, { kind: 'mastery', statId: b.dataset.suggest })));
   container.querySelectorAll('[data-editnode]').forEach((b) => b.addEventListener('click', () => {
     const n = state.tree.nodes[b.dataset.editnode];
     if (n) nodeEditor(ctx, n.statId, n.id);
@@ -509,11 +530,13 @@ function wireTree(container, ctx) {
   }));
 }
 
-function nodeEditor(ctx, statId, nodeId) {
+// `prefill` (a single-node mastery recipe spec) seeds a *new* node for review
+// before saving. Multi-node paths go through the path-review modal instead.
+function nodeEditor(ctx, statId, nodeId, prefill = null) {
   const { state } = ctx;
   const attr = ATTR[statId];
   const editing = nodeId ? state.tree.nodes[nodeId] : null;
-  const n = editing || {
+  const n = editing || prefill || {
     title: '', criteria: '', thresholdType: 'practice', thresholdValue: 10,
     parents: [], requireMode: 'all', anyCount: 1, reward: null,
   };
@@ -604,6 +627,201 @@ function nodeEditor(ctx, statId, nodeId) {
   overlay.querySelector('#n-del')?.addEventListener('click', () => {
     if (confirm('Delete this mastery node?')) { deleteNode(state, nodeId); ctx.save(); overlay.remove(); ctx.render(); }
   });
+}
+
+// ========================================================================
+// ✨ SUGGESTIONS (recipe browse + add)
+// ========================================================================
+//
+// A curated catalog of starting-point quests and mastery paths. Browsing is
+// read-only; "Add" opens the *normal* editor pre-filled so the user reviews and
+// tweaks before saving — nothing is injected silently, and everything added is a
+// plain, fully-editable, user-owned quest/node afterwards.
+
+// One-line preview of a quest recipe's key params (matches what gets saved).
+function questPreview(recipe) {
+  const h = recipeToHabit(recipe);
+  if (h.source === 'steps') return `👟 Goal ${h.stepGoal.toLocaleString()} · ${h.xpPerCompletion} XP`;
+  return `${cadenceLabel(h)} · ${h.xpPerCompletion} XP`;
+}
+
+// One-line preview of a mastery recipe's shape (node count, path, reward).
+function masteryPreview(recipe) {
+  const specs = recipeToNodeSpecs(recipe);
+  const isPath = specs.some((s) => s.parents.length);
+  const capstone = specs[specs.length - 1];
+  const attr = ATTR[recipe.statId];
+  const bits = [`${specs.length} node${specs.length > 1 ? 's' : ''}${isPath ? ' · path' : ''}`];
+  const reward = rewardText(capstone && capstone.reward, attr);
+  if (reward) bits.push(reward);
+  return bits.join(' · ');
+}
+
+function statPill(attr) {
+  return `<span class="stat-pill" style="color:${attr.color};border-color:${attr.color}">${attr.glyph} ${esc(attr.abbr)}</span>`;
+}
+
+// Does a quest with this recipe's title already exist? (subtle "added" hint)
+function questExists(state, recipe) {
+  const t = (recipe.title || '').trim().toLowerCase();
+  return Object.values(state.habits || {}).some((h) => (h.name || '').trim().toLowerCase() === t);
+}
+
+// Does any of this mastery recipe's node titles already exist as a node?
+function masteryExists(state, recipe) {
+  const titles = new Set((recipe.nodes || []).map((n) => (n.title || '').trim().toLowerCase()));
+  return Object.values((state.tree && state.tree.nodes) || {})
+    .some((n) => titles.has((n.title || '').trim().toLowerCase()));
+}
+
+function recipeCard(recipe, kind, exists) {
+  const attr = ATTR[kind === 'quest' ? recipe.statIds[0] : recipe.statId];
+  const preview = kind === 'quest' ? questPreview(recipe) : masteryPreview(recipe);
+  const added = exists ? '<span class="sugg-added">✓ already added</span>' : '';
+  return `
+    <div class="recipe-card" style="--ac:${attr.color}">
+      <div class="rc-head">
+        ${statPill(attr)}
+        <span class="rc-title">${esc(recipe.title)}</span>
+        ${added}
+      </div>
+      <div class="rc-why">${esc(recipe.why || (recipe.nodes && recipe.nodes[0] && recipe.nodes[0].criteria) || '')}</div>
+      <div class="rc-foot">
+        <span class="rc-preview">${esc(preview)}</span>
+        <button class="btn small primary" data-add-recipe="${esc(recipe.id)}" data-recipe-kind="${kind}">＋ ADD</button>
+      </div>
+    </div>`;
+}
+
+export function openSuggestions(ctx, opts = {}) {
+  const { state } = ctx;
+  let statFilter = opts.statId || 'all';
+  let kindFilter = opts.kind || 'all'; // 'all' | 'quest' | 'mastery'
+  let query = '';
+
+  const chipRow = ['all', ...ATTRIBUTES.map((a) => a.id)].map((id) => {
+    const a = id === 'all' ? null : ATTR[id];
+    const label = a ? `${a.glyph} ${a.abbr}` : 'ALL';
+    const style = a ? `--ac:${a.color}` : '';
+    return `<span class="chip sugg-chip ${id === statFilter ? 'on' : ''}" data-sugg-stat="${id}" style="${style}">${label}</span>`;
+  }).join('');
+
+  const kindRow = [['all', 'All'], ['quest', 'Quests'], ['mastery', 'Paths']].map(([k, label]) =>
+    `<span class="chip sugg-kind ${k === kindFilter ? 'on' : ''}" data-sugg-kind="${k}">${label}</span>`).join('');
+
+  const overlay = modal(`
+    <div class="window-title">✨ SUGGESTIONS</div>
+    <div class="bar-caption" style="margin-bottom:8px">Curated starting points. Adding one opens the editor so you can make it your own — these are suggestions, not rules.</div>
+    <div class="chips" id="sugg-stats" style="margin-bottom:8px">${chipRow}</div>
+    <div class="chips" id="sugg-kinds" style="margin-bottom:8px">${kindRow}</div>
+    <input type="text" id="sugg-search" placeholder="search suggestions…" style="margin-bottom:10px" />
+    <div id="sugg-list" style="max-height:56vh;overflow:auto"></div>
+    <div class="btn-row" style="margin-top:10px"><button class="btn" id="sugg-close">CLOSE</button></div>
+  `);
+  const list = overlay.querySelector('#sugg-list');
+
+  const matches = (title, why) => {
+    if (!query) return true;
+    return `${title} ${why || ''}`.toLowerCase().includes(query);
+  };
+
+  const draw = () => {
+    const quests = (kindFilter === 'mastery' ? [] : QUEST_RECIPES).filter((r) =>
+      (statFilter === 'all' || r.statIds.includes(statFilter)) && matches(r.title, r.why));
+    const mastery = (kindFilter === 'quest' ? [] : MASTERY_RECIPES).filter((r) =>
+      (statFilter === 'all' || r.statId === statFilter) && matches(r.title, r.nodes && r.nodes[0] && r.nodes[0].criteria));
+
+    const qHtml = quests.map((r) => recipeCard(r, 'quest', questExists(state, r))).join('');
+    const mHtml = mastery.map((r) => recipeCard(r, 'mastery', masteryExists(state, r))).join('');
+    const sections = [];
+    if (quests.length) sections.push(`<div class="section-label" style="margin-left:0">QUESTS (${quests.length})</div>${qHtml}`);
+    if (mastery.length) sections.push(`<div class="section-label" style="margin-left:0">MASTERY (${mastery.length})</div>${mHtml}`);
+    list.innerHTML = sections.join('') || '<div class="empty">No suggestions match.</div>';
+
+    list.querySelectorAll('[data-add-recipe]').forEach((btn) => btn.addEventListener('click', () => {
+      const id = btn.dataset.addRecipe;
+      if (btn.dataset.recipeKind === 'quest') {
+        const recipe = QUEST_RECIPES.find((r) => r.id === id);
+        if (recipe) habitEditor(ctx, null, recipeToHabit(recipe));
+      } else {
+        const recipe = MASTERY_RECIPES.find((r) => r.id === id);
+        if (recipe) addMasteryRecipe(ctx, recipe, overlay);
+      }
+    }));
+  };
+
+  overlay.querySelectorAll('[data-sugg-stat]').forEach((chip) => chip.addEventListener('click', () => {
+    statFilter = chip.dataset.suggStat;
+    overlay.querySelectorAll('[data-sugg-stat]').forEach((c) => c.classList.toggle('on', c.dataset.suggStat === statFilter));
+    draw();
+  }));
+  overlay.querySelectorAll('[data-sugg-kind]').forEach((chip) => chip.addEventListener('click', () => {
+    kindFilter = chip.dataset.suggKind;
+    overlay.querySelectorAll('[data-sugg-kind]').forEach((c) => c.classList.toggle('on', c.dataset.suggKind === kindFilter));
+    draw();
+  }));
+  overlay.querySelector('#sugg-search').addEventListener('input', (e) => { query = e.target.value.trim().toLowerCase(); draw(); });
+  overlay.querySelector('#sugg-close').addEventListener('click', () => overlay.remove());
+  draw();
+  return overlay;
+}
+
+// A single-node recipe routes through the normal node editor (review + save).
+// A multi-node path can't sensibly pre-fill one editor, so it gets a review
+// modal that lists the nodes + dependencies before creating them together.
+function addMasteryRecipe(ctx, recipe, suggOverlay) {
+  const specs = recipeToNodeSpecs(recipe);
+  if (specs.length === 1) {
+    const s = specs[0];
+    nodeEditor(ctx, recipe.statId, null, {
+      title: s.title, criteria: s.criteria,
+      thresholdType: s.thresholdType, thresholdValue: s.thresholdValue,
+      parents: [], requireMode: 'all', anyCount: 1, reward: s.reward,
+    });
+    return;
+  }
+  masteryPathReview(ctx, recipe, specs, suggOverlay);
+}
+
+function masteryPathReview(ctx, recipe, specs, suggOverlay) {
+  const { state } = ctx;
+  const attr = ATTR[recipe.statId];
+  const byId = Object.fromEntries(specs.map((s) => [s.id, s]));
+  const rows = specs.map((s) => {
+    const req = s.thresholdType === 'practice' ? `${s.thresholdValue} practice` : `Lv ${s.thresholdValue}`;
+    const parents = s.parents.map((pid) => byId[pid] && byId[pid].title).filter(Boolean);
+    const dep = parents.length
+      ? ` · ${s.requireMode === 'any' ? `any ${s.anyCount} of` : 'after'}: ${esc(parents.join(', '))}`
+      : '';
+    const reward = rewardText(s.reward, attr);
+    return `<div class="mnode" style="--ac:${attr.color}">
+        <div class="mnode-head"><span class="mnode-title">${esc(s.title)}</span></div>
+        ${s.criteria ? `<div class="mnode-crit">“${esc(s.criteria)}”</div>` : ''}
+        <div class="mnode-req">${req}${dep}${reward ? ` · reward ${reward}` : ''}</div>
+      </div>`;
+  }).join('');
+
+  const overlay = modal(`
+    <div class="window-title">✨ ${esc(recipe.title.toUpperCase())}</div>
+    <div class="bar-caption" style="margin-bottom:8px">This path adds ${specs.length} linked ${esc(attr.name)} nodes with their dependencies wired up. They become normal nodes — edit, retire, or delete any of them afterwards.</div>
+    ${rows}
+    <div class="btn-row" style="margin-top:10px">
+      <button class="btn primary" id="sugg-add-path">＋ ADD PATH</button>
+      <button class="btn" id="sugg-path-cancel">CANCEL</button>
+    </div>
+  `);
+
+  overlay.querySelector('#sugg-add-path').addEventListener('click', () => {
+    // Specs are ordered parents-first with ids pre-resolved, so addNode wires
+    // each child's parents to the concrete ids created earlier in this loop.
+    for (const spec of specs) addNode(state, spec);
+    ctx.save();
+    overlay.remove();
+    if (suggOverlay) suggOverlay.remove();
+    ctx.toast(`Added ${specs.length}-node ${recipe.title} path.`);
+    ctx.render();
+  });
+  overlay.querySelector('#sugg-path-cancel').addEventListener('click', () => overlay.remove());
 }
 
 // ========================================================================

@@ -51,6 +51,21 @@ try {
   const habitCount = await page.$$eval('.habit', (els) => els.length);
   check(habitCount >= 1, 'habit created and listed');
 
+  // ✨ Suggestions: add a quest recipe. It opens the editor pre-filled, then
+  // saving creates a normal quest that shows up in the list.
+  await page.click('#open-suggestions');
+  await wait(150);
+  await page.click('[data-add-recipe="str-resistance"]');
+  await wait(150);
+  const prefilledName = await page.$eval('#f-name', (el) => el.value);
+  check(prefilledName === 'Strength session', `quest editor opens pre-filled from recipe (${prefilledName})`);
+  await page.click('#f-save');
+  await wait(200);
+  await page.click('#sugg-close');
+  await wait(120);
+  const recipeQuest = await page.$$eval('.h-name', (els) => els.some((e) => e.textContent.includes('Strength session')));
+  check(recipeQuest, 'added quest recipe appears in Quests');
+
   // Complete it -> should award XP and pop LEVEL UP (120 xp -> level 2).
   // Use [data-do] so we hit the manual button, not the seeded steps AUTO badge.
   await page.click('[data-do]:not([disabled])');
@@ -101,6 +116,29 @@ try {
     return { unlocked: !!(n && n.unlocked), points: s.growth.points };
   });
   check(afterSpend.unlocked && afterSpend.points === gpBefore - 1, 'node unlocked and one Growth Point spent');
+
+  // ✨ Suggestions: add a multi-node mastery PATH -> its nodes + the wired
+  // dependency appear in the tree.
+  await page.click('[data-suggest="str"]');
+  await wait(150);
+  await page.click('[data-add-recipe="str-foundations"]');
+  await wait(150);
+  await page.click('#sugg-add-path');
+  await wait(250);
+  const pathAdded = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem('rpgify.state.v1'));
+    const nodes = Object.values(s.tree.nodes);
+    const base = nodes.find((x) => x.title === 'Strength Base');
+    const consistency = nodes.find((x) => x.title === 'Consistency');
+    const heavy = nodes.find((x) => x.title === 'Heavy Lifts');
+    const wired = !!(base && consistency && heavy
+      && base.parents.includes(consistency.id) && base.parents.includes(heavy.id));
+    return { present: !!(base && consistency && heavy), wired };
+  });
+  check(pathAdded.present, 'mastery path adds all its nodes to the tree');
+  check(pathAdded.wired, 'mastery path wires the dependency (Strength Base after its parents)');
+  const depShown = await page.$$eval('.mnode-req', (els) => els.some((e) => /after:/.test(e.textContent)));
+  check(depShown, 'the dependency is shown in the tree UI');
 
   // Steps feature: dashboard shows sprites + a steps widget; logging steps to
   // the goal auto-completes the seeded Daily Steps habit.

@@ -538,3 +538,24 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
   text-shadow: 1px 1px 0 var(--shadow);
 }
 @keyframes floatup { to { transform: translateY(-40px); opacity: 0; } }
+
+/* ---- ✨ Suggestions (recipe browse) ------------------------------------ */
+
+.sugg-chip.on { color: var(--ac, #fff); border-color: var(--ac, currentColor); }
+.sugg-kind.on { color: var(--gold); border-color: var(--gold); }
+
+.recipe-card {
+  border: var(--px) solid var(--panel-2);
+  border-left: 3px solid var(--ac, var(--panel-2));
+  box-shadow: 0 0 0 2px var(--shadow);
+  background: #12122e;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+.recipe-card .rc-head { display: flex; align-items: center; gap: 8px; }
+.recipe-card .rc-title { flex: 1; font-size: 10px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; }
+.recipe-card .rc-why { font-size: 8px; color: var(--ink-dim); margin-top: 6px; line-height: 1.6; }
+.recipe-card .rc-foot { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.recipe-card .rc-preview { flex: 1; font-size: 7px; color: var(--ink-dim); }
+.sugg-added { font-size: 6px; color: var(--gold); white-space: nowrap; }
+.sugg-nudge { border-color: var(--gold); }

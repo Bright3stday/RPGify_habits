@@ -33,6 +33,10 @@ import { shouldApply, describeStatus } from '../www/js/ota.js';
 import {
   applyLedger, recoverOnQuest, decayedWear, defaultSpiritTrack, spiritWear, SPIRIT_TUNING,
 } from '../www/js/spirit.js';
+import {
+  QUEST_RECIPES, MASTERY_RECIPES, recipeToHabit, recipeToNodeSpecs, recipesForStat,
+} from '../www/js/recipes.js';
+import { ATTRIBUTE_IDS } from '../www/js/attributes.js';
 
 let passed = 0;
 function test(name, fn) {
@@ -492,6 +496,158 @@ test('ota describeStatus covers each status', () => {
   }
   // 'available' reads the nested manifest build.
   assert.ok(describeStatus({ status: 'available', manifest: { build: 7 } }).includes('7'));
+});
+
+// ---- Recipes: mapping helpers -------------------------------------------
+
+test('recipeToHabit: maps cadence + clamps xp/stepGoal into addHabit shape', () => {
+  const daily = recipeToHabit({ title: 'A', statIds: ['mag'], cadence: { type: 'daily' }, xpPerCompletion: 20, source: 'manual' });
+  assert.equal(daily.cadenceType, 'daily');
+  assert.deepEqual(daily.statIds, ['mag']);
+  const everyN = recipeToHabit({ title: 'B', statIds: ['str'], cadence: { type: 'everyN', n: 3 }, xpPerCompletion: 5000 });
+  assert.equal(everyN.cadenceType, 'everyN');
+  assert.equal(everyN.cadenceN, 3);
+  assert.equal(everyN.xpPerCompletion, 1000); // clamped to max
+  const weekly = recipeToHabit({ title: 'C', statIds: ['spr'], cadence: { type: 'weekly' }, xpPerCompletion: 40 });
+  assert.equal(weekly.cadenceType, 'weekly');
+  // Step habits are forced daily and get a clamped goal.
+  const steps = recipeToHabit({ title: 'D', statIds: ['str'], source: 'steps', stepGoal: 9, cadence: { type: 'weekly' } });
+  assert.equal(steps.source, 'steps');
+  assert.equal(steps.cadenceType, 'daily');
+  assert.equal(steps.stepGoal, 100); // clamped to min
+});
+
+test('recipeToHabit: filters out unknown stat ids', () => {
+  const h = recipeToHabit({ title: 'X', statIds: ['str', 'bogus', 'mag'], cadence: { type: 'daily' }, xpPerCompletion: 10 });
+  assert.deepEqual(h.statIds, ['str', 'mag']);
+});
+
+test('recipeToHabit output is accepted by addHabit unchanged', () => {
+  const s = defaultState();
+  const recipe = QUEST_RECIPES.find((r) => r.id === 'str-resistance');
+  const h = addHabit(s, recipeToHabit(recipe));
+  assert.equal(h.name, 'Strength session');
+  assert.equal(h.cadenceType, 'everyN');
+  assert.ok(h.statIds.includes('str'));
+});
+
+test('recipeToNodeSpecs: single node -> one spec, converted reward, no parents', () => {
+  const recipe = { statId: 'str', title: 'T', nodes: [
+    { key: 'a', title: 'A', criteria: 'c', threshold: { type: 'practice', value: 45 }, reward: { type: 'decayResist', pct: 15 } },
+  ] };
+  const specs = recipeToNodeSpecs(recipe);
+  assert.equal(specs.length, 1);
+  assert.equal(specs[0].thresholdType, 'practice');
+  assert.equal(specs[0].thresholdValue, 45);
+  assert.deepEqual(specs[0].parents, []);
+  assert.deepEqual(specs[0].reward, { type: 'resist', value: 0.15 });
+});
+
+test('recipeToNodeSpecs: resolves dependsOn keys to created ids, parents first', () => {
+  let n = 0;
+  const makeId = () => `nid${(n += 1)}`;
+  const recipe = { statId: 'str', title: 'Path', nodes: [
+    { key: 'base', title: 'Base', threshold: { type: 'level', value: 1 },
+      dependsOn: { mode: 'all', keys: ['consistency', 'heavy'] }, reward: { type: 'xp', pct: 5 } },
+    { key: 'consistency', title: 'Consistency', threshold: { type: 'practice', value: 20 } },
+    { key: 'heavy', title: 'Heavy', threshold: { type: 'level', value: 6 } },
+  ] };
+  const specs = recipeToNodeSpecs(recipe, makeId);
+  // Parents must be created before the child that depends on them.
+  const order = specs.map((sp) => sp.key);
+  assert.ok(order.indexOf('consistency') < order.indexOf('base'));
+  assert.ok(order.indexOf('heavy') < order.indexOf('base'));
+  const byKey = Object.fromEntries(specs.map((sp) => [sp.key, sp]));
+  assert.deepEqual(byKey.base.parents.sort(), [byKey.consistency.id, byKey.heavy.id].sort());
+  assert.equal(byKey.base.requireMode, 'all');
+  assert.deepEqual(byKey.base.reward, { type: 'xp', value: 1.05 });
+});
+
+test('recipeToNodeSpecs: any-N path carries mode + count', () => {
+  const recipe = { statId: 'mag', title: 'Poly', nodes: [
+    { key: 'x', title: 'X', threshold: { type: 'practice', value: 5 } },
+    { key: 'y', title: 'Y', threshold: { type: 'level', value: 2 } },
+    { key: 'z', title: 'Z', threshold: { type: 'practice', value: 5 } },
+    { key: 'cap', title: 'Cap', threshold: { type: 'level', value: 1 },
+      dependsOn: { mode: 'any', keys: ['x', 'y', 'z'], count: 2 } },
+  ] };
+  const specs = recipeToNodeSpecs(recipe);
+  const cap = specs.find((sp) => sp.key === 'cap');
+  assert.equal(cap.requireMode, 'any');
+  assert.equal(cap.anyCount, 2);
+  assert.equal(cap.parents.length, 3);
+});
+
+test('recipeToNodeSpecs specs create a wired dependency via addNode', () => {
+  const s = defaultState();
+  const recipe = MASTERY_RECIPES.find((r) => r.id === 'str-foundations');
+  const specs = recipeToNodeSpecs(recipe);
+  for (const spec of specs) addNode(s, spec);
+  const base = Object.values(s.tree.nodes).find((x) => x.title === 'Strength Base');
+  assert.ok(base && base.parents.length === 2);
+  // The referenced parent ids are real nodes now present in the tree.
+  assert.ok(base.parents.every((pid) => !!s.tree.nodes[pid]));
+});
+
+// ---- Recipes: catalog integrity -----------------------------------------
+
+test('catalog: every quest recipe is well-formed and covers all six stats', () => {
+  const ids = new Set();
+  const covered = new Set();
+  for (const r of QUEST_RECIPES) {
+    assert.ok(r.id && !ids.has(r.id), `unique id: ${r.id}`);
+    ids.add(r.id);
+    assert.ok((r.title || '').trim().length, `non-empty title: ${r.id}`);
+    assert.ok(Array.isArray(r.statIds) && r.statIds.length, `has statIds: ${r.id}`);
+    r.statIds.forEach((sid) => {
+      assert.ok(ATTRIBUTE_IDS.includes(sid), `valid stat ${sid} in ${r.id}`);
+      covered.add(sid);
+    });
+    assert.ok(['daily', 'everyN', 'weekly'].includes(r.cadence.type), `valid cadence: ${r.id}`);
+    if (r.source === 'steps') assert.ok(r.stepGoal > 0, `steps recipe has goal: ${r.id}`);
+    assert.ok(r.xpPerCompletion > 0, `has xp: ${r.id}`);
+    assert.ok((r.why || '').trim().length, `has rationale: ${r.id}`);
+  }
+  assert.deepEqual([...covered].sort(), [...ATTRIBUTE_IDS].sort());
+});
+
+test('catalog: every mastery recipe is well-formed and covers all six stats', () => {
+  const ids = new Set();
+  const covered = new Set();
+  let pathCount = 0;
+  for (const r of MASTERY_RECIPES) {
+    assert.ok(r.id && !ids.has(r.id), `unique id: ${r.id}`);
+    ids.add(r.id);
+    assert.ok((r.title || '').trim().length, `non-empty title: ${r.id}`);
+    assert.ok(ATTRIBUTE_IDS.includes(r.statId), `valid stat: ${r.id}`);
+    covered.add(r.statId);
+    assert.ok(Array.isArray(r.nodes) && r.nodes.length, `has nodes: ${r.id}`);
+    const keys = new Set();
+    for (const node of r.nodes) {
+      assert.ok(node.key && !keys.has(node.key), `unique node key ${node.key} in ${r.id}`);
+      keys.add(node.key);
+      assert.ok((node.title || '').trim().length, `node title in ${r.id}`);
+      assert.ok(['practice', 'level'].includes(node.threshold.type), `node threshold type in ${r.id}`);
+    }
+    // dependsOn keys must reference real sibling keys (no dangling deps).
+    for (const node of r.nodes) {
+      if (!node.dependsOn) continue;
+      pathCount += 1;
+      node.dependsOn.keys.forEach((k) => assert.ok(keys.has(k), `dep key ${k} exists in ${r.id}`));
+      if (node.dependsOn.mode === 'any') {
+        assert.ok(node.dependsOn.count >= 1 && node.dependsOn.count <= node.dependsOn.keys.length, `any-count sane in ${r.id}`);
+      }
+    }
+  }
+  assert.deepEqual([...covered].sort(), [...ATTRIBUTE_IDS].sort());
+  assert.ok(pathCount >= 1, 'at least one multi-node path exists');
+});
+
+test('recipesForStat: returns both kinds for a stat', () => {
+  const { quests, mastery } = recipesForStat('str');
+  assert.ok(quests.length >= 1 && mastery.length >= 1);
+  assert.ok(quests.every((r) => r.statIds.includes('str')));
+  assert.ok(mastery.every((r) => r.statId === 'str'));
 });
 
 console.log(`\n${passed} checks passed.`);
