@@ -1,8 +1,8 @@
 {
-  "build": 52,
-  "version": "web-52",
-  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-52.zip",
+  "build": 53,
+  "version": "web-53",
+  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-53.zip",
   "minNative": 4,
-  "notes": "• Doomscroll paths: Usage-Access migration + first-run walkthrough\n• Roadmap: doomscroll paths (Sentinel/Oracle), Spirit framing fix, Inn\n• Doomscroll: transparency note about accessibility conflict + relabel button\n• Overall/hero condition averages only engaged stats (trained ones)\n• Roadmap: Recipes shipped",
-  "publishedAt": "2026-07-26T12:53:19.183Z"
+  "notes": "• Fix OTA \"needs-apk\" message: say project site, not Releases\n• Doomscroll paths: Usage-Access migration + first-run walkthrough\n• Roadmap: doomscroll paths (Sentinel/Oracle), Spirit framing fix, Inn\n• Doomscroll: transparency note about accessibility conflict + relabel button\n• Overall/hero condition averages only engaged stats (trained ones)",
+  "publishedAt": "2026-07-26T13:19:00.241Z"
 }
