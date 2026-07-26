@@ -430,6 +430,12 @@ test('spirit: wear self-heals over time and drops to zero eventually', () => {
   assert.equal(decayedWear(t, now0 + 100 * SPIRIT_TUNING.wearHalfLifeMs), 0); // snaps to 0
 });
 
+test('spirit: wear is hidden while the doomscroll feature is disabled', () => {
+  const track = { wear: 0.4, wearAt: now0 };
+  assert.equal(spiritWear({ spiritTrack: track, settings: { doomscroll: { enabled: false } } }, now0), 0);
+  assert.ok(spiritWear({ spiritTrack: track, settings: { doomscroll: { enabled: true } } }, now0) > 0.39);
+});
+
 test('spirit: completing a quest burns down wear', () => {
   const t = { ...defaultSpiritTrack(), wear: 0.3, wearAt: now0 };
   const after = recoverOnQuest(t, now0);

@@ -9,7 +9,7 @@ import { rescheduleAll } from './notifications.js';
 import { refreshSteps } from './pedometer.js';
 import { notifyReady, checkForUpdate, isDismissed } from './ota.js';
 import { readUsageEvents } from './doomscroll.js';
-import { applyLedger, spiritWear } from './spirit.js';
+import { applyLedger, spiritWear, defaultSpiritTrack } from './spirit.js';
 import { RARITY, itemIconSvg } from './items.js';
 import { esc } from './util.js';
 import {
@@ -213,6 +213,19 @@ async function drainDoomscroll({ silent = false } = {}) {
   try { ({ events } = await readUsageEvents()); } catch (e) { return; }
   if (!events || !events.length) return;
   const prevSeq = (state.spiritTrack && state.spiritTrack.lastSeq) || 0;
+  // Only score when the doomscroll feature is enabled. When it's off, consume
+  // the ledger cursor without scoring so nothing applies now — and so a backlog
+  // recorded earlier can't retroactively apply when it's turned back on.
+  const enabled = state.settings && state.settings.doomscroll && state.settings.doomscroll.enabled;
+  if (!enabled) {
+    const maxSeq = events.reduce((m, e) => Math.max(m, (e && e.seq) || 0), prevSeq);
+    if (maxSeq !== prevSeq) {
+      if (!state.spiritTrack) state.spiritTrack = defaultSpiritTrack();
+      state.spiritTrack.lastSeq = maxSeq;
+      await saveState(state);
+    }
+    return;
+  }
   const res = applyLedger(state.spiritTrack, events, Date.now());
   state.spiritTrack = res.track;
   if (res.track.lastSeq !== prevSeq || res.gainedXp || res.addedWear) {

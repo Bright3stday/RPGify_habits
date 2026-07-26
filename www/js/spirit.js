@@ -96,8 +96,12 @@ export function spiritBonusXp(state) {
 }
 
 // Current wear (0..1) after passive decay — used to lower Spirit's condition.
+// Zero while the doomscroll feature is disabled, so turning it off removes the
+// debuff entirely (no lingering fatigue on the dot/chip).
 export function spiritWear(state, now = Date.now()) {
-  return state && state.spiritTrack ? decayedWear(state.spiritTrack, now) : 0;
+  const on = state && state.settings && state.settings.doomscroll && state.settings.doomscroll.enabled;
+  if (!on) return 0;
+  return state.spiritTrack ? decayedWear(state.spiritTrack, now) : 0;
 }
 
 // A short, factual transparency line for the Config panel.

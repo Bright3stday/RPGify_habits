@@ -980,6 +980,9 @@ function wireDoomscroll(container, ctx) {
       }
     } else {
       await stopMonitoring();
+      // Turning it off clears the live debuff so it starts clean if re-enabled.
+      if (state.spiritTrack) { state.spiritTrack.wear = 0; state.spiritTrack.wearAt = Date.now(); }
+      await ctx.save();
       ctx.toast('Detection paused.');
     }
   });
