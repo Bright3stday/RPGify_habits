@@ -117,6 +117,11 @@ export function migrate(state) {
   }
   if (!state.settings) state.settings = {};
   if (!state.settings.doomscroll) state.settings.doomscroll = defaultDoomscroll();
+  // Paths migration: rows recorded before this update had no chosen path; default
+  // the gentler Oracle (reflect-on-return) so nothing starts watching in the
+  // background without an explicit opt-in.
+  if (!state.settings.doomscroll.path) state.settings.doomscroll.path = 'oracle';
+  if (!state.meta) state.meta = { lastCheckIn: null };
   if (!state.spiritTrack) state.spiritTrack = defaultSpiritTrack();
   state.version = SCHEMA_VERSION;
   refreshConditions(state);

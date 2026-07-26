@@ -14,12 +14,16 @@ import androidx.core.app.NotificationCompat;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Set;
 
 /**
- * Shared helpers for the doomscroll monitor: config persistence, current-session
- * reconstruction, and the observation-only alert notification. Used by both the
- * modern observer path (DoomscrollReceiver) and the fallback service.
+ * Shared helpers for the doomscroll monitor: config persistence, session
+ * reconstruction from UsageStats, and the observation-only alert notification.
+ * Used by both detection paths — the Oracle on-open sync (via DoomscrollPlugin)
+ * and the Sentinel foreground service (DoomscrollService). All detection is
+ * Usage-Access based; there is no Accessibility service.
  */
 public final class DoomscrollUtil {
   private DoomscrollUtil() { }
@@ -138,6 +142,103 @@ public final class DoomscrollUtil {
 
   public static long currentSeq(Context ctx) {
     return ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getLong(KEY_SEQ, 0);
+  }
+
+  // ---- session reconstruction (shared by BOTH doomscroll paths) -----------
+  //
+  // Reconstruct COMPLETED continuous sessions in watched apps from UsageStats
+  // since the last sync, and append one ledger row per session. Used by:
+  //   • the Oracle path — called on open (plugin.syncUsage), so the reckoning
+  //     shows on return without anything running in the background; and
+  //   • the Sentinel service — called each poll, so the ledger stays fresh live.
+  // A single cursor (KEY_LAST_SYNC) is shared, so the two never double-count and
+  // switching paths loses nothing. Rows carry `durationSec` + `thresholdMin`;
+  // scoring (restraint vs binge) is computed in JS (spirit.js), OTA-tunable.
+
+  public static final String KEY_LAST_SYNC = "lastSyncTs";
+  private static final long MAX_BACKFILL_MS = 24L * 60 * 60 * 1000; // cap first-run backlog
+  private static final long MIN_SESSION_MS = 1500; // ignore sub-second UI churn
+
+  public static synchronized int syncSessions(Context ctx) {
+    UsageStatsManager usm = (UsageStatsManager) ctx.getSystemService(Context.USAGE_STATS_SERVICE);
+    if (usm == null) return 0;
+    JSONObject config = readConfig(ctx);
+    if (config == null || !config.optBoolean("enabled", false)) return 0;
+    Map<String, Integer> thresholds = thresholdMap(ctx);
+    if (thresholds.isEmpty()) return 0;
+
+    long now = System.currentTimeMillis();
+    SharedPreferences p = ctx.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
+    long last = p.getLong(KEY_LAST_SYNC, 0);
+    long queryStart = (last <= 0) ? now - MAX_BACKFILL_MS : Math.max(last, now - MAX_BACKFILL_MS);
+
+    UsageEvents events = usm.queryEvents(queryStart, now);
+    UsageEvents.Event e = new UsageEvents.Event();
+    String fg = null;
+    long fgStart = 0;
+    int added = 0;
+
+    while (events.hasNextEvent()) {
+      events.getNextEvent(e);
+      int type = e.getEventType();
+      long ts = e.getTimeStamp();
+      if (type == UsageEvents.Event.MOVE_TO_FOREGROUND) {
+        // A new app comes forward: close the previous one as a completed session.
+        if (fg != null) added += maybeRecord(ctx, fg, fgStart, ts, thresholds);
+        fg = e.getPackageName();
+        fgStart = ts;
+      } else if (type == UsageEvents.Event.MOVE_TO_BACKGROUND) {
+        if (fg != null && e.getPackageName().equals(fg)) {
+          added += maybeRecord(ctx, fg, fgStart, ts, thresholds);
+          fg = null;
+          fgStart = 0;
+        }
+      }
+    }
+
+    // Anything still foregrounded at the end is an ONGOING session: don't record
+    // it yet, and rewind the cursor to its start so its full duration is captured
+    // when it ends (next sync). Otherwise advance the cursor to now. Never rewind
+    // past the previous cursor, so completed sessions are never reprocessed.
+    long newCursor = (fg != null) ? Math.max(last, fgStart) : now;
+    p.edit().putLong(KEY_LAST_SYNC, newCursor).apply();
+    return added;
+  }
+
+  private static int maybeRecord(Context ctx, String pkg, long start, long end, Map<String, Integer> thresholds) {
+    if (end - start < MIN_SESSION_MS) return 0;
+    Integer tMin = thresholds.get(pkg);
+    if (tMin == null) return 0; // only record the apps the user chose to watch
+    try {
+      JSONObject ev = new JSONObject();
+      ev.put("type", "session");
+      ev.put("package", pkg);
+      ev.put("start", start);
+      ev.put("end", end);
+      ev.put("durationSec", Math.max(0, (end - start) / 1000));
+      ev.put("watched", true);
+      ev.put("thresholdMin", (int) tMin);
+      ev.put("ts", end);
+      appendEvent(ctx, ev);
+      return 1;
+    } catch (Exception ignored) {
+      return 0;
+    }
+  }
+
+  // watched package -> per-app threshold (minutes), from the persisted config.
+  private static Map<String, Integer> thresholdMap(Context ctx) {
+    Map<String, Integer> m = new HashMap<>();
+    JSONArray apps = apps(ctx);
+    if (apps != null) {
+      for (int i = 0; i < apps.length(); i++) {
+        JSONObject a = apps.optJSONObject(i);
+        if (a == null) continue;
+        String pkg = a.optString("package", "");
+        if (!pkg.isEmpty()) m.put(pkg, a.optInt("thresholdMin", 20));
+      }
+    }
+    return m;
   }
 
   public static String labelFor(Context ctx, String pkg) {

@@ -374,6 +374,14 @@ test('doomscroll sanitizeConfig clamps and filters', () => {
   assert.equal(c.apps[0].thresholdMin, 600);
   assert.equal(c.retrigger.mode, 'once');
   assert.equal(c.retrigger.everyMin, 1);
+  assert.equal(c.path, 'oracle'); // default path
+});
+
+test('doomscroll sanitizeConfig: path is oracle unless explicitly sentinel', () => {
+  assert.equal(sanitizeConfig({ path: 'sentinel' }).path, 'sentinel');
+  assert.equal(sanitizeConfig({ path: 'oracle' }).path, 'oracle');
+  assert.equal(sanitizeConfig({ path: 'garbage' }).path, 'oracle');
+  assert.equal(sanitizeConfig({}).path, 'oracle');
 });
 
 // ---- doomscroll ledger (raw event log the native detector records) ------
@@ -392,12 +400,20 @@ test('watchedSessions: only watched sessions, newest first, capped', () => {
   assert.equal(watchedSessions(events, 1).length, 1); // capped
 });
 
-test('sessionLine: factual, reflects leaving on the nudge', () => {
+test('sessionLine: factual, reflects leaving on the nudge (legacy rows)', () => {
   assert.equal(sessionLine({ durationSec: 1980, package: 'x' }, 'Instagram'), 'Instagram · 33 min');
   assert.ok(sessionLine({ durationSec: 1200, alerted: true, leftAfterAlertSec: 20 }, 'IG')
     .includes('left soon after the nudge'));
   assert.ok(sessionLine({ durationSec: 1200, alerted: true, leftAfterAlertSec: 600 }, 'IG')
     .includes('stayed after the nudge'));
+});
+
+test('sessionLine: paths-era rows describe time past the limit', () => {
+  // 20-min limit, 33-min session = 13 min past.
+  assert.equal(sessionLine({ durationSec: 1980, thresholdMin: 20 }, 'Instagram'),
+    'Instagram · 33 min · 13 min past your 20-min limit');
+  // Ended under the limit — just the duration, no tail.
+  assert.equal(sessionLine({ durationSec: 600, thresholdMin: 20 }, 'IG'), 'IG · 10 min');
 });
 
 test('watchedMinutesSince: sums watched session minutes in window', () => {
@@ -474,6 +490,40 @@ test('spirit: neutral events (not watched / not alerted) never score', () => {
   assert.equal(gainedXp, 0);
   assert.equal(addedWear, 0);
   assert.equal(track.lastSeq, 3); // still advances the cursor
+});
+
+// Duration-based scoring — the paths-era rows (thresholdMin + durationSec), used
+// identically by Oracle (reconstructed on open) and Sentinel (recorded live).
+const durSess = (seq, durationSec, thresholdMin = 20) => ({
+  seq, type: 'session', watched: true, thresholdMin, durationSec, ts: now0,
+});
+
+test('spirit(duration): crossing the threshold without bingeing grants capped XP', () => {
+  const t0 = defaultSpiritTrack();
+  // 20-min threshold = 1200s. Cross it but stay under the binge window (300s).
+  const events = [durSess(1, 1200), durSess(2, 1400), durSess(3, 1490)];
+  const { track, gainedXp } = applyLedger(t0, events, now0);
+  assert.equal(gainedXp, 18);        // 3 * 6, exactly the daily cap
+  const r2 = applyLedger(track, [durSess(4, 1300)], now0);
+  assert.equal(r2.gainedXp, 0);      // cap reached
+});
+
+test('spirit(duration): ending before the threshold is neutral (no farming)', () => {
+  const t0 = defaultSpiritTrack();
+  // Many short sessions that never reach the 20-min reflection point.
+  const events = [durSess(1, 60), durSess(2, 600), durSess(3, 1199)];
+  const { gainedXp, addedWear, track } = applyLedger(t0, events, now0);
+  assert.equal(gainedXp, 0);
+  assert.equal(addedWear, 0);
+  assert.equal(track.lastSeq, 3);
+});
+
+test('spirit(duration): bingeing past the threshold adds capped wear', () => {
+  const t0 = defaultSpiritTrack();
+  // 1200s threshold + 300s binge window = 1500s. Four full binges.
+  const events = [durSess(1, 1500), durSess(2, 1800), durSess(3, 2000), durSess(4, 3000)];
+  const { track } = applyLedger(t0, events, now0);
+  assert.equal(track.wear, SPIRIT_TUNING.wearMax);
 });
 
 // ---- OTA update logic ---------------------------------------------------

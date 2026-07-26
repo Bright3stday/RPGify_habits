@@ -34,6 +34,25 @@ try {
   await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle' });
   await wait(300);
 
+  // First run shows the walkthrough (intro + doomscroll path picker). Verify it
+  // appears, exercise the path picker, then skip it to reach the app.
+  const wtShown = await page.$('.wt');
+  check(!!wtShown, 'first-run walkthrough appears');
+  if (wtShown) {
+    // Advance to the paths card and pick Sentinel, then Oracle (toggle selection).
+    for (let i = 0; i < 4; i += 1) { await page.click('#wt-next'); await wait(80); }
+    const hasPaths = await page.$('.path-opt[data-path="sentinel"]');
+    check(!!hasPaths, 'walkthrough presents the two paths');
+    if (hasPaths) {
+      await page.click('.path-opt[data-path="sentinel"]');
+      await wait(60);
+      const sel = await page.$eval('.path-opt[data-path="sentinel"]', (el) => el.classList.contains('sel'));
+      check(sel, 'a path can be selected');
+    }
+    await page.click('#wt-skip');
+    await wait(150);
+  }
+
   // Character sheet: one hero + the six attributes.
   const heroCount = await page.$$eval('.hero-avatar .sprite', (els) => els.length);
   check(heroCount === 1, `dashboard shows one hero sprite (${heroCount})`);

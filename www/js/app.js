@@ -8,13 +8,14 @@ import { activeEffects, grantDue } from './skilltree.js';
 import { rescheduleAll } from './notifications.js';
 import { refreshSteps } from './pedometer.js';
 import { notifyReady, checkForUpdate, isDismissed } from './ota.js';
-import { readUsageEvents } from './doomscroll.js';
-import { applyLedger, spiritWear, defaultSpiritTrack } from './spirit.js';
+import { readUsageEvents, syncUsage, startMonitoring, hasUsageAccess } from './doomscroll.js';
+import { applyLedger, spiritWear, defaultSpiritTrack, SPIRIT_TUNING } from './spirit.js';
+import { DAY_MS } from './util.js';
 import { RARITY, itemIconSvg } from './items.js';
 import { esc } from './util.js';
 import {
   renderDashboard, renderHabits, renderTree, renderSettings, renderInventory,
-  showUpdatePrompt,
+  showUpdatePrompt, showWalkthrough,
 } from './views.js';
 
 const ROUTES = {
@@ -186,6 +187,8 @@ const ctx = {
   debuffBeat(title, line, onDone) { debuffBeat({ title, line }, onDone); },
   async reschedule() { await rescheduleAll(state.settings); },
   replaceState(next) { state = next; },
+  // Re-open the first-run walkthrough on demand (from Config).
+  openWalkthrough() { showWalkthrough(ctx, { fromSettings: true }); },
   // Pull today's steps and auto-complete any step-goal habits that hit target.
   async syncSteps({ silent = false } = {}) {
     await refreshSteps(state);
@@ -209,6 +212,12 @@ const ctx = {
 // Drain the native detector's session ledger and fold it into Spirit (XP for
 // restraint, wear for bingeing). Native-only; a no-op on the web preview.
 async function drainDoomscroll({ silent = false } = {}) {
+  const cfg = state.settings && state.settings.doomscroll;
+  const enabled = cfg && cfg.enabled;
+  // Oracle path (and a top-up for Sentinel): reconstruct sessions since the last
+  // check into the native ledger *before* we read it, so the reckoning shows on
+  // return with no background service. Graceful no-op on web / an older APK.
+  if (enabled) { try { await syncUsage(cfg); } catch (e) { /* ignore */ } }
   let events;
   try { ({ events } = await readUsageEvents()); } catch (e) { return; }
   if (!events || !events.length) return;
@@ -216,7 +225,6 @@ async function drainDoomscroll({ silent = false } = {}) {
   // Only score when the doomscroll feature is enabled. When it's off, consume
   // the ledger cursor without scoring so nothing applies now — and so a backlog
   // recorded earlier can't retroactively apply when it's turned back on.
-  const enabled = state.settings && state.settings.doomscroll && state.settings.doomscroll.enabled;
   if (!enabled) {
     const maxSeq = events.reduce((m, e) => Math.max(m, (e && e.seq) || 0), prevSeq);
     if (maxSeq !== prevSeq) {
@@ -228,6 +236,7 @@ async function drainDoomscroll({ silent = false } = {}) {
   }
   const res = applyLedger(state.spiritTrack, events, Date.now());
   state.spiritTrack = res.track;
+  if (cfg.path === 'oracle') trackOracleOutcome(res);
   if (res.track.lastSeq !== prevSeq || res.gainedXp || res.addedWear) {
     refreshConditions(state);
     await saveState(state);
@@ -243,7 +252,80 @@ async function drainDoomscroll({ silent = false } = {}) {
     beats.push({ kind: 'debuff', title: 'SPIRIT WORN', line: `A long session · Spirit fatigue ${pct}%` });
   }
   if (beats.length) playBeats(beats);
+  // After the beats settle, offer (never force) the Sentinel path if Oracle keeps
+  // losing to the scroll.
+  maybeSuggestSentinel();
   return { gainedXp: res.gainedXp, addedWear: res.addedWear };
+}
+
+// ---- Adaptive "try Sentinel" suggestion (Oracle only, never forced) --------
+
+// Tally how the Oracle path is going. A gain nudges the tally toward "coping"; a
+// binge nudges it toward "struggling". Persisted in meta so it survives reopens.
+function trackOracleOutcome(res) {
+  const m = state.meta || (state.meta = {});
+  const p = m.dsPrompt || (m.dsPrompt = { binges: 0, gains: 0, dismissed: false, lastTs: 0 });
+  if (res.gainedXp) { p.gains += 1; p.binges = Math.max(0, p.binges - 1); }
+  if (res.addedWear) p.binges += 1;
+}
+
+// If the scroll keeps winning on Oracle — repeated binges with no restraint gains,
+// or wear pinned at the cap — gently suggest trying the real-time Sentinel path.
+// Dismissible, cooldown-gated, and permanently silenceable. Opt-in, not a penalty.
+function maybeSuggestSentinel() {
+  const cfg = state.settings && state.settings.doomscroll;
+  if (!cfg || !cfg.enabled || cfg.path !== 'oracle') return;
+  const p = state.meta && state.meta.dsPrompt;
+  if (!p || p.dismissed) return;
+  const now = Date.now();
+  if (now - (p.lastTs || 0) < 3 * DAY_MS) return; // don't nag
+  const wearMaxed = spiritWear(state, now) >= SPIRIT_TUNING.wearMax - 1e-3;
+  const struggling = (p.binges >= 3 && p.gains === 0) || wearMaxed;
+  if (!struggling) return;
+  p.lastTs = now;
+  saveState(state);
+  suggestSentinelPrompt();
+}
+
+// The suggestion overlay itself — two calm choices plus a permanent opt-out.
+function suggestSentinelPrompt() {
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  overlay.innerHTML = `
+    <div class="window modal">
+      <div class="window-title">◆ A DIFFERENT PATH?</div>
+      <div class="bar-caption" style="line-height:1.9;margin-bottom:10px">The scroll's been winning lately. The <b>Sentinel</b> path nudges you live, in the moment — not just when you return. Want to try it and see if it helps? You can switch back anytime.</div>
+      <div class="btn-row">
+        <button class="btn primary" id="ss-yes">TRY SENTINEL</button>
+        <button class="btn" id="ss-no">NOT NOW</button>
+      </div>
+      <div style="text-align:center;margin-top:8px"><button class="btn small" id="ss-never">DON'T ASK AGAIN</button></div>
+    </div>`;
+  const close = () => overlay.remove();
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  document.body.appendChild(overlay);
+  overlay.querySelector('#ss-no').addEventListener('click', close);
+  overlay.querySelector('#ss-never').addEventListener('click', async () => {
+    state.meta.dsPrompt.dismissed = true;
+    await saveState(state);
+    close();
+  });
+  overlay.querySelector('#ss-yes').addEventListener('click', async () => {
+    const cfg = state.settings.doomscroll;
+    cfg.path = 'sentinel';
+    state.meta.dsPrompt.dismissed = true; // chosen — stop suggesting
+    await saveState(state);
+    if (await hasUsageAccess()) {
+      const { ensurePermission } = await import('./notifications.js');
+      await ensurePermission();
+      await startMonitoring(cfg);
+      toast('Sentinel path active — it will nudge you live.', 2600);
+    } else {
+      toast('Switched to Sentinel. Grant Usage Access in Config to begin.', 3000);
+    }
+    close();
+    render();
+  });
 }
 
 // ---- OTA update prompt --------------------------------------------------
@@ -286,6 +368,10 @@ async function boot() {
 
   await ctx.syncSteps({ silent: true }); // catch up steps from time away
   render();
+  // First run (or an existing player who hasn't seen the paths intro yet): show
+  // the walkthrough, which introduces the game and lets them choose a doomscroll
+  // path. Drawn over the rendered app; skippable.
+  if (!state.settings.onboarded) showWalkthrough(ctx);
   // Fold any doomscroll sessions into Spirit and show the reward/wear beats over
   // the drawn screen, then re-render so the Spirit dot + wear indicator update.
   drainDoomscroll().then((d) => { if (d && (d.gainedXp || d.addedWear)) render(); });

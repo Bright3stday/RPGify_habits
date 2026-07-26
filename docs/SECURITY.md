@@ -36,21 +36,27 @@ updates, nothing else.
 
 | Permission | Why | What it can NOT do |
 |-----------|-----|--------------------|
-| **Accessibility** (optional, off by default) | The doomscroll detector reads *which app* is in the foreground so it can notice long continuous sessions. | It is configured `canRetrieveWindowContent="false"` — it **cannot read the text/content on your screen**, only the package name of the front app, and only for the apps you pick. Turn it off and the feature simply stops. |
-| **Usage access** (optional) | Older diagnostic path for app-usage times. | Read-only usage stats; no content. |
+| **Usage access** (optional, off by default) | The doomscroll detector reads *which app* is in the foreground and for how long, so it can notice long continuous sessions. It powers both paths: the Oracle path reads it only when you open RPGify; the Sentinel path reads it in a foreground service. | Read-only usage stats — the package name and timings of the front app, **only for the apps you pick**. It **cannot read the text/content on your screen**. Turn it off and the feature simply stops. |
 | **Notifications** | The reflection nudge + reminders. | Only posts local notifications. |
+| **Foreground service** (Sentinel path only) | Runs the opt-in real-time watcher, with a persistent "watching" notification. | Only what Usage access already allows; nothing runs in the background on the default Oracle path. |
 | **Activity recognition / step counter** (optional) | Auto-completing step-goal habits from the hardware pedometer. | Reads the on-device step sensor only; no location, no fitness account, no network. |
 | **Internet** | Checking for and downloading updates from GitHub Pages. | No uploads; used only for the update fetch. |
 
-There is **no** location, camera, microphone, contacts, SMS, call-log, or
-"query all packages" permission. (App list for the picker uses a narrow launcher
-query, not the sensitive all-packages permission.)
+There is **no** Accessibility service, and **no** location, camera, microphone,
+contacts, SMS, call-log, or "query all packages" permission. (App list for the
+picker uses a narrow launcher query, not the sensitive all-packages permission.)
 
-The Accessibility permission is the scary-looking one, and rightly so — it's a
-powerful permission that malware *can* abuse. The protection here is that the
-code using it is **public and small**: see
-`android/app/src/main/java/com/rpgifyhabits/app/DoomscrollAccessibilityService.java`.
-It only records which watched app is in front and for how long. Read it.
+> Earlier builds used an Accessibility service for detection. That was dropped in
+> favour of **Usage access** — it avoids the conflict where some banking/secure
+> apps refuse to run alongside any accessibility service, and it draws less
+> install-time scrutiny. No Accessibility permission is requested any more.
+
+Usage access is the only special-access permission here, and the code using it is
+**public and small**: session reconstruction is in
+`android/app/src/main/java/com/rpgifyhabits/app/DoomscrollUtil.java`
+(`syncSessions`), used by the Oracle sync in `DoomscrollPlugin.java` and the
+Sentinel `DoomscrollService.java`. It only records which watched app is in front
+and for how long. Read it.
 
 ---
 

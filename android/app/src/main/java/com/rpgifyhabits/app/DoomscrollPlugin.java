@@ -8,7 +8,6 @@ import android.content.pm.PackageManager;
 import android.os.Build;
 import android.os.Process;
 import android.provider.Settings;
-import android.text.TextUtils;
 
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
@@ -77,50 +76,42 @@ public class DoomscrollPlugin extends Plugin {
     call.resolve(r);
   }
 
-  // Detection is event-driven via DoomscrollAccessibilityService (enabled by the
-  // user in Settings → Accessibility). Here we just persist the watched-apps
-  // config for that service to read — no polling, no foreground service.
+  // Sentinel path: persist the config and start the foreground service, which
+  // records sessions to the ledger AND fires the live nudge at the threshold.
   @PluginMethod
   public void startMonitoring(PluginCall call) {
-    DoomscrollUtil.writeConfig(getContext(), call.getData().toString());
+    String cfg = call.getData().toString();
+    DoomscrollUtil.writeConfig(getContext(), cfg);
+    Intent i = new Intent(getContext(), DoomscrollService.class);
+    i.setAction(DoomscrollService.ACTION_START);
+    i.putExtra(DoomscrollService.EXTRA_CONFIG, cfg);
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      getContext().startForegroundService(i);
+    } else {
+      getContext().startService(i);
+    }
     call.resolve();
   }
 
+  // Stop the Sentinel service (e.g. switching to Oracle, or turning the feature
+  // off). Leaves the persisted config alone so Oracle can keep using it.
   @PluginMethod
   public void stopMonitoring(PluginCall call) {
-    DoomscrollUtil.writeConfig(getContext(), "{\"enabled\":false,\"apps\":[]}");
+    try { getContext().stopService(new Intent(getContext(), DoomscrollService.class)); }
+    catch (Exception ignored) { /* not running */ }
     call.resolve();
   }
 
-  // Is our accessibility detector currently enabled in system settings?
+  // Oracle path: persist the current config and reconstruct completed sessions
+  // since the last check into the ledger. Called on open/resume — no background
+  // service, no notification. Returns how many sessions were added.
   @PluginMethod
-  public void isAccessibilityEnabled(PluginCall call) {
+  public void syncUsage(PluginCall call) {
+    DoomscrollUtil.writeConfig(getContext(), call.getData().toString());
+    int added = usageAccessGranted() ? DoomscrollUtil.syncSessions(getContext()) : 0;
     JSObject r = new JSObject();
-    r.put("enabled", accessibilityEnabled());
+    r.put("added", added);
     call.resolve(r);
-  }
-
-  private boolean accessibilityEnabled() {
-    String flat = Settings.Secure.getString(
-        getContext().getContentResolver(), Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
-    if (TextUtils.isEmpty(flat)) return false;
-    String me = getContext().getPackageName() + "/" + DoomscrollAccessibilityService.class.getName();
-    String meShort = getContext().getPackageName() + "/.DoomscrollAccessibilityService";
-    TextUtils.SimpleStringSplitter splitter = new TextUtils.SimpleStringSplitter(':');
-    splitter.setString(flat);
-    while (splitter.hasNext()) {
-      String s = splitter.next();
-      if (s.equalsIgnoreCase(me) || s.equalsIgnoreCase(meShort)) return true;
-    }
-    return false;
-  }
-
-  @PluginMethod
-  public void openAccessibilitySettings(PluginCall call) {
-    Intent i = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
-    i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
-    getContext().startActivity(i);
-    call.resolve();
   }
 
   // Read the raw session ledger the detector has recorded. JS computes all
@@ -165,8 +156,8 @@ public class DoomscrollPlugin extends Plugin {
   @PluginMethod
   public void isMonitoring(PluginCall call) {
     JSObject r = new JSObject();
-    // Active = detector enabled in system settings AND the user has it turned on.
-    r.put("active", accessibilityEnabled() && DoomscrollUtil.isEnabled(getContext()));
+    // Active = the Sentinel foreground service is currently running.
+    r.put("active", DoomscrollService.isRunningFlag());
     call.resolve(r);
   }
 }

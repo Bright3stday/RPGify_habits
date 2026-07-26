@@ -5,12 +5,23 @@
 // (magnitudes, caps, recovery) can be retuned over-the-air without a new APK.
 //
 // The design (agreed with the user):
-//   • Reward restraint: leaving a watched app soon after the nudge grants Spirit
-//     XP — but capped per day so it can't be farmed by open/close spam.
-//   • Gentle, self-healing wear: bingeing past the nudge adds capped wear to
-//     Spirit's *condition* (never a hard break). Wear fades slowly on its own AND
-//     — the point — every quest you complete burns some down, so doing real
-//     habits is what clears the doomscroll fatigue.
+//   • Reward restraint: crossing an app's reflection threshold but NOT bingeing
+//     past it grants Spirit XP — capped per day so it can't be farmed. Normal
+//     short use (ending before the threshold) is neutral: never rewarded, never
+//     punished, so open/close spam earns nothing.
+//   • Gentle, self-healing wear: bingeing well past the threshold adds capped
+//     wear to Spirit's *condition* (never a hard break). Wear fades slowly on its
+//     own AND — the point — every quest you complete burns some down, so doing
+//     real habits is what clears the doomscroll fatigue.
+//
+// Scoring is duration-based, so it works identically on BOTH doomscroll paths:
+//   • Oracle (reflect-on-return): sessions are reconstructed from UsageStats when
+//     you open RPGify — no live nudge, but the same rows, so the same scoring.
+//   • Sentinel (real-time): the foreground service records the same rows; its
+//     live notification is orthogonal decoration and does not affect scoring.
+// Ledger rows carry `durationSec` + `thresholdMin`. Rows from the pre-paths APK
+// (which carried `alerted`/`leftAfterAlertSec` instead) still score via a
+// fallback branch, so nothing recorded before an update is lost.
 
 import { dayKey } from './util.js';
 
@@ -62,14 +73,14 @@ export function applyLedger(track0, events, now, tuning = SPIRIT_TUNING) {
 
   for (const e of fresh) {
     track.lastSeq = Math.max(track.lastSeq || 0, e.seq);
-    if (e.type !== 'session' || !e.watched || !e.alerted) continue;
-    const left = Number(e.leftAfterAlertSec);
-    if (left >= 0 && left <= tuning.graceSec) {
+    if (e.type !== 'session' || !e.watched) continue;
+    const outcome = sessionOutcome(e, tuning);
+    if (outcome === 'gain') {
       // Restraint — grant XP up to the daily cap.
       const room = Math.max(0, tuning.dailyCapXp - track.capXp);
       const grant = Math.min(tuning.gainXp, room);
       if (grant > 0) { track.xp += grant; track.capXp += grant; gainedXp += grant; }
-    } else if (left >= tuning.bingePastSec) {
+    } else if (outcome === 'binge') {
       // Binge — add capped wear.
       const before = track.wear;
       track.wear = Math.min(tuning.wearMax, track.wear + tuning.wearPerBinge);
@@ -77,6 +88,27 @@ export function applyLedger(track0, events, now, tuning = SPIRIT_TUNING) {
     }
   }
   return { track, gainedXp, addedWear };
+}
+
+// Classify one watched session: 'gain' (restraint), 'binge', or null (neutral).
+// Pure. Prefers the duration-vs-threshold rule (rows from the paths-era APK,
+// both Oracle and Sentinel); falls back to the live-nudge rule for older rows.
+export function sessionOutcome(e, tuning = SPIRIT_TUNING) {
+  const tMin = Number(e.thresholdMin);
+  if (Number.isFinite(tMin) && tMin > 0) {
+    const pastSec = Number(e.durationSec) - tMin * 60;
+    if (!Number.isFinite(pastSec)) return null;
+    if (pastSec >= tuning.bingePastSec) return 'binge';
+    if (pastSec >= 0) return 'gain'; // crossed the reflection point, didn't binge
+    return null;                     // ended before the threshold — neutral
+  }
+  // Legacy rows (pre-paths APK): scored off the live nudge the detector fired.
+  if (e.alerted) {
+    const left = Number(e.leftAfterAlertSec);
+    if (left >= 0 && left <= tuning.graceSec) return 'gain';
+    if (left >= tuning.bingePastSec) return 'binge';
+  }
+  return null;
 }
 
 // Called on every quest completion: burn down some wear (real effort clears the

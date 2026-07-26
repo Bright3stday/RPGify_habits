@@ -72,13 +72,15 @@ android/app/src/main/java/com/rpgifyhabits/app/
   threshold type is a noted future option, not built.)
 - **Decay is derived from timestamps, never a stored ticking counter** — correct
   behaviour whether you return after an hour or three weeks, no background job.
-- **Doomscroll uses a foreground-service poll, not an OS observer.** The zero-
-  poll `UsageStatsManager.registerUsageSessionObserver` API needs the privileged
-  `OBSERVE_APP_USAGE` permission that only system apps can hold — it is **not
-  usable by a normal app** and isn't in the public SDK. An observer-based version
-  was built and **reverted**; don't reattempt it. Firing is still precise: the
-  service computes the exact crossing time from the real session start and arms a
-  one-shot timer; the poll interval only bounds how soon a new session is noticed.
+- **Doomscroll detection uses Usage Access, not Accessibility, and not an OS
+  observer.** Two paths (below) both read `UsageStatsManager`. The zero-poll
+  `registerUsageSessionObserver` API needs the privileged `OBSERVE_APP_USAGE`
+  permission only system apps can hold — **not usable by a normal app**; an
+  observer version was built and **reverted**, don't reattempt it. The old
+  Accessibility detector was also **dropped** (banking-app conflict + Play Protect
+  friction). Sentinel firing is still precise: the service computes the exact
+  crossing time from the real session start and arms a one-shot timer; the poll
+  interval only bounds how soon a new session is noticed.
 - **Copy is observation-only.** Doomscroll alerts state facts ("28 minutes on
   Instagram") and never instruct, scold, warn, or use red styling. This is tested.
 - **APK signing must be stable.** Debug builds get a fresh key per CI run, so
@@ -98,28 +100,36 @@ android/app/src/main/java/com/rpgifyhabits/app/
   (version + "what's new") and downloads/applies only via `applyUpdate` after
   they tap UPDATE NOW (LATER snoozes that build). Never auto-applies. See
   `DEVELOPING.md` (setup) and `INSTALL_AND_UPDATE.md` (end-user).
-- **Doomscroll: event-driven detector, JS scoring, distinct from Digital
+- **Doomscroll: two user-chosen "paths", JS scoring, distinct from Digital
   Wellbeing.** Digital Wellbeing already owns daily limits + hard blocking; we do
   NOT duplicate that. RPGify's role is *per-continuous-session awareness* tied to
-  the RPG. Detection is an **AccessibilityService** (`DoomscrollAccessibilityService`,
-  `TYPE_WINDOW_STATE_CHANGED`) — event-driven, real-time, low battery, reads only
-  the foreground package (not screen content). The privileged usage-session
-  observer API is unusable (reverted); the old UsageStats foreground-service poll
-  is a dormant fallback. **Native/APK-locked:** the detector + the raw session
-  ledger (`DoomscrollUtil.appendEvent`, read via the plugin's `readEvents`).
-  **OTA-tunable (JS):** all scoring — implemented in `www/js/spirit.js`
-  (`SPIRIT_TUNING`): restraint (leave within ~90s of the nudge) grants Spirit XP
-  with a daily cap (anti-farm); bingeing (>~5 min past) adds capped, self-healing
-  wear to Spirit's condition that also burns down as you complete quests. Drained
-  from the ledger on open/resume (`app.js drainDoomscroll`), folded into Spirit XP
-  (`attributes.js attrXp`) and condition (`condition.js`). The ledger is rich
-  enough to also power a future optional "total usage over time" view without a
-  new APK. Schema is v4 (adds `state.spiritTrack`).
+  the RPG. The first-run **walkthrough** explains the feature and lets the user
+  pick how it watches (never a forced default):
+  - **Oracle** (default, reflect-on-return): no background service. On open,
+    `DoomscrollPlugin.syncUsage` → `DoomscrollUtil.syncSessions` reconstructs
+    completed sessions from Usage Access into the ledger.
+  - **Sentinel** (opt-in, real-time): `DoomscrollService` (foreground service)
+    records the same sessions *and* fires the live nudge; persistent notification.
+  - Both paths write **identical, duration-based ledger rows** (`durationSec` +
+    `thresholdMin`) through one shared cursor, so they never double-count and
+    switching loses nothing. The on-return reckoning is common to both. If Oracle
+    keeps losing, `app.js` *offers* Sentinel (dismissible, cooldown-gated).
+  **Native/APK-locked:** session reconstruction + the raw ledger
+  (`DoomscrollUtil`, read via the plugin's `readEvents`).
+  **OTA-tunable (JS):** all scoring in `www/js/spirit.js` (`SPIRIT_TUNING`,
+  `sessionOutcome`) — crossing an app's threshold without bingeing grants Spirit
+  XP (daily cap, anti-farm); bingeing (>~5 min past) adds capped, self-healing
+  wear that also burns down as you complete quests; ending before the threshold is
+  neutral. Drained on open/resume (`app.js drainDoomscroll`), folded into Spirit XP
+  (`attributes.js attrXp`) and condition (`condition.js`). Spirit is also trained
+  by quests directly. Schema still v4 (`state.spiritTrack`; `settings.onboarded`
+  and `doomscroll.path` added, defaulted in `migrate`).
 - **`minNative` is set intentionally, not auto-derived.** Each OTA manifest's
-  `minNative` comes from the committed `www/ota.json` field (default 1), bumped by
-  hand only when a web change truly needs a newer native capability. (Auto-reading
-  it from `versionCode` would wrongly block JS-only updates from older-but-adequate
-  APKs.) `versionCode` is 3 as of the doomscroll-detector-fix APK.
+  `minNative` comes from the committed `www/ota.json` field, bumped by hand only
+  when a web change truly needs a newer native capability. (Auto-reading it from
+  `versionCode` would wrongly block JS-only updates from older-but-adequate APKs.)
+  `versionCode` is **4** and `minNative` is **4** as of the Usage-Access paths APK
+  (the paths bundle genuinely needs the new native, so it's gated to that APK).
 
 ## One-time setup checklist (per person/fork)
 

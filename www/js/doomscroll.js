@@ -5,13 +5,20 @@
 // Instagram" — never instructs, scolds, or warns. No streak-broken framing, no
 // red styling. A factual mirror at a moment meant to break the trance.
 //
-// Detection runs natively: DoomscrollAccessibilityService gets pushed foreground-
-// app changes by the OS (event-driven, real-time, low battery) and records raw
-// session facts to a ledger — the webview isn't alive when the app is
-// backgrounded, so JS can't detect. THIS module holds (1) a thin bridge to that
-// plugin, (2) the pure session/threshold/copy logic the native side mirrors, and
-// (3) pure helpers that turn the ledger into UI + (future) Spirit scoring — kept
-// here so the behaviour is unit-tested and the scoring is OTA-tunable.
+// Detection runs natively off Android **Usage Access** (no Accessibility). There
+// are two user-chosen "paths", both reading the same permission:
+//   • Oracle (default, reflect-on-return): nothing runs in the background. When
+//     RPGify opens, `syncUsage()` reconstructs completed sessions since the last
+//     check into the ledger — so the reckoning shows on return. No notification,
+//     no extra battery.
+//   • Sentinel (opt-in, real-time): a foreground service records the same ledger
+//     rows continuously AND fires a live nudge at the threshold. Costs a
+//     persistent "watching" notice + a little battery.
+// Either way the native side only RECORDS raw session facts to a ledger; all
+// scoring is computed in JS (spirit.js) so the mechanic stays OTA-tunable. THIS
+// module holds (1) a thin bridge to the plugin, (2) the pure session/threshold/
+// copy logic the native side mirrors, and (3) pure ledger→UI helpers — kept here
+// so the behaviour is unit-tested.
 
 // ---- native bridge -------------------------------------------------------
 
@@ -44,36 +51,39 @@ export async function getInstalledApps() {
   try { return (await p.getInstalledApps()).apps || []; } catch { return []; }
 }
 
+// Start the Sentinel foreground service (real-time path). Persists the watched-
+// apps config and starts the service that records sessions + fires live nudges.
 export async function startMonitoring(config) {
   const p = plugin();
   if (!p) return false;
   try { await p.startMonitoring(sanitizeConfig(config)); return true; } catch { return false; }
 }
 
+// Stop the Sentinel service (and clear its persisted config).
 export async function stopMonitoring() {
   const p = plugin();
   if (p) { try { await p.stopMonitoring(); } catch { /* ignore */ } }
 }
 
+// Is the Sentinel service currently running?
 export async function isMonitoring() {
   const p = plugin();
   if (!p) return false;
   try { return !!(await p.isMonitoring()).active; } catch { return false; }
 }
 
-// ---- accessibility detector (event-driven, real-time, low battery) --------
+// ---- Oracle sync (reflect-on-return) --------------------------------------
 
-// Is our accessibility detector enabled in system settings?
-export async function isAccessibilityEnabled() {
+// Reconstruct completed watched sessions from UsageStats since the last check
+// and append them to the ledger, so opening RPGify shows what happened while it
+// wasn't watching. Cheap and idempotent (the native side tracks its own cursor,
+// shared with the Sentinel service so the two never double-count). Returns the
+// number of sessions added. No-op (0) on the web preview or without Usage Access.
+export async function syncUsage(config) {
   const p = plugin();
-  if (!p) return false;
-  try { return !!(await p.isAccessibilityEnabled()).enabled; } catch { return false; }
-}
-
-// Opens Settings → Accessibility so the user can turn the detector on/off.
-export async function openAccessibilitySettings() {
-  const p = plugin();
-  if (p) { try { await p.openAccessibilitySettings(); } catch { /* ignore */ } }
+  if (!p || !p.syncUsage) return 0;
+  try { return Number((await p.syncUsage(sanitizeConfig(config))).added) || 0; }
+  catch { return 0; }
 }
 
 // Read the raw session ledger the detector has recorded. Returns { events, seq }.
@@ -117,13 +127,16 @@ export function probeSummary(r) {
 export function defaultDoomscroll() {
   return {
     enabled: false,
-    // How often the service re-checks which app is foregrounded (to arm the
-    // exact-fire timer). The alert itself fires precisely at start+threshold
+    // Which detection path: 'oracle' (reflect-on-return, no background service —
+    // the default) or 'sentinel' (real-time foreground service + live nudge).
+    path: 'oracle',
+    // How often the Sentinel service re-checks which app is foregrounded (to arm
+    // the exact-fire timer). The nudge itself fires precisely at start+threshold
     // regardless, so this only bounds how soon a *new* session is noticed.
     pollMinutes: 1,
     // apps: [{ package, label, thresholdMin }]
     apps: [],
-    // retrigger within the same continuous session
+    // retrigger within the same continuous session (Sentinel only)
     retrigger: { mode: 'once', everyMin: 15 }, // 'once' | 'every'
   };
 }
@@ -133,6 +146,7 @@ export function sanitizeConfig(cfg) {
   const c = cfg || {};
   return {
     enabled: !!c.enabled,
+    path: c.path === 'sentinel' ? 'sentinel' : 'oracle',
     pollMinutes: clampInt(c.pollMinutes, 1, 30, d.pollMinutes),
     apps: (Array.isArray(c.apps) ? c.apps : []).map((a) => ({
       package: String(a.package || ''),
@@ -223,11 +237,17 @@ export function watchedSessions(events, limit = 20) {
 
 // A factual one-line description of a recorded session for the transparency
 // panel. `label` is resolved by the caller (events store only the package).
+// Prefers the threshold-relative tail (paths-era rows); falls back to the
+// nudge-relative tail for rows recorded by the pre-paths APK.
 export function sessionLine(ev, label) {
   const mins = Math.max(0, Math.round((ev.durationSec || 0) / 60));
   const name = label || ev.package || 'app';
   let tail = '';
-  if (ev.alerted) {
+  const tMin = Number(ev.thresholdMin);
+  if (Number.isFinite(tMin) && tMin > 0) {
+    const pastMin = Math.round((Number(ev.durationSec) - tMin * 60) / 60);
+    if (pastMin >= 1) tail = ` · ${pastMin} min past your ${tMin}-min limit`;
+  } else if (ev.alerted) {
     const left = Number(ev.leftAfterAlertSec);
     tail = left >= 0 && left < 90
       ? ' · left soon after the nudge'

@@ -28,9 +28,9 @@ import {
 import { itemIconSvg, RARITY, RARITY_ORDER } from './items.js';
 import {
   isNativeAvailable as doomNative, hasUsageAccess, openUsageAccessSettings,
-  getInstalledApps, startMonitoring, stopMonitoring, sanitizeConfig, observationCopy,
-  probe, fireTestAlert, probeSummary,
-  isAccessibilityEnabled, openAccessibilitySettings, readUsageEvents,
+  getInstalledApps, startMonitoring, stopMonitoring, isMonitoring, syncUsage,
+  sanitizeConfig, observationCopy,
+  probe, fireTestAlert, probeSummary, readUsageEvents,
   watchedSessions, sessionLine,
 } from './doomscroll.js';
 import {
@@ -101,6 +101,100 @@ export function showUpdatePrompt(manifest, ctx) {
       if (ctx) ctx.toast('Update failed — try again later.', 2600);
     }
   });
+  return overlay;
+}
+
+// ---- First-run walkthrough ----------------------------------------------
+//
+// Introduces the game and — the point — lets the user CHOOSE how the doomscroll
+// feature watches them, framed as two "paths". Skippable; defaults to Oracle (the
+// gentler path) if skipped. Re-openable from Config. Sets settings.onboarded so
+// it only appears once. The path is stored on settings.doomscroll.path; nothing
+// starts watching here (that's an explicit opt-in in Config).
+export function showWalkthrough(ctx, { fromSettings = false } = {}) {
+  const { state } = ctx;
+  const ds = state.settings.doomscroll;
+  let idx = 0;
+  let chosen = ds.path === 'sentinel' ? 'sentinel' : 'oracle';
+
+  const pathName = (p) => (p === 'sentinel' ? 'the Sentinel' : 'the Oracle');
+
+  const pathsCard = () => `
+    <div class="wt-title">◆ CHOOSE YOUR PATH</div>
+    <div class="wt-body">RPGify can watch for long binges in the apps you pick — but <b>how</b> it watches is up to you. Pick the path that fits. You can switch anytime in Config.</div>
+    <div class="path-opt ${chosen === 'sentinel' ? 'sel' : ''}" data-path="sentinel">
+      <div class="path-name">🜂 Path of the Sentinel <span class="path-tag">real-time</span></div>
+      <div class="path-how">Watches quietly in the background and taps you the moment a binge crosses your limit — while you're still scrolling.</div>
+      <div class="path-pro">＋ Caught in the act; the strongest pull back.</div>
+      <div class="path-con">－ A permanent "watching" notification; a little more battery.</div>
+    </div>
+    <div class="path-opt ${chosen === 'oracle' ? 'sel' : ''}" data-path="oracle">
+      <div class="path-name">🜄 Path of the Oracle <span class="path-tag">reflect-on-return</span></div>
+      <div class="path-how">Watches nothing in the background. When you open RPGify, it shows the reckoning — your binges, and what they did to your Spirit.</div>
+      <div class="path-pro">＋ No notification, no battery cost; lightest footprint.</div>
+      <div class="path-con">－ No nudge in the moment — the reckoning comes when you return.</div>
+    </div>
+    <div class="wt-note">Not sure? <b>Oracle</b> is the calm default.</div>`;
+
+  const cards = [
+    () => `
+      <div class="wt-title">◆ WELCOME, ADVENTURER</div>
+      <div class="wt-body">RPGify turns your real habits into a hero. Every quest you finish trains one of six attributes — Strength, Magic, Vitality, Spirit, Luck, Speed — raising your level and growing a single hero sprite that's yours alone.</div>`,
+    () => `
+      <div class="wt-title">◆ GROWTH & MASTERY</div>
+      <div class="wt-body">Time grants scarce <b>Growth Points</b>. Spend them on a mastery tree you author yourself — your own titles, your own perks. Nothing is prescribed; you design the path.</div>`,
+    () => `
+      <div class="wt-title">◆ THE COST OF NEGLECT</div>
+      <div class="wt-body">Stop training an attribute and it visibly <b>decays</b>. A faded stat is a loss you can see — the quiet pressure that keeps a habit alive.</div>`,
+    () => `
+      <div class="wt-title">◆ SPIRIT & THE DOOMSCROLL</div>
+      <div class="wt-body"><b>Spirit</b> is trained by quests like any attribute — but it also answers to the endless scroll. Long binges in apps you choose <b>wear it down</b>; catching yourself and stepping away <b>feeds it</b>. Normal, short use? Neither — you're only mirrored, never scolded.</div>`,
+    pathsCard,
+    () => `
+      <div class="wt-title">◆ YOUR STORY BEGINS</div>
+      <div class="wt-body">You walk <b>${pathName(chosen)}</b>.</div>
+      <div class="wt-body">Choose which apps to watch — and grant <b>Usage Access</b> — anytime in <b>Config → Doomscroll Mirror</b>. Until you do, nothing is watched.</div>`,
+  ];
+
+  const overlay = document.createElement('div');
+  overlay.className = 'wt';
+  document.body.appendChild(overlay);
+
+  const finish = async ({ toConfig = false } = {}) => {
+    ds.path = chosen;
+    state.settings.onboarded = true;
+    await ctx.save();
+    overlay.remove();
+    if (toConfig) ctx.go('settings'); else ctx.render();
+  };
+
+  const draw = () => {
+    const last = idx === cards.length - 1;
+    const dots = cards.map((_, i) => `<span class="wt-dot ${i === idx ? 'on' : ''}"></span>`).join('');
+    const nextLabel = last ? 'BEGIN' : 'NEXT ▸';
+    overlay.innerHTML = `
+      <div class="window wt-card">
+        <button class="wt-skip" id="wt-skip">${fromSettings ? 'CLOSE' : 'SKIP'}</button>
+        ${cards[idx]()}
+        <div class="wt-dots">${dots}</div>
+        <div class="wt-nav">
+          ${idx > 0 ? '<button class="btn small" id="wt-back">◂ BACK</button>' : '<span></span>'}
+          <button class="btn primary" id="wt-next">${nextLabel}</button>
+        </div>
+      </div>`;
+    overlay.querySelector('#wt-skip').addEventListener('click', () => finish());
+    const back = overlay.querySelector('#wt-back');
+    if (back) back.addEventListener('click', () => { idx -= 1; draw(); });
+    overlay.querySelector('#wt-next').addEventListener('click', () => {
+      if (last) { finish({ toConfig: true }); return; }
+      idx += 1; draw();
+    });
+    overlay.querySelectorAll('.path-opt').forEach((el) => el.addEventListener('click', () => {
+      chosen = el.dataset.path;
+      draw();
+    }));
+  };
+  draw();
   return overlay;
 }
 
@@ -1096,37 +1190,52 @@ function doomscrollSection(state) {
       <span class="bar-caption">min</span>
       <button class="btn small danger" data-dsrm="${i}">✕</button>
     </div>`).join('') : '<div class="bar-caption" style="padding:6px 2px">No apps chosen yet.</div>';
+  const path = d.path === 'sentinel' ? 'sentinel' : 'oracle';
+  const isSentinel = path === 'sentinel';
   return `
     <div class="window">
       <div class="window-title">◆ DOOMSCROLL MIRROR</div>
       <label class="field"><span>ENABLE <input type="checkbox" id="ds-on" ${d.enabled ? 'checked' : ''}></span></label>
-      <div class="bar-caption" id="ds-access">Checking detector…</div>
-      <button class="btn small block" id="ds-grant" style="margin:8px 0">MANAGE DETECTOR (Accessibility settings)</button>
-      <div class="bar-caption" style="margin:6px 0;color:var(--cond-worn)">⚠ Heads-up: some banking / secure apps refuse to run while <b>any</b> accessibility service is on. If one blocks you, open the settings above and turn <b>RPGify focus detector</b> off — turning it back on resumes detection. A future app update will move detection to a method that avoids this conflict.</div>
-      <div class="section-label" style="margin-left:0">WATCHED APPS · alert after N continuous min</div>
+      <div class="bar-caption" id="ds-access">Checking Usage Access…</div>
+      <button class="btn small block" id="ds-grant" style="margin:8px 0">GRANT USAGE ACCESS</button>
+
+      <div class="section-label" style="margin-left:0">YOUR PATH</div>
+      <div style="display:flex;gap:8px">
+        <label class="field" style="flex:1"><span>DETECTION</span><select id="ds-path">
+          <option value="oracle" ${!isSentinel ? 'selected' : ''}>Oracle — reflect on return</option>
+          <option value="sentinel" ${isSentinel ? 'selected' : ''}>Sentinel — real-time nudge</option>
+        </select></label>
+      </div>
+      <div class="bar-caption" id="ds-path-note" style="margin-top:4px">${isSentinel
+        ? 'Sentinel watches in the background and nudges you live at your limit — costs a persistent notification + a little battery.'
+        : 'Oracle watches nothing in the background; you see the reckoning when you open RPGify — no notification, no battery cost.'}</div>
+      <div class="bar-caption" style="margin-top:4px"><button class="btn small" id="ds-replay">↻ REPLAY WALKTHROUGH</button></div>
+
+      <div class="section-label" style="margin-left:0">WATCHED APPS · reflect after N continuous min</div>
       ${appRows}
       <button class="btn small block" id="ds-add" style="margin-top:8px">＋ CHOOSE APPS</button>
       <div class="bar-caption" style="margin-top:8px">YouTube can't distinguish Shorts from long-form — give it a much longer threshold, or leave it off.</div>
-      <div style="display:flex;gap:10px;margin-top:6px">
-        <label class="field" style="flex:1"><span>RE-ALERT</span><select id="ds-rt">
+      <div style="display:flex;gap:10px;margin-top:6px" id="ds-rtwrap">
+        <label class="field" style="flex:1"><span>RE-NUDGE</span><select id="ds-rt">
           <option value="once" ${d.retrigger.mode === 'once' ? 'selected' : ''}>Once per session</option>
           <option value="every" ${d.retrigger.mode === 'every' ? 'selected' : ''}>Every N minutes</option>
         </select></label>
         <label class="field" style="width:84px" id="ds-everywrap"><span>N MIN</span><input type="number" id="ds-every" min="1" max="240" value="${d.retrigger.everyMin}"></label>
       </div>
+      <div class="bar-caption" id="ds-rt-oracle" style="margin-top:2px">Re-nudge settings apply to the Sentinel path only.</div>
       <button class="btn primary block" id="ds-apply">APPLY</button>
       <div class="section-label" style="margin-left:0">SPIRIT IMPACT</div>
       <div class="bar-caption">${esc(spiritSummary(state))}</div>
-      <div class="bar-caption" style="margin-top:2px">Leaving on the nudge grows Spirit (capped per day); long binges add wear to Spirit's condition that heals over time and as you complete quests.</div>
+      <div class="bar-caption" style="margin-top:2px">Crossing an app's limit but pulling away grows Spirit (capped per day); bingeing well past it adds wear to Spirit's condition, which heals over time and as you complete quests. Normal short use is neutral. Spirit is also trained by your quests, like any attribute.</div>
       <div class="section-label" style="margin-left:0">RECENTLY DETECTED</div>
       <div class="bar-caption" id="ds-recent">—</div>
       <div class="section-label" style="margin-left:0">DIAGNOSTICS</div>
       <div class="btn-row">
         <button class="btn small" id="ds-probe">🔍 PROBE CURRENT APP</button>
-        <button class="btn small gold" id="ds-test">🔔 TEST ALERT</button>
+        <button class="btn small gold" id="ds-test">🔔 TEST NUDGE</button>
       </div>
       <div class="bar-caption" id="ds-probe-out" style="margin-top:6px">Probe reads whatever app is in the foreground right now + how long you've been in it.</div>
-      <div class="bar-caption" style="margin-top:8px">Disruptive timing, calm message — e.g. “${esc(observationCopy('Instagram', 28))}”. It only notices; it never tells you what to do. Detection is event-driven via an Accessibility service (real-time, no persistent notice, low battery) that reads only <b>which</b> app is in front — never your screen content. Soon: leaving a watched app on the nudge will feed your <b>Spirit</b>, and bingeing will wear it — shown transparently here.</div>
+      <div class="bar-caption" style="margin-top:8px">Disruptive timing, calm message — e.g. “${esc(observationCopy('Instagram', 28))}”. It only notices; it never tells you what to do. Detection uses <b>Usage Access</b> (never Accessibility, never your screen content) — it reads only <b>which</b> app is in front and for how long, and only for the apps you pick.</div>
     </div>`;
 }
 
@@ -1135,8 +1244,20 @@ function wireDoomscroll(container, ctx) {
   const d = state.settings.doomscroll;
   const everyWrap = container.querySelector('#ds-everywrap');
   const rtSel = container.querySelector('#ds-rt');
+  const pathSel = container.querySelector('#ds-path');
   const syncRt = () => { everyWrap.style.display = rtSel.value === 'every' ? 'block' : 'none'; };
   rtSel.addEventListener('change', syncRt); syncRt();
+
+  // Re-nudge controls only matter on the Sentinel (live) path — dim them on Oracle.
+  const syncPathUi = () => {
+    const sentinel = pathSel.value === 'sentinel';
+    container.querySelector('#ds-rtwrap').style.opacity = sentinel ? '1' : '0.45';
+    container.querySelector('#ds-rt-oracle').style.display = sentinel ? 'none' : 'block';
+    container.querySelector('#ds-path-note').textContent = sentinel
+      ? 'Sentinel watches in the background and nudges you live at your limit — costs a persistent notification + a little battery.'
+      : 'Oracle watches nothing in the background; you see the reckoning when you open RPGify — no notification, no battery cost.';
+  };
+  pathSel.addEventListener('change', syncPathUi); syncPathUi();
 
   container.querySelectorAll('.ds-th').forEach((inp) => inp.addEventListener('change', () => {
     const i = Number(inp.dataset.i);
@@ -1148,57 +1269,68 @@ function wireDoomscroll(container, ctx) {
 
   (async () => {
     const el = container.querySelector('#ds-access');
-    if (!doomNative()) { el.textContent = 'The detector is Android-only (no effect on web).'; return; }
-    const ok = await isAccessibilityEnabled();
-    el.textContent = ok ? 'Detector enabled ✓' : 'Detector off — tap below and turn on “RPGify focus detector”.';
+    if (!doomNative()) { el.textContent = 'Detection is Android-only (no effect on web).'; return; }
+    const ok = await hasUsageAccess();
+    let msg = ok ? 'Usage Access granted ✓' : 'Usage Access needed — tap below to grant it.';
+    if (ok && d.path === 'sentinel' && d.enabled) {
+      msg += (await isMonitoring()) ? ' · Sentinel running' : ' · Sentinel not running (tap APPLY)';
+    }
+    el.textContent = msg;
     el.style.color = ok ? 'var(--green)' : 'var(--ink-dim)';
   })();
 
-  // Transparency panel: show the most recent watched sessions the detector logged.
+  // Transparency panel: the most recent watched sessions the detector logged.
   (async () => {
     const el = container.querySelector('#ds-recent');
     if (!el) return;
     if (!doomNative()) { el.textContent = 'Detected sessions appear here in the Android app.'; return; }
+    if (d.enabled) { try { await syncUsage(d); } catch (e) { /* ignore */ } }
     const { events } = await readUsageEvents();
     const rows = watchedSessions(events, 6);
-    if (!rows.length) { el.textContent = 'No sessions detected yet. Enable the detector and use a watched app.'; return; }
+    if (!rows.length) { el.textContent = 'No sessions detected yet. Grant Usage Access, choose apps, and use one past its limit.'; return; }
     const labelFor = (pkg) => (d.apps.find((a) => a.package === pkg) || {}).label || pkg;
     el.innerHTML = rows.map((ev) => `• ${esc(sessionLine(ev, labelFor(ev.package)))}`).join('<br>');
   })();
 
   container.querySelector('#ds-grant').addEventListener('click', async () => {
-    await openAccessibilitySettings();
-    ctx.toast('Turn on “RPGify focus detector”, then return.', 2800);
+    await openUsageAccessSettings();
+    ctx.toast('Grant Usage Access to RPGify, then return.', 2800);
   });
+  container.querySelector('#ds-replay').addEventListener('click', () => ctx.openWalkthrough());
   container.querySelector('#ds-probe').addEventListener('click', async () => {
     const out = container.querySelector('#ds-probe-out');
     out.textContent = 'Probing…';
     out.textContent = probeSummary(await probe());
   });
   container.querySelector('#ds-test').addEventListener('click', async () => {
-    if (!doomNative()) { ctx.toast('Alerts fire in the Android app only.'); return; }
+    if (!doomNative()) { ctx.toast('Nudges fire in the Android app only.'); return; }
     const ok = await fireTestAlert();
-    ctx.toast(ok ? 'Sample alert posted.' : 'Grant notification permission first.');
+    ctx.toast(ok ? 'Sample nudge posted.' : 'Grant notification permission first.');
   });
   container.querySelector('#ds-add').addEventListener('click', () => appPicker(ctx));
   container.querySelector('#ds-apply').addEventListener('click', async () => {
     d.enabled = container.querySelector('#ds-on').checked;
+    d.path = pathSel.value === 'sentinel' ? 'sentinel' : 'oracle';
     d.retrigger.mode = rtSel.value;
     d.retrigger.everyMin = Math.max(1, Math.min(240, Number(container.querySelector('#ds-every').value) || 15));
     state.settings.doomscroll = sanitizeConfig(d);
+    const cfg = state.settings.doomscroll;
     await ctx.save();
     if (!doomNative()) { ctx.toast('Saved. Detection runs in the Android app.'); return; }
-    if (state.settings.doomscroll.enabled) {
+    if (cfg.enabled && cfg.path === 'sentinel') {
       const { ensurePermission } = await import('./notifications.js');
       await ensurePermission();
-      await startMonitoring(state.settings.doomscroll); // persist watched-apps config
-      if (!(await isAccessibilityEnabled())) {
-        ctx.toast('Saved. Now enable the detector under Accessibility.', 2800);
-      } else {
-        ctx.toast('Focus detector active.');
-      }
+      if (!(await hasUsageAccess())) { ctx.toast('Grant Usage Access first (button above).', 2800); return; }
+      await startMonitoring(cfg); // start the live foreground service
+      ctx.toast('Sentinel path active.');
+    } else if (cfg.enabled) {
+      await stopMonitoring(); // ensure no service on the Oracle path
+      if (!(await hasUsageAccess())) { ctx.toast('Grant Usage Access to begin (button above).', 2800); return; }
+      await syncUsage(cfg); // persist config + fold in anything pending
+      ctx.toast('Oracle path active — reckoning shows when you open RPGify.');
     } else {
       await stopMonitoring();
+      await syncUsage(cfg); // persist the now-disabled config to native prefs
       // Turning it off clears the live debuff so it starts clean if re-enabled.
       if (state.spiritTrack) { state.spiritTrack.wear = 0; state.spiritTrack.wearAt = Date.now(); }
       await ctx.save();

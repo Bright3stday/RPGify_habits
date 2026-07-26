@@ -35,26 +35,14 @@
                 android:resource="@xml/file_paths"></meta-data>
         </provider>
 
-        <!-- Doomscroll detector (opt-in, event-driven). Enabled by the user in
-             Settings → Accessibility; the system pushes foreground-app changes,
-             so there's no polling and no persistent notification. Only reads the
-             foreground package name (canRetrieveWindowContent=false). -->
-        <service
-            android:name=".DoomscrollAccessibilityService"
-            android:exported="false"
-            android:label="@string/doomscroll_accessibility_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/doomscroll_accessibility" />
-        </service>
-
-        <!-- Legacy fallback detector (foreground-service UsageStats poll). Kept
-             for reference / older setups; no longer started by default now that
-             the accessibility detector is the primary path. -->
+        <!-- Doomscroll detector — Sentinel path (opt-in, real-time). A foreground
+             UsageStats service the user starts by choosing the Sentinel path; it
+             records their chosen apps' continuous foreground time to a ledger and
+             fires a factual self-reflection notice once a chosen threshold is
+             crossed. The default Oracle path uses NO service — it reconstructs the
+             same sessions from Usage Access when the app opens. Detection reads
+             only which app is in front (Usage Access), never screen content, and
+             there is no Accessibility service. -->
         <service
             android:name=".DoomscrollService"
             android:exported="false"

@@ -9,11 +9,24 @@ APKs. See `CLAUDE.md` for how things ship.
 - Core game: quests → six attributes → level/derived stats → single hero;
   cadence-aware decay; self-authored mastery tree + Growth Points; cosmetic loot.
 - Steps auto-quests; local reminders (spaced); export/import.
-- Doomscroll: event-driven AccessibilityService detector + raw session ledger →
-  **Spirit scoring** (restraint = capped XP; binge = self-healing wear that also
-  burns down as quests are completed). Consent-based, transparent, tunable
-  (`SPIRIT_TUNING`). Distinct muted "debuff" beat for wear. Scoring respects the
-  enable toggle (nothing applies when disabled).
+- Doomscroll → **Spirit scoring** (restraint = capped XP; binge = self-healing
+  wear that also burns down as quests are completed). Consent-based, transparent,
+  tunable (`SPIRIT_TUNING`). Distinct muted "debuff" beat for wear. Scoring
+  respects the enable toggle (nothing applies when disabled).
+- **Onboarding walkthrough + doomscroll "paths" + Usage-Access migration**
+  (versionCode 4, minNative 4). First-run walkthrough (`views.js showWalkthrough`)
+  introduces the game and lets the user pick a path — **Oracle** (default,
+  reflect-on-return, no background service) or **Sentinel** (opt-in, real-time
+  foreground service + live nudge); skippable → Oracle; replayable from Config.
+  Detection moved off the **AccessibilityService** to **Usage Access** (removes the
+  banking-app conflict + Play Protect friction; accessibility service deleted).
+  One shared native reconstruction (`DoomscrollUtil.syncSessions`) feeds both paths
+  via a single cursor. Scoring unified to **duration-based** (`spirit.js
+  sessionOutcome`): cross the threshold without bingeing → capped XP; binge → wear;
+  under threshold → neutral (both paths, legacy alert-rows still handled).
+  Never-forced adaptive prompt to try Sentinel when Oracle keeps losing
+  (`app.js maybeSuggestSentinel`). Logs only selected apps; `docs/SECURITY.md`
+  updated.
 - Delivery: OTA web updates (consent-based) + signed APK — both via GitHub Pages.
   Docs website generated from Markdown. Hidden dev/test panel. Security/verify doc.
 - **Recipes** — curated, editable quest/mastery starting points per stat
@@ -23,78 +36,29 @@ APKs. See `CLAUDE.md` for how things ship.
   stats (ones with quests); untrained stats no longer mask a focused user's
   lapse (`attributes.js engagedStatIds`/`overallCondition`).
 
-## Next — Onboarding walkthrough + Doomscroll "paths" (spans OTA + native)
-
-The near-term headline. First run currently has **no walkthrough** at all; add
-one, and use it to let the user *choose how doomscroll watches them* rather than
-us picking a default.
-
-**First-run walkthrough** (OTA — JS/HTML). Short, skippable, re-openable from
-Settings. Cards: welcome (habits → attributes → hero) · Growth Points + mastery ·
-decay · **the Spirit & doomscroll** · **choose your path** · grant Usage Access ·
-pick apps.
-
-- Spirit framing (corrected): Spirit (`spr`) is a normal attribute **trained by
-  quests like any other**. Doomscroll only adds a layer on top — **restraint
-  grants bonus Spirit XP, binges wear its condition**. Do NOT imply Spirit is
-  only about restraint.
-
-**Two paths** (the user picks; switchable in Settings anytime):
-- **Path of the Sentinel** (real-time) — background watch + **live nudge** at the
-  limit. Cost: a persistent "watching" notification, a little more battery.
-- **Path of the Oracle** (reflect-on-return) — nothing runs in the background;
-  the reckoning appears when you next open RPGify. Cost: no in-the-moment nudge.
-- **The on-return reckoning (Spirit gain + decay-wear animation) is common to
-  BOTH paths.** Sentinel = the Oracle baseline **plus** the live nudge — opening
-  RPGify always replays what happened, regardless of path.
-- **Default = Oracle if the user skips.** Nothing watches until a path is chosen.
-- **Adaptive nudge (optional, never forced):** if an Oracle user keeps getting no
-  Spirit gain / constant decay wear / maxed wear, prompt "want to try the Sentinel
-  path and see if it helps?" — one-tap switch, dismissible.
-
-**Scoring adaptation** (`spirit.js`). `applyLedger` currently grants XP only when
-`e.alerted` is set + `leftAfterAlertSec <= graceSec` — that path only fires under
-Sentinel (a live nudge happened). Add an **Oracle gain path**: reward a session
-whose duration **ended under `bingePastSec`** (self-regulated, no nudge needed),
-still bounded by `dailyCapXp`. Keep the alert-based gain for Sentinel.
-
-**Native (batched APK).** Migrate the detector off the **AccessibilityService**
-to **Usage Access** (`PACKAGE_USAGE_STATS`) — this removes both the banking-app
-conflict and the Play Protect install friction (both accessibility-specific). Two
-native capabilities sit behind the paths:
-- Oracle: on open/resume, query UsageStats for sessions since last check → ledger.
-- Sentinel: the existing UsageStats foreground service (live nudge).
-- Detector logs **only selected apps**; then fix `docs/SECURITY.md`. Bump
-  `versionCode`.
-
 ## Next — OTA-only (no reinstall)
 
-1. **Tracking ⁄ mirror split + transparency** — largely *subsumed by the paths
-   work above* (Oracle with tracking off = nothing runs; Oracle = usage awareness;
-   Sentinel = full mirror). Keep the honest three-state copy where it still helps.
-2. **Usage stats view** — behind an explicit button: per selected-app continuous
+1. **Usage stats view** — behind an explicit button: per selected-app continuous
    sessions/day/week, durations, and vs. previous period. Store small **daily
-   aggregates** in state for trends. JS (reads the ledger).
-3. **Usage quests** — auto avoid/keep-under (e.g. "under 30 min on X today"),
-   auto-completing like the step tracker, feeding a stat. JS. Depends on 1–2.
+   aggregates** in state for trends. JS (reads the ledger). Now easy: the paths
+   ledger already records duration-based rows for both paths.
+2. **Usage quests** — auto avoid/keep-under (e.g. "under 30 min on X today"),
+   auto-completing like the step tracker, feeding a stat. JS. Depends on 1.
+   Works great with Oracle (no live watcher needed).
 
 ## Native backlog — batch into the next APK
 
-Ship an APK only when these are worth a reinstall (or a real bug forces one).
-**The next APK is the paths migration above** (accessibility → Usage Access), which
-folds in most of this list:
+Ship an APK only when these are worth a reinstall (or a real bug forces one). The
+paths migration (accessibility → Usage Access) **shipped** in versionCode 4 and
+cleared most of this list — remaining:
 
-- **Accessibility → Usage Access migration** (see paths section). Drives Oracle's
-  on-return query and Sentinel's foreground service; removes the banking-app
-  conflict and Play Protect friction.
-- Detector goes **dormant when tracking is off** — trivial once migrated (Oracle
-  runs nothing in the background by construction).
-- Detector logs **only selected apps** (privacy/footprint). Then update
-  `docs/SECURITY.md` wording (currently it slightly overclaims — the service logs
-  every foreground app, scoring only the watched ones). **Hold the doc fix until
-  this ships** (decided).
-- Screen-off session-accuracy refinements.
-- Bump `versionCode` when cutting the APK.
+- Screen-off session-accuracy refinements (Sentinel poll-based session ends are
+  bounded by `pollMinutes`; Oracle reconstruction from UsageStats is exact).
+- Bump `versionCode` when cutting the next APK.
+
+Verify on a CI build (no SDK here): the Usage-Access migration compiles, the
+Sentinel foreground service starts/stops via the plugin, and Oracle `syncUsage`
+records sessions on open.
 
 ## Decisions log
 

@@ -11,8 +11,12 @@ sheet. Real habits ("quests") train six fixed attributes (str/mag/vit/spr/lck/sp
 → character level, derived stats, a single hero sprite. Users spend scarce,
 time-granted **Growth Points** on a **self-authored mastery tree**. Neglect makes
 attributes visibly **decay** (loss aversion). A **doomscroll** feature detects
-long continuous sessions in chosen apps and feeds/wears the **Spirit** attribute.
-Vanilla HTML/CSS/JS (no framework) wrapped with Capacitor for Android.
+long continuous sessions in chosen apps (via **Usage Access**, no Accessibility)
+and feeds/wears the **Spirit** attribute — layered on top of the quests that also
+train Spirit. A first-run **walkthrough** lets the user pick how it watches: the
+**Oracle** path (default; reflects on return, nothing in the background) or the
+**Sentinel** path (opt-in; real-time nudge via a foreground service). Vanilla
+HTML/CSS/JS (no framework) wrapped with Capacitor for Android.
 
 ## How work ships — OTA-first, minimize APKs
 

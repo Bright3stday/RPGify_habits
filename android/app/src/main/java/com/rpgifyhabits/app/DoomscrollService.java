@@ -146,8 +146,11 @@ public class DoomscrollService extends Service {
     if (!key.equals(sessionKey)) { sessionKey = key; lastAlertMin = null; } // new session -> reset
   }
 
-  // Periodic detection: refresh the current session and (re)arm the exact timer.
+  // Periodic detection: record any completed sessions to the ledger (shared with
+  // the Oracle path via one cursor), then refresh the current session and
+  // (re)arm the exact live-nudge timer.
   private void poll() {
+    try { DoomscrollUtil.syncSessions(this); } catch (Exception ignored) { }
     readCurrent();
     arm();
   }

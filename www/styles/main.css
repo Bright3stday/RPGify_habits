@@ -484,6 +484,41 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 }
 .modal { width: 100%; max-width: 480px; max-height: 88vh; overflow-y: auto; }
 
+/* First-run walkthrough (intro + doomscroll path picker) */
+.wt {
+  position: fixed; inset: 0; z-index: 70;
+  background: rgba(4,4,16,0.92);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px;
+}
+.wt-card { position: relative; width: 100%; max-width: 460px; max-height: 92vh; overflow-y: auto; }
+.wt-skip {
+  position: absolute; top: 8px; right: 8px;
+  background: none; border: 0; color: var(--ink-dim);
+  font-family: inherit; font-size: 7px; cursor: pointer; padding: 4px;
+}
+.wt-title { color: var(--gold); font-size: 12px; margin: 4px 24px 12px 0; line-height: 1.5; }
+.wt-body { font-size: 9px; color: var(--ink); line-height: 1.9; margin-bottom: 12px; }
+.wt-note { font-size: 8px; color: var(--ink-dim); line-height: 1.7; margin-top: 4px; }
+.wt-dots { display: flex; gap: 6px; justify-content: center; margin: 14px 0 12px; }
+.wt-dot { width: 6px; height: 6px; background: var(--shadow); box-shadow: inset 0 0 0 1px var(--ink-dim); }
+.wt-dot.on { background: var(--gold); box-shadow: none; }
+.wt-nav { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.wt-nav > span { flex: 1; }
+
+/* The two "paths" a user chooses between */
+.path-opt {
+  border: 2px solid var(--shadow); background: var(--bg);
+  padding: 10px; margin-bottom: 10px; cursor: pointer;
+}
+.path-opt.sel { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset; }
+.path-name { font-size: 9px; color: var(--accent); margin-bottom: 6px; }
+.path-opt.sel .path-name { color: var(--gold); }
+.path-tag { font-size: 6px; color: var(--ink-dim); margin-left: 4px; }
+.path-how { font-size: 8px; color: var(--ink); line-height: 1.8; margin-bottom: 6px; }
+.path-pro { font-size: 8px; color: var(--green); line-height: 1.7; }
+.path-con { font-size: 8px; color: var(--cond-worn); line-height: 1.7; }
+
 /* LEVEL UP! flash beat */
 .levelup {
   position: fixed; inset: 0; z-index: 60;
