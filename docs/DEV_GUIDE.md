@@ -36,6 +36,7 @@ Java, it ships to existing users without a reinstall.
 | `notifications.js` | Local reminders — scheduling, spacing, test fire. | `rescheduleAll`, `ensurePermission`, `fireWaterNudge`, `firePostureNudge` |
 | `ota.js` | Over-the-air update check/apply. Pure decision logic (`shouldApply`) is unit-tested. | `checkForUpdate`, `applyUpdate`, `shouldApply`, `describeStatus` |
 | `store.js` | Thin wrapper: Capacitor Preferences on Android, localStorage on web. | `loadState`, `saveState` |
+| `pwa.js` | Registers `sw.js` for the browser PWA build only — no-ops inside the installed Android app so it never shadows the Capacitor OTA updater. | `registerServiceWorker`, `isStandalonePwa` |
 | `pedometer.js` | Step counter — native TYPE_STEP_COUNTER or manual fallback. | `stepsToday`, `addManualSteps`, `hasSensor`, `refreshSteps` |
 | `items.js` + `equipment.js` | Cosmetic loot table, drop rolls, gear slots. No stat effects — cosmetic only. | `rollLoot`, `RARITY`, `equipItem`, `unequipSlot` |
 | `recipes.js` | Curated quest/mastery starting points per stat. Editable, not prescriptive. | `QUEST_RECIPES`, `MASTERY_RECIPES`, `recipeToHabit`, `recipeToNodeSpecs` |
@@ -163,6 +164,14 @@ bump and a migration step there whenever you add required state fields.
 3. Write a JS bridge function in the appropriate `www/js/` module.
 4. Bump `versionCode` in `android/app/build.gradle`.
 5. If the new web JS requires this capability, bump `minNative` in `www/ota.json`.
+6. **Gate the UI for the browser PWA build**, which has no Capacitor plugins at
+   all: check the module's own native-detection export (`doomNative()` from
+   `doomscroll.js`, `notificationsSupported()` from `notifications.js`, or add
+   one following that same `window.Capacitor` pattern) and don't render the
+   feature's section rather than showing it disabled. See `renderSettings` and
+   `showWalkthrough` in `views.js` for the existing pattern — both the
+   Doomscroll Mirror and Reminders windows, and their walkthrough cards, are
+   entirely omitted (not just disabled) when the check fails.
 
 ### New screen / tab
 - Add a render function `renderX(container, ctx)` to `views.js` and export it.
@@ -246,3 +255,9 @@ The last two buttons (`resetCursor`, `injectSession`) require the new APK
   breaks (keyboard, system UI, permission dialogs) are folded into the continuous
   session if the gap is under `SESSION_GAP_MIN` (1 min). This prevents keyboard
   appearances from fragmenting a 30-minute session into many 1-minute rows.
+- **`sw.js` must never register inside the installed Android app.** It always
+  goes through `pwa.js registerServiceWorker()`, which checks
+  `Capacitor.isNativePlatform()` first. A second cache layer inside that
+  WebView could serve stale content over what `@capgo/capacitor-updater` just
+  applied via OTA — if you add new startup code, keep native and browser-PWA
+  init paths clearly separate.

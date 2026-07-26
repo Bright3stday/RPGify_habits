@@ -34,14 +34,17 @@ try {
   await page.goto(`http://localhost:${PORT}/`, { waitUntil: 'networkidle' });
   await wait(300);
 
-  // First run shows the walkthrough (intro cards -> growth-path quiz -> result
-  // -> doomscroll path picker). Verify it appears, answer the quiz, accept the
-  // recommended loadout, exercise the doomscroll path picker, then skip out.
+  // First run shows the walkthrough. This smoke test runs a plain browser (no
+  // Capacitor bridge) — the same environment a browser-PWA user gets — so the
+  // native-only doomscroll intro/path-picker cards should be skipped entirely.
+  // Verify that gating, then answer the growth-path quiz, accept the
+  // recommended loadout, and finish.
   const wtShown = await page.$('.wt');
   check(!!wtShown, 'first-run walkthrough appears');
   if (wtShown) {
-    // Advance through the 4 intro cards to the quiz.
-    for (let i = 0; i < 4; i += 1) { await page.click('#wt-next'); await wait(80); }
+    // Advance through the 3 intro cards (the native-only "Spirit & the
+    // Doomscroll" card is skipped on web) to the quiz.
+    for (let i = 0; i < 3; i += 1) { await page.click('#wt-next'); await wait(80); }
     const hasQuiz = await page.$('[data-quiz="q1:b"]');
     check(!!hasQuiz, 'walkthrough presents the growth-path quiz');
     // Answer all three questions (b/b/b -> Architect), advancing after each.
@@ -60,13 +63,7 @@ try {
       await wait(80);
     }
     const hasPaths = await page.$('.path-opt[data-path="sentinel"]');
-    check(!!hasPaths, 'walkthrough presents the two doomscroll paths');
-    if (hasPaths) {
-      await page.click('.path-opt[data-path="sentinel"]');
-      await wait(60);
-      const sel = await page.$eval('.path-opt[data-path="sentinel"]', (el) => el.classList.contains('sel'));
-      check(sel, 'a path can be selected');
-    }
+    check(!hasPaths, 'doomscroll path picker is skipped on the web build (native-only)');
     await page.click('#wt-skip');
     await wait(150);
   }
@@ -200,9 +197,11 @@ try {
   await wait(150);
   const hasExport = await page.$('#export');
   check(!!hasExport, 'settings screen renders with data controls');
+  // No Capacitor bridge in this browser — Reminders and Doomscroll Mirror are
+  // native-only and should be hidden entirely, not shown disabled.
   const hasDoom = await page.$$eval('.window-title', (els) => els.some((e) => /DOOMSCROLL MIRROR/.test(e.textContent)));
-  const dsToggle = await page.$('#ds-on');
-  check(hasDoom && !!dsToggle, 'doomscroll mirror config renders');
+  const hasReminders = await page.$$eval('.window-title', (els) => els.some((e) => /REMINDERS/.test(e.textContent)));
+  check(!hasDoom && !hasReminders, 'doomscroll mirror + reminders are hidden on the web build (native-only)');
 
   // Bag / Hero: the screen renders with the hero paper-doll + gear slots.
   await page.click('.tab[data-route="bag"]');

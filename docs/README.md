@@ -44,10 +44,13 @@ www/js/
   doomscroll.js   doomscroll session/threshold/copy logic + native bridge
   ota.js          over-the-air web-update check/apply
   store.js        storage (Capacitor Preferences native / localStorage web)
+  pwa.js          browser-PWA service worker registration (never runs natively)
   views.js        the five screens   app.js  orchestrator (routing, reward beats)
 www/ota.json      baked-in OTA baseline { build, channel } (CI-stamped)
-scripts/          test.js (logic) · smoke.mjs (headless browser) · make-icons.mjs · ota-stamp.mjs · serve.js
-.github/workflows/ android.yml (APK build/sign/release) · web-ota.yml (OTA publish)
+www/manifest.json + sw.js  web-app manifest + service worker (installable PWA, no APK)
+scripts/          test.js (logic) · smoke.mjs (headless browser) · make-icons.mjs ·
+                  make-pwa-icons.mjs · ota-stamp.mjs · serve.js
+.github/workflows/ android.yml (APK build/sign/release) · web-ota.yml (OTA publish + /app/ PWA)
 android/app/src/main/java/com/rpgifyhabits/app/
   StepCounterPlugin.java · DoomscrollService.java · DoomscrollPlugin.java · DoomscrollUtil.java
 ```
@@ -131,6 +134,18 @@ android/app/src/main/java/com/rpgifyhabits/app/
   `versionCode` would wrongly block JS-only updates from older-but-adequate APKs.)
   `versionCode` is **4** and `minNative` is **4** as of the Usage-Access paths APK
   (the paths bundle genuinely needs the new native, so it's gated to that APK).
+- **A browser-installable PWA ships alongside the APK, for non-Android users
+  and Android users who'd rather skip the APK.** `www/manifest.json` + `sw.js`
+  (registered from `js/pwa.js`, which no-ops when `Capacitor.isNativePlatform()`
+  is true, so it never touches the installed native app) make `www/` installable
+  on iOS Safari, Android Chrome, and desktop. `web-ota.yml` publishes `www/`
+  verbatim to `gh-pages/app/` on every push, alongside the existing OTA zip
+  bundles. Two features are native-only and **hidden entirely** (not shown
+  disabled) when `Capacitor` isn't present: the Doomscroll Mirror
+  (`doomNative()` in `views.js`) and local reminders (`notificationsSupported()`
+  in `notifications.js`) — checked in `renderSettings` and in the onboarding
+  walkthrough's card list. Everything else (quests, attributes, decay, mastery
+  tree, loot, steps via manual entry) works the same as the native app.
 
 ## One-time setup checklist (per person/fork)
 

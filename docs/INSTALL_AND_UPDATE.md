@@ -2,7 +2,33 @@
 
 RPGify Habits installs straight from this site — no app store, no account.
 
-## Install it on your phone
+## Try it in your browser first — no install
+
+Not on Android, or don't want to install an APK yet? Open
+**[Try in Browser](app/)** — it runs the whole core game (quests, attributes,
+decay, your mastery tree, loot) right in the browser, on iOS, Android, or
+desktop. Your data stays on your device either way, no account, no server.
+
+- **iPhone/iPad (Safari):** open the link, then **Share → Add to Home
+  Screen** to get a full-screen icon like a real app.
+- **Android (Chrome):** open the link; Chrome will usually offer **Install**
+  or **Add to Home screen** itself, or use the **⋮ menu → Add to Home
+  screen**.
+- **Desktop:** most browsers show an install icon in the address bar.
+
+Two features need the installed Android app and don't work in the browser
+version: the **Doomscroll Mirror** (it reads *which app* is in front of you
+system-wide, a permission only a real Android app can hold) and **local
+reminders** (water/posture nudges, which need a background OS scheduler).
+Everything else is the same app. The Settings screen simply won't show those
+two sections in the browser build — nothing is broken, they just don't apply.
+You can always install the full APK later without losing anything: **Config →
+Export** in the browser, then **Import** in the installed app.
+
+## Install the Android app
+
+Want the full feature set (or you'd rather have an app icon than a browser
+tab)?
 
 1. On your phone, tap **Download APK** (top of the page), or open:
    `https://bright3stday.github.io/RPGify_habits/apk/rpgify-latest.apk`

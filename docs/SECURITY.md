@@ -11,6 +11,11 @@ The short version: **the entire app is open source and built in public**, so you
 don't have to trust the author — you can read every line and check that the APK
 you installed was built from that public code.
 
+*Using the [browser version](app/) instead of the APK?* It asks for **zero**
+permissions — no Usage Access, no notifications — because it's the same
+offline-first web code running as a normal website. The permissions table
+below only applies to the installed Android app.
+
 ---
 
 ## What leaves your device
