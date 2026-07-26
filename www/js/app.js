@@ -15,7 +15,7 @@ import { RARITY, itemIconSvg } from './items.js';
 import { esc } from './util.js';
 import {
   renderDashboard, renderHabits, renderTree, renderSettings, renderInventory,
-  showUpdatePrompt, showWalkthrough,
+  showUpdatePrompt, showWalkthrough, showUsageStats,
 } from './views.js';
 
 const ROUTES = {
@@ -74,16 +74,26 @@ function floatXp(text, x, y) {
 }
 
 // Full-screen JRPG flash beat. `onDone` chains the next beat in the queue.
-function flashBeat({ title, line, color, icon }, onDone) {
+// Optional `link: { text, action }` adds a tap-through button that opens a
+// view (e.g. session history) without blocking the beat dismiss flow.
+function flashBeat({ title, line, color, icon, link }, onDone) {
   const overlay = document.createElement('div');
   overlay.className = 'levelup';
   overlay.innerHTML = `
     <div class="lu-title">${esc(title)}</div>
     ${icon ? `<div class="lu-icon">${icon}</div>` : ''}
     <div class="lu-line" style="color:${color || '#fff'}">${line}</div>
+    ${link ? `<button class="beat-link" id="beat-link">${esc(link.text)}</button>` : ''}
     <div class="lu-hint">▼  tap to continue</div>`;
   const dismiss = () => { overlay.remove(); if (onDone) onDone(); };
   overlay.addEventListener('click', dismiss);
+  if (link) {
+    overlay.querySelector('#beat-link')?.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      dismiss();
+      link.action();
+    });
+  }
   document.body.appendChild(overlay);
   beep();
 }
@@ -92,16 +102,24 @@ function flashBeat({ title, line, color, icon }, onDone) {
 // colours, a downward "sink" instead of the gold pop, and a low descending tone
 // — so a negative event never reads like a reward. Not alarming/red either,
 // keeping the observation-only tone.
-function debuffBeat({ title, line, icon }, onDone) {
+function debuffBeat({ title, line, icon, link }, onDone) {
   const overlay = document.createElement('div');
   overlay.className = 'debuff';
   overlay.innerHTML = `
     <div class="db-title">${esc(title)}</div>
     ${icon ? `<div class="db-icon">${icon}</div>` : ''}
     <div class="db-line">${line}</div>
+    ${link ? `<button class="beat-link" id="beat-link">${esc(link.text)}</button>` : ''}
     <div class="db-hint">▼  tap to continue</div>`;
   const dismiss = () => { overlay.remove(); if (onDone) onDone(); };
   overlay.addEventListener('click', dismiss);
+  if (link) {
+    overlay.querySelector('#beat-link')?.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      dismiss();
+      link.action();
+    });
+  }
   document.body.appendChild(overlay);
   lowBeep();
 }
@@ -189,6 +207,7 @@ const ctx = {
   replaceState(next) { state = next; },
   // Re-open the first-run walkthrough on demand (from Config).
   openWalkthrough() { showWalkthrough(ctx, { fromSettings: true }); },
+  openUsageStats() { showUsageStats(ctx); },
   async drainDoomscroll() { return drainDoomscroll({ silent: false }); },
   // Pull today's steps and auto-complete any step-goal habits that hit target.
   async syncSteps({ silent = false } = {}) {
@@ -244,13 +263,15 @@ async function drainDoomscroll({ silent = false } = {}) {
   }
   if (silent) return { gainedXp: res.gainedXp, addedWear: res.addedWear };
   // Surface the effect as proper animated reward beats (not just a toast).
+  // Both beat types carry a tap-through link so the user can open session history.
+  const statsLink = { text: 'SESSION HISTORY ▸', action: () => showUsageStats(ctx) };
   const beats = [];
   if (res.gainedXp) {
-    beats.push({ title: `SPIRIT +${res.gainedXp}`, line: 'You stepped away from the scroll', color: '#b06af0', icon: '☯' });
+    beats.push({ title: `SPIRIT +${res.gainedXp}`, line: 'You stepped away from the scroll', color: '#b06af0', icon: '☯', link: statsLink });
   }
   if (res.addedWear) {
     const pct = Math.round(spiritWear(state) * 100);
-    beats.push({ kind: 'debuff', title: 'SPIRIT WORN', line: `A long session · Spirit fatigue ${pct}%` });
+    beats.push({ kind: 'debuff', title: 'SPIRIT WORN', line: `A long session · Spirit fatigue ${pct}%`, link: statsLink });
   }
   if (beats.length) playBeats(beats);
   // After the beats settle, offer (never force) the Sentinel path if Oracle keeps

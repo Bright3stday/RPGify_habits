@@ -33,6 +33,7 @@ import {
   probe, fireTestAlert, probeSummary, readUsageEvents,
   watchedSessions, sessionLine,
   resetCursor, injectTestSession,
+  usageStats, statsSummaryLine,
 } from './doomscroll.js';
 import {
   SLOTS, SLOT_LABEL, slotForItem, equipItem, unequipSlot, isKeyEquipped,
@@ -154,7 +155,8 @@ export function showWalkthrough(ctx, { fromSettings = false } = {}) {
     () => `
       <div class="wt-title">◆ YOUR STORY BEGINS</div>
       <div class="wt-body">You walk <b>${pathName(chosen)}</b>.</div>
-      <div class="wt-body">Choose which apps to watch — and grant <b>Usage Access</b> — anytime in <b>Config → Doomscroll Mirror</b>. Until you do, nothing is watched.</div>`,
+      <div class="wt-body">Choose which apps to watch — and grant <b>Usage Access</b> — anytime in <b>Config → Doomscroll Mirror</b>. Until you do, nothing is watched.</div>
+      <div class="wt-body">Turn on <b>water and posture reminders</b> in <b>Config → Reminders</b>. They fire quietly during your active hours — small nudges to stay sharp through the day.</div>`,
   ];
 
   const overlay = document.createElement('div');
@@ -214,6 +216,92 @@ function doComplete(ctx, habitId, btn) {
 }
 
 // ========================================================================
+// ---- Usage stats (session history modal) --------------------------------
+
+export async function showUsageStats(ctx) {
+  const ds = ctx.state.settings && ctx.state.settings.doomscroll;
+  const watchedApps = (ds && ds.apps) || [];
+  let period = 'today';
+
+  const overlay = document.createElement('div');
+  overlay.className = 'overlay';
+  document.body.appendChild(overlay);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+
+  overlay.innerHTML = `<div class="window"><div class="bar-caption">Loading…</div></div>`;
+
+  const { events } = await readUsageEvents();
+  const stats = usageStats(events, watchedApps);
+
+  const draw = () => {
+    const rows = stats.length ? stats.map((a) => {
+      const b = a[period];
+      const h = Math.floor(b.totalSec / 3600);
+      const m = Math.floor((b.totalSec % 3600) / 60);
+      const time = b.totalSec > 0 ? (h > 0 ? `${h}h ${m}m` : `${m}m`) : '—';
+      const detail = b.sessions > 0
+        ? `${b.sessions} session${b.sessions !== 1 ? 's' : ''} · ${time}`
+          + (b.overLimit > 0 ? ` · <span style="color:var(--cond-worn)">${b.overLimit} past limit</span>` : '')
+        : `<span style="color:var(--ink-dim)">no sessions</span>`;
+      return `
+        <div style="border-bottom:1px solid var(--border);padding:10px 0">
+          <div style="font-size:10px;font-weight:bold;letter-spacing:0.05em;margin-bottom:3px">
+            ${esc(a.label)} <span class="bar-caption">${a.thresholdMin} min limit</span>
+          </div>
+          <div class="bar-caption">${detail}</div>
+        </div>`;
+    }).join('')
+      : `<div class="bar-caption" style="padding:12px 0">
+           No watched apps configured yet — add them in Config → Doomscroll Mirror.
+         </div>`;
+
+    overlay.innerHTML = `
+      <div class="window" style="max-height:88vh;overflow-y:auto">
+        <div class="window-title">◆ SESSION HISTORY</div>
+        <div class="btn-row" style="margin-bottom:4px">
+          <button class="btn small ${period === 'today' ? 'primary' : ''}" id="sh-today">TODAY</button>
+          <button class="btn small ${period === 'week' ? 'primary' : ''}" id="sh-week">THIS WEEK</button>
+        </div>
+        ${rows}
+        <button class="btn small block" id="sh-close" style="margin-top:14px">CLOSE</button>
+      </div>`;
+
+    overlay.querySelector('#sh-today')?.addEventListener('click', () => { period = 'today'; draw(); });
+    overlay.querySelector('#sh-week')?.addEventListener('click', () => { period = 'week'; draw(); });
+    overlay.querySelector('#sh-close')?.addEventListener('click', () => overlay.remove());
+  };
+
+  draw();
+}
+
+// Scroll recap widget rendered in the dashboard. Hidden by default; wireScrollRecap
+// fills it in asynchronously and reveals it only when there are sessions today.
+function scrollRecapWidget(ctx) {
+  const ds = ctx.state.settings && ctx.state.settings.doomscroll;
+  if (!ds || !ds.enabled || !(ds.apps && ds.apps.length)) return '';
+  return `
+    <div id="scroll-recap" style="display:none">
+      <div class="window">
+        <div class="window-title">◆ TODAY'S SCROLL</div>
+        <div id="scroll-recap-line" class="bar-caption"></div>
+        <button class="btn small" id="scroll-recap-view" style="margin-top:8px">VIEW HISTORY ▸</button>
+      </div>
+    </div>`;
+}
+
+async function wireScrollRecap(container, ctx) {
+  const wrap = container.querySelector('#scroll-recap');
+  if (!wrap) return;
+  const { events } = await readUsageEvents().catch(() => ({ events: [] }));
+  const ds = ctx.state.settings.doomscroll;
+  const stats = usageStats(events, ds.apps || []);
+  const line = statsSummaryLine(stats, 'today');
+  if (!line) return; // nothing today — leave hidden
+  wrap.style.display = '';
+  wrap.querySelector('#scroll-recap-line').textContent = line;
+  wrap.querySelector('#scroll-recap-view')?.addEventListener('click', () => showUsageStats(ctx));
+}
+
 // DASHBOARD (status screen)
 // ========================================================================
 
@@ -285,6 +373,7 @@ export function renderDashboard(container, ctx) {
     </div>
 
     ${stepsWidget(ctx)}
+    ${scrollRecapWidget(ctx)}
     <div class="section-label">TODAY'S QUESTS (${manualDue.length})</div>
     ${dueHtml}
   `;
@@ -293,6 +382,7 @@ export function renderDashboard(container, ctx) {
     btn.addEventListener('click', () => doComplete(ctx, btn.dataset.do, btn));
   });
   wireSteps(container, ctx);
+  wireScrollRecap(container, ctx);
 }
 
 // Steps panel: today's count vs goal for each step-habit, plus manual logging
@@ -1304,7 +1394,9 @@ function doomscrollSection(state) {
       <div class="section-label" style="margin-left:0">SPIRIT IMPACT</div>
       <div class="bar-caption">${esc(spiritSummary(state))}</div>
       <div class="bar-caption" style="margin-top:2px">Crossing an app's limit but pulling away grows Spirit (capped per day); bingeing well past it adds wear to Spirit's condition, which heals over time and as you complete quests. Normal short use is neutral. Spirit is also trained by your quests, like any attribute.</div>
-      <div class="section-label" style="margin-left:0">RECENTLY DETECTED</div>
+      <div class="section-label" style="margin-left:0">SESSION HISTORY</div>
+      <button class="btn small block" id="ds-history">VIEW SESSION HISTORY ▸</button>
+      <div class="section-label" style="margin-left:0;margin-top:10px">RECENTLY DETECTED</div>
       <div class="bar-caption" id="ds-recent">—</div>
       <div class="section-label" style="margin-left:0">DIAGNOSTICS</div>
       <div class="btn-row">
@@ -1374,6 +1466,7 @@ function wireDoomscroll(container, ctx) {
     ctx.toast('Grant Usage Access to RPGify, then return.', 2800);
   });
   container.querySelector('#ds-replay').addEventListener('click', () => ctx.openWalkthrough());
+  container.querySelector('#ds-history')?.addEventListener('click', () => showUsageStats(ctx));
   container.querySelector('#ds-probe').addEventListener('click', async () => {
     const out = container.querySelector('#ds-probe-out');
     out.textContent = 'Probing…';

@@ -14,6 +14,7 @@ fresh session can pick up with full context.
 | [`INSTALL_AND_UPDATE.md`](INSTALL_AND_UPDATE.md) | End-user install/update: download the APK from the site, "app not installed" fixes, how OTA updates arrive. (User-facing only.) |
 | [`SECURITY.md`](SECURITY.md) | "Is this safe?" — permissions explained, what leaves the device (nothing silently), and how anyone can verify the APK matches the public source. |
 | [`../DEVELOPING.md`](../DEVELOPING.md) | **Developer/self-host doc:** project layout, dev/test, signing key + GitHub secrets, GitHub Pages, building the APK, versioning, forking. Not on the public site. |
+| [`DEV_GUIDE.md`](DEV_GUIDE.md) | **Feature-coding guide:** file map, `ctx` API, state shape, entry points for each feature area (Inn, new quests, new decay, new native capability), testing, and common gotchas. |
 
 ## What this is (one paragraph)
 

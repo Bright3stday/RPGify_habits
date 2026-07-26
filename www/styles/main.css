@@ -536,6 +536,8 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 @keyframes pop { from { transform: scale(0.3); } to { transform: scale(1); } }
 .levelup .lu-line { font-size: 11px; color: #fff; }
 .levelup .lu-hint { font-size: 8px; color: var(--ink-dim); margin-top: 20px; animation: blink 1s steps(1) infinite; }
+.beat-link { display: block; margin: 14px auto 0; background: none; border: 1px solid rgba(255,255,255,0.25); color: rgba(255,255,255,0.7); font-family: inherit; font-size: 9px; letter-spacing: 0.12em; padding: 5px 16px; cursor: pointer; border-radius: 2px; }
+.beat-link:active { border-color: rgba(255,255,255,0.6); color: #fff; }
 
 /* SPIRIT WORN — muted "debuff" beat: deliberately NOT celebratory. No gold, no
    strobe/pop; a desaturated panel that sinks downward. Not alarming red either. */

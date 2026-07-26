@@ -35,15 +35,16 @@ APKs. See `CLAUDE.md` for how things ship.
 - **Decay/avatar tweak** — overall/hero condition now averages only *engaged*
   stats (ones with quests); untrained stats no longer mask a focused user's
   lapse (`attributes.js engagedStatIds`/`overallCondition`).
+- **Usage stats view** — `showUsageStats(ctx)` modal (today/week toggle, per-app
+  breakdown); `scrollRecapWidget` on dashboard shows today's summary when there
+  are sessions; Spirit beats carry a "SESSION HISTORY ▸" tap-through; entry
+  point also in Config → Doomscroll Mirror. `doomscroll.js usageStats()` /
+  `statsSummaryLine()` are the pure logic functions (OTA-tunable).
 
 ## Next — OTA-only (no reinstall)
 
-1. **Usage stats view** — behind an explicit button: per selected-app continuous
-   sessions/day/week, durations, and vs. previous period. Store small **daily
-   aggregates** in state for trends. JS (reads the ledger). Now easy: the paths
-   ledger already records duration-based rows for both paths.
-2. **Usage quests** — auto avoid/keep-under (e.g. "under 30 min on X today"),
-   auto-completing like the step tracker, feeding a stat. JS. Depends on 1.
+1. **Usage quests** — auto avoid/keep-under (e.g. "under 30 min on X today"),
+   auto-completing like the step tracker, feeding a stat. JS.
    Works great with Oracle (no live watcher needed).
 
 ## Native backlog — batch into the next APK

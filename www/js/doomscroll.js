@@ -283,3 +283,57 @@ export function watchedMinutesSince(events, sinceMs) {
     .filter((e) => e && e.type === 'session' && e.watched && (e.end || e.ts || 0) >= sinceMs)
     .reduce((sum, e) => sum + Math.max(0, (e.durationSec || 0) / 60), 0);
 }
+
+// ---- per-app usage stats (for the session history view) ------------------
+
+// Compute today + 7-day aggregates for each watched app from the raw ledger.
+// Returns an array of { label, thresholdMin, pkg, today, week } where today/week
+// are { sessions, totalSec, overLimit } — overLimit = crossed the threshold.
+export function usageStats(events, watchedApps, now = Date.now()) {
+  const todayStart = new Date(now).setHours(0, 0, 0, 0);
+  const weekStart = todayStart - 6 * 24 * 60 * 60 * 1000;
+  const appMap = {};
+  for (const a of (watchedApps || [])) {
+    if (!a.package) continue;
+    appMap[a.package] = {
+      pkg: a.package,
+      label: a.label || a.package.split('.').pop(),
+      thresholdMin: Number(a.thresholdMin) || 20,
+      today: { sessions: 0, totalSec: 0, overLimit: 0 },
+      week: { sessions: 0, totalSec: 0, overLimit: 0 },
+    };
+  }
+  for (const e of (events || [])) {
+    if (e.type !== 'session') continue;
+    const app = appMap[e.package];
+    if (!app) continue;
+    const ts = Number(e.ts || e.end || 0);
+    const dur = Number(e.durationSec || 0);
+    const thr = (Number(e.thresholdMin) || app.thresholdMin) * 60;
+    const add = (b) => { b.sessions++; b.totalSec += dur; if (dur >= thr) b.overLimit++; };
+    if (ts >= todayStart) add(app.today);
+    if (ts >= weekStart) add(app.week);
+  }
+  return Object.values(appMap);
+}
+
+// One-line summary string for the recap widget, e.g. "3 sessions · 1h 5m · 2 past limit".
+// Returns null when there are no sessions in the given period.
+export function statsSummaryLine(appStats, period = 'today') {
+  const tot = (appStats || []).reduce(
+    (acc, a) => {
+      const b = a[period] || {};
+      acc.sessions += b.sessions || 0;
+      acc.totalSec += b.totalSec || 0;
+      acc.overLimit += b.overLimit || 0;
+      return acc;
+    },
+    { sessions: 0, totalSec: 0, overLimit: 0 },
+  );
+  if (!tot.sessions) return null;
+  const h = Math.floor(tot.totalSec / 3600);
+  const m = Math.floor((tot.totalSec % 3600) / 60);
+  const time = h > 0 ? `${h}h ${m}m` : `${m}m`;
+  const limit = tot.overLimit > 0 ? ` · ${tot.overLimit} past limit` : '';
+  return `${tot.sessions} session${tot.sessions !== 1 ? 's' : ''} · ${time}${limit}`;
+}
