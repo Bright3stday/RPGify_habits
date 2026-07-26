@@ -1,8 +1,8 @@
 {
-  "build": 58,
-  "version": "web-58",
-  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-58.zip",
+  "build": 60,
+  "version": "web-60",
+  "url": "https://bright3stday.github.io/RPGify_habits/updates/bundle-60.zip",
   "minNative": 4,
-  "notes": "• fix(dev): inject test sessions no longer permanently affect Spirit stats\n• Usage stats view, Spirit beat tap-through, reminders walkthrough, dev guide\n• Fix dev panel: inject now fires Spirit beats; force sync reports drain result\n• Expand dev panel: inject sessions, force sync, reset cursor, ledger tail\n• Fix syncSessions: merge keyboard/overlay gaps instead of fragmenting sessions",
-  "publishedAt": "2026-07-26T17:29:23.867Z"
+  "notes": "• Merge pull request #1 from Bright3stday/feature/pwa-lite-onboarding\n• feat: cozy-fantasy onboarding quiz + archetype rework for the PWA-lite audience\n• fix(dev): inject test sessions no longer permanently affect Spirit stats\n• Usage stats view, Spirit beat tap-through, reminders walkthrough, dev guide\n• Fix dev panel: inject now fires Spirit beats; force sync reports drain result",
+  "publishedAt": "2026-07-26T22:09:21.821Z"
 }
