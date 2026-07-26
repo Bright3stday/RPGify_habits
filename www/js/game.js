@@ -38,6 +38,7 @@ export function defaultState() {
       },
       checkIn: { enabled: true, weekday: 0, hour: 9 }, // Sunday 9am
       doomscroll: defaultDoomscroll(),
+      path: null, // growth path from the onboarding quiz: 'anchor'|'architect'|'catalyst'
     },
     meta: { lastCheckIn: null },
   };
@@ -121,6 +122,7 @@ export function migrate(state) {
   // the gentler Oracle (reflect-on-return) so nothing starts watching in the
   // background without an explicit opt-in.
   if (!state.settings.doomscroll.path) state.settings.doomscroll.path = 'oracle';
+  if (state.settings.path === undefined) state.settings.path = null;
   if (!state.meta) state.meta = { lastCheckIn: null };
   if (!state.spiritTrack) state.spiritTrack = defaultSpiritTrack();
   state.version = SCHEMA_VERSION;

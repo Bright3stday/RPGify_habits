@@ -71,18 +71,22 @@ A single hero sprite (`www/js/sprites.js`) — *you* — driven by character lev
 and overall condition, not one-per-attribute:
 
 ```
-character level 1-3  -> Adventurer
-character level 4-6  -> Warrior   (leather + sword)
-character level 7-10 -> Knight    (plate, shield, plumed helm)
-character level 11+  -> Mage      (robe, staff, arcane aura)
-overall condition worn    -> the current class, desaturated (early warning)
+character level 1-3  -> Wanderer  (base traveler, every path starts here)
+character level 4+   -> your chosen growth path's archetype:
+                          The Anchor    -> Druid    (earthy greens/browns)
+                          The Architect -> Scholar  (clean blues/whites)
+                          The Catalyst  -> Ranger   (practical greys/leathers)
+overall condition worn    -> the current archetype, desaturated (early warning)
 overall condition cracked -> Imp   (devolved into a lesser monster)
 overall condition broken  -> Slime (your hero literally melts into goo)
 ```
 
-Do your habits and your hero climbs the class ladder; neglect them and it
-devolves toward a slime — the loss-aversion thesis made literal. Drawn
-procedurally as inline SVG (no image assets).
+The growth path is set by a short diagnostic quiz on first run (or picked up
+from whichever stats you've trained most, if you skipped it) — see
+`www/js/recipes.js` (`GROWTH_PATHS`, `pathFromQuiz`). Do your habits and your
+hero grows into that archetype; neglect them and it devolves toward a slime —
+the loss-aversion thesis made literal. Drawn procedurally as inline SVG (no
+image assets).
 
 ### Steps
 A habit can be **auto (steps)** instead of tap-to-log: it carries a daily step

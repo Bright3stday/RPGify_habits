@@ -9,6 +9,7 @@ import { conditionState } from './condition.js';
 import { CADENCE_TYPES, cadenceLabel, isDue, dueAt } from './cadence.js';
 import {
   QUEST_RECIPES, MASTERY_RECIPES, recipeToHabit, recipeToNodeSpecs,
+  GROWTH_PATHS, pathFromQuiz, starterLoadout,
 } from './recipes.js';
 import {
   addHabit, updateHabit, retireHabit, deleteHabit, completeHabit, defaultState,
@@ -119,44 +120,123 @@ export function showWalkthrough(ctx, { fromSettings = false } = {}) {
   let idx = 0;
   let chosen = ds.path === 'sentinel' ? 'sentinel' : 'oracle';
 
+  // Growth-path quiz state (the a/b/c diagnostic that recommends Anchor /
+  // Architect / Catalyst) — separate from the doomscroll path above.
+  const quiz = { q1: null, q2: null, q3: null };
+  let growthPath = state.settings.path || null;
+  let loadoutAccepted = false;
+  let customizeWarned = false;
+  let customizeRequested = false;
+
   const pathName = (p) => (p === 'sentinel' ? 'the Sentinel' : 'the Oracle');
 
-  const pathsCard = () => `
-    <div class="wt-title">◆ CHOOSE YOUR PATH</div>
-    <div class="wt-body">RPGify can watch for long binges in the apps you pick — but <b>how</b> it watches is up to you. Pick the path that fits. You can switch anytime in Config.</div>
-    <div class="path-opt ${chosen === 'sentinel' ? 'sel' : ''}" data-path="sentinel">
-      <div class="path-name">🜂 Path of the Sentinel <span class="path-tag">real-time</span></div>
-      <div class="path-how">Watches quietly in the background and taps you the moment a binge crosses your limit — while you're still scrolling.</div>
-      <div class="path-pro">＋ Caught in the act; the strongest pull back.</div>
-      <div class="path-con">－ A permanent "watching" notification; a little more battery.</div>
-    </div>
-    <div class="path-opt ${chosen === 'oracle' ? 'sel' : ''}" data-path="oracle">
-      <div class="path-name">🜄 Path of the Oracle <span class="path-tag">reflect-on-return</span></div>
-      <div class="path-how">Watches nothing in the background. When you open RPGify, it shows the reckoning — your binges, and what they did to your Spirit.</div>
-      <div class="path-pro">＋ No notification, no battery cost; lightest footprint.</div>
-      <div class="path-con">－ No nudge in the moment — the reckoning comes when you return.</div>
-    </div>
-    <div class="wt-note">Not sure? <b>Oracle</b> is the calm default.</div>`;
+  const quizOption = (qKey, val, title, sub) => {
+    const sel = quiz[qKey] === val;
+    return `<div class="path-opt ${sel ? 'sel' : ''}" data-quiz="${qKey}:${val}">
+      <div class="path-name">${esc(title)}</div>
+      <div class="path-how">${esc(sub)}</div>
+    </div>`;
+  };
+
+  const quizQ1 = {
+    body: () => `
+      <div class="wt-title">◆ WHAT'S PULLING YOU DOWN?</div>
+      <div class="wt-body">Pick whichever feels closest right now.</div>
+      ${quizOption('q1', 'a', 'Exhausted or burnt out', 'Body and energy feel used up.')}
+      ${quizOption('q1', 'b', "Brain fried, can't focus", "Thoughts scatter before anything sticks.")}
+      ${quizOption('q1', 'c', 'Reactive and disorganized', 'Days run you, instead of the other way round.')}`,
+    valid: () => !!quiz.q1,
+  };
+  const quizQ2 = {
+    body: () => `
+      <div class="wt-title">◆ HOW DO YOU TACKLE PROBLEMS?</div>
+      <div class="wt-body">Your natural first move — not your ideal one.</div>
+      ${quizOption('q2', 'a', 'Physical action', 'Move your body, do something with your hands.')}
+      ${quizOption('q2', 'b', 'Read or plan first', 'Understand it before you touch it.')}
+      ${quizOption('q2', 'c', 'Clear away the noise', 'Cut clutter and distraction until it feels simple again.')}`,
+    valid: () => !!quiz.q2,
+  };
+  const quizQ3 = {
+    body: () => `
+      <div class="wt-title">◆ WHO DO YOU WANT TO BECOME?</div>
+      <div class="wt-body">Thirty days from now.</div>
+      ${quizOption('q3', 'a', 'Physically resilient', 'Strong, steady, hard to knock down.')}
+      ${quizOption('q3', 'b', 'Deep focus and calm', 'A quiet, clear mind that finishes things.')}
+      ${quizOption('q3', 'c', 'Momentum and execution', 'Fast, decisive, always moving forward.')}`,
+    valid: () => !!quiz.q3,
+  };
+
+  const resultCard = {
+    body: () => {
+      const pathId = pathFromQuiz(quiz);
+      const path = GROWTH_PATHS[pathId];
+      const { quests, node } = starterLoadout(pathId);
+      const questLines = quests.map((r) => `<li>${esc(r.title)}</li>`).join('');
+      const nodeLine = node ? `<li>${esc(node.title)} <span class="path-tag">mastery</span></li>` : '';
+      let action;
+      if (loadoutAccepted) {
+        action = `
+          <div class="wt-note" style="margin-bottom:8px">✓ Starter loadout added — edit or remove any of it anytime in Quests / Mastery.</div>
+          <button class="btn primary block" id="wt-result-continue">CONTINUE ▸</button>`;
+      } else if (customizeWarned) {
+        action = `
+          <div class="wt-note" style="margin-bottom:8px;color:var(--cond-worn)">Stacking on too many new habits at once is the #1 way people burn out and quit. Start small — you can always add more later.</div>
+          <button class="btn block" id="wt-result-continue">CONTINUE ▸</button>`;
+      } else {
+        action = `
+          <button class="btn primary block" id="wt-accept-loadout">＋ ACCEPT RECOMMENDED LOADOUT</button>
+          <button class="wt-link" id="wt-customize">I know what I'm doing. Let me customize my own path.</button>`;
+      }
+      return `
+        <div class="wt-title">◆ YOUR PATH: ${esc(path.name.toUpperCase())}</div>
+        <div class="wt-body">${esc(path.tagline)} You'll grow as <b>${esc(path.archetype)}</b>.</div>
+        <div class="wt-body">Recommended starting loadout:</div>
+        <ul style="margin:0 0 12px 18px;padding:0;font-size:9px;line-height:1.9">${questLines}${nodeLine}</ul>
+        ${action}`;
+    },
+    valid: () => true,
+    hideNext: true,
+  };
+
+  const pathsCard = {
+    body: () => `
+      <div class="wt-title">◆ CHOOSE YOUR PATH</div>
+      <div class="wt-body">RPGify can watch for long binges in the apps you pick — but <b>how</b> it watches is up to you. Pick the path that fits. You can switch anytime in Config.</div>
+      <div class="path-opt ${chosen === 'sentinel' ? 'sel' : ''}" data-path="sentinel">
+        <div class="path-name">🜂 Path of the Sentinel <span class="path-tag">real-time</span></div>
+        <div class="path-how">Watches quietly in the background and taps you the moment a binge crosses your limit — while you're still scrolling.</div>
+        <div class="path-pro">＋ Caught in the act; the strongest pull back.</div>
+        <div class="path-con">－ A permanent "watching" notification; a little more battery.</div>
+      </div>
+      <div class="path-opt ${chosen === 'oracle' ? 'sel' : ''}" data-path="oracle">
+        <div class="path-name">🜄 Path of the Oracle <span class="path-tag">reflect-on-return</span></div>
+        <div class="path-how">Watches nothing in the background. When you open RPGify, it shows the reckoning — your binges, and what they did to your Spirit.</div>
+        <div class="path-pro">＋ No notification, no battery cost; lightest footprint.</div>
+        <div class="path-con">－ No nudge in the moment — the reckoning comes when you return.</div>
+      </div>
+      <div class="wt-note">Not sure? <b>Oracle</b> is the calm default.</div>`,
+    valid: () => true,
+  };
 
   const cards = [
-    () => `
-      <div class="wt-title">◆ WELCOME, ADVENTURER</div>
-      <div class="wt-body">RPGify turns your real habits into a hero. Every quest you finish trains one of six attributes — Strength, Magic, Vitality, Spirit, Luck, Speed — raising your level and growing a single hero sprite that's yours alone.</div>`,
-    () => `
+    { body: () => `
+      <div class="wt-title">◆ WELCOME, WANDERER</div>
+      <div class="wt-body">RPGify turns your real habits into a hero. Every quest you finish trains one of six attributes — Strength, Magic, Vitality, Spirit, Luck, Speed — raising your level and growing a single hero sprite that's yours alone.</div>`, valid: () => true },
+    { body: () => `
       <div class="wt-title">◆ GROWTH & MASTERY</div>
-      <div class="wt-body">Time grants scarce <b>Growth Points</b>. Spend them on a mastery tree you author yourself — your own titles, your own perks. Nothing is prescribed; you design the path.</div>`,
-    () => `
+      <div class="wt-body">Time grants scarce <b>Growth Points</b>. Spend them on a mastery tree you author yourself — your own titles, your own perks. Nothing is prescribed; you design the path.</div>`, valid: () => true },
+    { body: () => `
       <div class="wt-title">◆ THE COST OF NEGLECT</div>
-      <div class="wt-body">Stop training an attribute and it visibly <b>decays</b>. A faded stat is a loss you can see — the quiet pressure that keeps a habit alive.</div>`,
-    () => `
+      <div class="wt-body">Stop training an attribute and it visibly <b>decays</b>. A faded stat is a loss you can see — the quiet pressure that keeps a habit alive.</div>`, valid: () => true },
+    { body: () => `
       <div class="wt-title">◆ SPIRIT & THE DOOMSCROLL</div>
-      <div class="wt-body"><b>Spirit</b> is trained by quests like any attribute — but it also answers to the endless scroll. Long binges in apps you choose <b>wear it down</b>; catching yourself and stepping away <b>feeds it</b>. Normal, short use? Neither — you're only mirrored, never scolded.</div>`,
-    pathsCard,
-    () => `
+      <div class="wt-body"><b>Spirit</b> is trained by quests like any attribute — but it also answers to the endless scroll. Long binges in apps you choose <b>wear it down</b>; catching yourself and stepping away <b>feeds it</b>. Normal, short use? Neither — you're only mirrored, never scolded.</div>`, valid: () => true },
+    quizQ1, quizQ2, quizQ3, resultCard, pathsCard,
+    { body: () => `
       <div class="wt-title">◆ YOUR STORY BEGINS</div>
-      <div class="wt-body">You walk <b>${pathName(chosen)}</b>.</div>
+      <div class="wt-body">You walk <b>${pathName(chosen)}</b>, and grow as a <b>${esc(GROWTH_PATHS[growthPath || pathFromQuiz(quiz)].archetype)}</b> — ${esc(GROWTH_PATHS[growthPath || pathFromQuiz(quiz)].name)}.</div>
       <div class="wt-body">Choose which apps to watch — and grant <b>Usage Access</b> — anytime in <b>Config → Doomscroll Mirror</b>. Until you do, nothing is watched.</div>
-      <div class="wt-body">Turn on <b>water and posture reminders</b> in <b>Config → Reminders</b>. They fire quietly during your active hours — small nudges to stay sharp through the day.</div>`,
+      <div class="wt-body">Turn on <b>water and posture reminders</b> in <b>Config → Reminders</b>. They fire quietly during your active hours — small nudges to stay sharp through the day.</div>`, valid: () => true },
   ];
 
   const overlay = document.createElement('div');
@@ -165,37 +245,71 @@ export function showWalkthrough(ctx, { fromSettings = false } = {}) {
 
   const finish = async ({ toConfig = false } = {}) => {
     ds.path = chosen;
+    if (growthPath) state.settings.path = growthPath;
     state.settings.onboarded = true;
     await ctx.save();
     overlay.remove();
+    if (customizeRequested) { openSuggestions(ctx); return; }
     if (toConfig) ctx.go('settings'); else ctx.render();
   };
 
   const draw = () => {
+    const card = cards[idx];
     const last = idx === cards.length - 1;
     const dots = cards.map((_, i) => `<span class="wt-dot ${i === idx ? 'on' : ''}"></span>`).join('');
     const nextLabel = last ? 'BEGIN' : 'NEXT ▸';
+    const canGoNext = card.valid ? card.valid() : true;
+    const nextBtn = card.hideNext ? '<span></span>' : `<button class="btn primary" id="wt-next" ${canGoNext ? '' : 'disabled'}>${nextLabel}</button>`;
     overlay.innerHTML = `
       <div class="window wt-card">
         <button class="wt-skip" id="wt-skip">${fromSettings ? 'CLOSE' : 'SKIP'}</button>
-        ${cards[idx]()}
+        ${card.body()}
         <div class="wt-dots">${dots}</div>
         <div class="wt-nav">
           ${idx > 0 ? '<button class="btn small" id="wt-back">◂ BACK</button>' : '<span></span>'}
-          <button class="btn primary" id="wt-next">${nextLabel}</button>
+          ${nextBtn}
         </div>
       </div>`;
     overlay.querySelector('#wt-skip').addEventListener('click', () => finish());
     const back = overlay.querySelector('#wt-back');
     if (back) back.addEventListener('click', () => { idx -= 1; draw(); });
-    overlay.querySelector('#wt-next').addEventListener('click', () => {
+    const nextEl = overlay.querySelector('#wt-next');
+    if (nextEl) nextEl.addEventListener('click', () => {
       if (last) { finish({ toConfig: true }); return; }
       idx += 1; draw();
     });
-    overlay.querySelectorAll('.path-opt').forEach((el) => el.addEventListener('click', () => {
+    overlay.querySelectorAll('.path-opt[data-path]').forEach((el) => el.addEventListener('click', () => {
       chosen = el.dataset.path;
       draw();
     }));
+    overlay.querySelectorAll('[data-quiz]').forEach((el) => el.addEventListener('click', () => {
+      const [k, v] = el.dataset.quiz.split(':');
+      quiz[k] = v;
+      draw();
+    }));
+    overlay.querySelector('#wt-accept-loadout')?.addEventListener('click', () => {
+      const pathId = pathFromQuiz(quiz);
+      growthPath = pathId;
+      const { quests, node } = starterLoadout(pathId);
+      for (const r of quests) if (!questExists(state, r)) addHabit(state, recipeToHabit(r));
+      if (node) {
+        const dupe = Object.values((state.tree && state.tree.nodes) || {})
+          .some((n) => (n.title || '').trim().toLowerCase() === (node.title || '').trim().toLowerCase());
+        if (!dupe) addNode(state, node);
+      }
+      loadoutAccepted = true;
+      ctx.save();
+      draw();
+    });
+    overlay.querySelector('#wt-customize')?.addEventListener('click', () => {
+      growthPath = pathFromQuiz(quiz);
+      customizeWarned = true;
+      draw();
+    });
+    overlay.querySelector('#wt-result-continue')?.addEventListener('click', () => {
+      if (customizeWarned && !loadoutAccepted) customizeRequested = true;
+      idx += 1; draw();
+    });
   };
   draw();
   return overlay;
