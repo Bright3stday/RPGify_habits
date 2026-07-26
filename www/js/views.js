@@ -1227,7 +1227,7 @@ function devPanelHtml() {
         <button class="btn small" id="dev-force-sync">FORCE SYNC</button>
         <button class="btn small danger" id="dev-reset-cursor">RESET CURSOR</button>
       </div>
-      <div class="bar-caption" style="margin-top:4px">Inject adds a fake session and fires scoring immediately — the Spirit beat should play. Force sync replays real phone usage (Oracle path, same as reopening the app). Reset cursor rewinds to 24 h ago so the next sync re-scans everything.</div>
+      <div class="bar-caption" style="margin-top:4px">Inject fires the Spirit beat so you can see the animation — stats are <strong>not</strong> permanently changed (XP/wear are restored after). Force sync replays real phone usage (Oracle path, same as reopening the app). Reset cursor rewinds to 24 h ago so the next sync re-scans everything.</div>
 
       <div class="section-label" style="margin-left:0;margin-top:12px">DIAGNOSTICS</div>
       <div class="bar-caption" id="dev-diag" style="white-space:pre-wrap;font-size:11px;line-height:1.5">…</div>
@@ -1299,21 +1299,30 @@ function wireDevPanel(container, ctx) {
   };
   container.querySelector('#dev-inject-gain')?.addEventListener('click', async () => {
     const { pkg, thresholdMin } = firstWatchedApp();
-    // Exactly at threshold — qualifies as a gain, not a binge.
+    const trackSnapshot = JSON.parse(JSON.stringify(state.spiritTrack || {}));
     await injectTestSession(pkg, thresholdMin * 60, thresholdMin);
     await ctx.drainDoomscroll?.();
+    // Restore XP/wear but keep lastSeq advanced so the event isn't reprocessed.
+    const advancedSeq = (state.spiritTrack || {}).lastSeq;
+    state.spiritTrack = trackSnapshot;
+    if (advancedSeq > (trackSnapshot.lastSeq || 0)) state.spiritTrack.lastSeq = advancedSeq;
+    await ctx.save();
     await showDiag();
-    ctx.toast(`Injected ${thresholdMin}-min gain session for ${pkg.split('.').pop()}.`);
+    ctx.toast(`Injected ${thresholdMin}-min gain session for ${pkg.split('.').pop()} (stats not affected).`);
     ctx.render();
   });
   container.querySelector('#dev-inject-binge')?.addEventListener('click', async () => {
     const { pkg, thresholdMin } = firstWatchedApp();
-    // Well past threshold — qualifies as a binge.
     const bingeSec = thresholdMin * 60 + SPIRIT_TUNING.bingePastSec + 30;
+    const trackSnapshot = JSON.parse(JSON.stringify(state.spiritTrack || {}));
     await injectTestSession(pkg, bingeSec, thresholdMin);
     await ctx.drainDoomscroll?.();
+    const advancedSeq = (state.spiritTrack || {}).lastSeq;
+    state.spiritTrack = trackSnapshot;
+    if (advancedSeq > (trackSnapshot.lastSeq || 0)) state.spiritTrack.lastSeq = advancedSeq;
+    await ctx.save();
     await showDiag();
-    ctx.toast(`Injected binge session (${Math.round(bingeSec / 60)} min) for ${pkg.split('.').pop()}.`);
+    ctx.toast(`Injected binge session (${Math.round(bingeSec / 60)} min) for ${pkg.split('.').pop()} (stats not affected).`);
     ctx.render();
   });
 
