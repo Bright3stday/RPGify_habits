@@ -105,6 +105,23 @@ test('stat condition averages feeders; no feeders reads full', () => {
   assert.equal(statCondition(state, statId, 10 * DAY_MS), 0);
 });
 
+test('overall condition averages only engaged stats (focused user)', () => {
+  // Fresh save trains only Strength (seeded Daily Steps). Let every habit lapse.
+  const s = defaultState();
+  for (const h of Object.values(s.habits)) { h.lastCompleted = 0; h.createdAt = 0; }
+  refreshConditions(s, 10 * DAY_MS);
+  const strCond = s.stats.str.condition;
+  assert.ok(strCond < 30);                         // Strength has decayed hard
+  assert.equal(overallCondition(s), strCond);      // not diluted by 5 untrained stats at 100
+});
+
+test('overall condition falls back to all six when nothing is trained', () => {
+  const s = defaultState();
+  for (const h of Object.values(s.habits)) h.retired = true; // no feeders anywhere
+  refreshConditions(s);
+  assert.equal(overallCondition(s), 100);
+});
+
 // ---- Attributes / character sheet -----------------------------------------
 test('default state seeds the six fixed attributes', () => {
   const s = defaultState();

@@ -19,21 +19,21 @@ APKs. See `CLAUDE.md` for how things ship.
 - **Recipes** — curated, editable quest/mastery starting points per stat
   (`www/js/recipes.js`); browse/add modal that pre-fills the editor; multi-node
   mastery paths with wired dependencies. Spec: `design/RECIPES.md`.
+- **Decay/avatar tweak** — overall/hero condition now averages only *engaged*
+  stats (ones with quests); untrained stats no longer mask a focused user's
+  lapse (`attributes.js engagedStatIds`/`overallCondition`).
 
 ## Next — OTA-only (no reinstall)
 
-1. **Decay/avatar tweak** — compute overall/hero condition from *engaged* stats
-   (ones with quests) only, so single-domain users' lapses actually show. Small.
-   (Needs its own short spec before building.)
-3. **Tracking ⁄ mirror split + transparency** — separate "usage tracking" from the
+1. **Tracking ⁄ mirror split + transparency** — separate "usage tracking" from the
    "doomscroll mirror" (alerts + Spirit). Three honest states: tracking off /
    tracking on + mirror off (usage awareness, no penalty) / both on. UI + copy are
    JS; the "service physically stops logging" part is native (see backlog).
-4. **Usage stats view** — behind an explicit button: per selected-app continuous
+2. **Usage stats view** — behind an explicit button: per selected-app continuous
    sessions/day/week, durations, and vs. previous period. Store small **daily
    aggregates** in state for trends. JS (reads the ledger).
-5. **Usage quests** — auto avoid/keep-under (e.g. "under 30 min on X today"),
-   auto-completing like the step tracker, feeding a stat. JS. Depends on 3–4.
+3. **Usage quests** — auto avoid/keep-under (e.g. "under 30 min on X today"),
+   auto-completing like the step tracker, feeding a stat. JS. Depends on 1–2.
 
 ## Native backlog — batch into the next APK
 

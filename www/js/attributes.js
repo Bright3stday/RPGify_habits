@@ -76,7 +76,21 @@ export function characterLevel(state) {
 }
 
 // Overall condition (mean of the six attributes) — drives hero devolution.
+// A stat is "engaged" if at least one non-retired quest trains it. Stats you've
+// never trained sit at 100% and shouldn't dilute the hero's overall condition —
+// otherwise a focused user (e.g. only Strength quests) whose one domain lapses
+// still looks healthy because five untouched stats are pinned at 100.
+export function engagedStatIds(state) {
+  const habits = Object.values(state.habits || {});
+  return ATTRIBUTE_IDS.filter((id) =>
+    habits.some((h) => h && !h.retired && Array.isArray(h.statIds) && h.statIds.includes(id)));
+}
+
 export function overallCondition(state) {
-  const vals = ATTRIBUTE_IDS.map((id) => state.stats[id]?.condition ?? 100);
+  const engaged = engagedStatIds(state);
+  // Average only the attributes actually being trained; fall back to all six
+  // when nothing is trained yet (a brand-new save reads a healthy 100).
+  const ids = engaged.length ? engaged : ATTRIBUTE_IDS;
+  const vals = ids.map((id) => state.stats[id]?.condition ?? 100);
   return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
 }

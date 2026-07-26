@@ -81,9 +81,12 @@ A single pixel avatar = *you*. It's chosen from two axes:
 
 - **Character level → class:** Adventurer (1–3) → Warrior (4–6) → Knight (7–10)
   → Mage (11+).
-- **Overall condition → devolution:** if the *average* condition across all six
-  attributes goes cracked → **Imp**, or broken → **Slime**. A worn-but-not-broken
-  hero just looks desaturated.
+- **Overall condition → devolution:** if the *average* condition across the
+  attributes you're actually training (ones with quests) goes cracked → **Imp**,
+  or broken → **Slime**. A worn-but-not-broken hero just looks desaturated.
+  Untrained attributes sit at 100% and are ignored here, so a focused user's
+  lapse in their one domain still shows on the hero (they aren't masked by five
+  pristine-but-empty stats).
 
 So: do your habits and your class climbs; neglect everything and your leveled-up
 hero visibly melts into a slime.
