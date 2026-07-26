@@ -502,6 +502,26 @@ input[type=range] { width: 100%; accent-color: var(--accent); }
 .levelup .lu-line { font-size: 11px; color: #fff; }
 .levelup .lu-hint { font-size: 8px; color: var(--ink-dim); margin-top: 20px; animation: blink 1s steps(1) infinite; }
 
+/* SPIRIT WORN — muted "debuff" beat: deliberately NOT celebratory. No gold, no
+   strobe/pop; a desaturated panel that sinks downward. Not alarming red either. */
+.debuff {
+  position: fixed; inset: 0; z-index: 60;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px;
+  background: radial-gradient(ellipse at center, #241026 0%, #08080f 78%);
+  animation: debuffin 0.45s ease-out;
+}
+@keyframes debuffin { from { opacity: 0; } to { opacity: 1; } }
+.debuff .db-title {
+  font-size: 18px; color: #a487c0; letter-spacing: 1px; filter: saturate(0.6);
+  text-shadow: 2px 2px 0 var(--shadow);
+  animation: sink 0.5s ease-out;
+}
+@keyframes sink { from { transform: translateY(-16px); opacity: 0.15; } to { transform: translateY(0); opacity: 1; } }
+.debuff .db-icon { font-size: 30px; opacity: 0.8; margin: 2px 0; filter: grayscale(0.4); }
+.debuff .db-line { font-size: 10px; color: var(--ink-dim); }
+.debuff .db-hint { font-size: 8px; color: var(--ink-dim); margin-top: 20px; animation: blink 1s steps(1) infinite; }
+
 /* toast */
 .toast {
   position: fixed; left: 50%; bottom: 96px; transform: translateX(-50%);

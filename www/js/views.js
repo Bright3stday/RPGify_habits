@@ -848,7 +848,7 @@ function wireDevPanel(container, ctx) {
     state.spiritTrack.wear = Math.min(SPIRIT_TUNING.wearMax, spiritWear(state, at) + SPIRIT_TUNING.wearPerBinge);
     state.spiritTrack.wearAt = at;
     await ctx.save();
-    ctx.flashBeat('SPIRIT WEARS', `Simulated binge · fatigue ${Math.round(spiritWear(state, at) * 100)}%`, '#8a6aa8');
+    ctx.debuffBeat('SPIRIT WORN', `Simulated binge · fatigue ${Math.round(spiritWear(state, at) * 100)}%`);
     ctx.render();
   });
   container.querySelector('#dev-reset-spirit')?.addEventListener('click', async () => {

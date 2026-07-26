@@ -87,10 +87,29 @@ function flashBeat({ title, line, color, icon }, onDone) {
   beep();
 }
 
+// A deliberately un-celebratory beat for setbacks (e.g. doomscroll wear): muted
+// colours, a downward "sink" instead of the gold pop, and a low descending tone
+// — so a negative event never reads like a reward. Not alarming/red either,
+// keeping the observation-only tone.
+function debuffBeat({ title, line, icon }, onDone) {
+  const overlay = document.createElement('div');
+  overlay.className = 'debuff';
+  overlay.innerHTML = `
+    <div class="db-title">${esc(title)}</div>
+    ${icon ? `<div class="db-icon">${icon}</div>` : ''}
+    <div class="db-line">${line}</div>
+    <div class="db-hint">▼  tap to continue</div>`;
+  const dismiss = () => { overlay.remove(); if (onDone) onDone(); };
+  overlay.addEventListener('click', dismiss);
+  document.body.appendChild(overlay);
+  lowBeep();
+}
+
 function playBeats(beats) {
   if (!beats || !beats.length) return;
   const [first, ...rest] = beats;
-  flashBeat(first, () => playBeats(rest));
+  const show = first.kind === 'debuff' ? debuffBeat : flashBeat;
+  show(first, () => playBeats(rest));
 }
 
 // Turn a completion result into a queue of beats: level-ups first, then loot.
@@ -135,6 +154,27 @@ function beep() {
   } catch (e) { /* audio not allowed; ignore */ }
 }
 
+// A soft, low, *descending* tone for setback beats — reads as "down", not a win.
+function lowBeep() {
+  try {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const ac = new AC();
+    const notes = [330, 262, 196];
+    notes.forEach((freq, i) => {
+      const o = ac.createOscillator();
+      const g = ac.createGain();
+      o.type = 'triangle';
+      o.frequency.value = freq;
+      o.connect(g); g.connect(ac.destination);
+      const t = ac.currentTime + i * 0.13;
+      g.gain.setValueAtTime(0.05, t);
+      g.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+      o.start(t); o.stop(t + 0.18);
+    });
+  } catch (e) { /* audio not allowed; ignore */ }
+}
+
 // ---- Context handed to every view --------------------------------------
 
 const ctx = {
@@ -142,6 +182,8 @@ const ctx = {
   save, render, go, toast, floatXp, reward,
   // Positional wrapper kept for the skill-tree unlock beat.
   flashBeat(title, line, color, onDone) { flashBeat({ title, line, color }, onDone); },
+  // Muted setback beat (deliberately not celebratory) — e.g. doomscroll wear.
+  debuffBeat(title, line, onDone) { debuffBeat({ title, line }, onDone); },
   async reschedule() { await rescheduleAll(state.settings); },
   replaceState(next) { state = next; },
   // Pull today's steps and auto-complete any step-goal habits that hit target.
@@ -185,7 +227,7 @@ async function drainDoomscroll({ silent = false } = {}) {
   }
   if (res.addedWear) {
     const pct = Math.round(spiritWear(state) * 100);
-    beats.push({ title: 'SPIRIT WEARS', line: `A long session · Spirit fatigue ${pct}%`, color: '#8a6aa8' });
+    beats.push({ kind: 'debuff', title: 'SPIRIT WORN', line: `A long session · Spirit fatigue ${pct}%` });
   }
   if (beats.length) playBeats(beats);
   return { gainedXp: res.gainedXp, addedWear: res.addedWear };
