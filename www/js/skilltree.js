@@ -101,7 +101,9 @@ export function nodeStatus(state, node) {
 }
 
 export function addNode(state, data) {
-  const id = uid('node');
+  // Callers may supply an id (e.g. a recipe path that pre-resolves sibling
+  // dependencies to concrete ids before creating the nodes); otherwise mint one.
+  const id = data.id || uid('node');
   nodes(state)[id] = {
     id,
     statId: data.statId,
