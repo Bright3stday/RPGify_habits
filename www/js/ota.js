@@ -58,7 +58,7 @@ export function describeStatus(r) {
     case 'unconfigured': return 'No update channel configured for this build.';
     case 'current': return `Up to date (build ${r.build}).`;
     case 'available': return `Update available (build ${r.manifest.build}).`;
-    case 'needs-apk': return 'A newer version needs a fresh APK from Releases.';
+    case 'needs-apk': return 'A newer version needs a fresh APK — download it from the project site.';
     case 'downloading': return 'Downloading update…';
     case 'applied': return 'Update installed — restarting…';
     case 'offline': return 'Could not reach the update server. Try again later.';

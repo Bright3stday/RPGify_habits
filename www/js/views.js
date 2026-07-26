@@ -985,7 +985,7 @@ export function renderSettings(container, ctx) {
       <div class="window-title">◆ APP UPDATES</div>
       <div class="bar-caption" id="ota-status">Checking current version…</div>
       <button class="btn primary block" id="ota-check" style="margin-top:8px">CHECK FOR UPDATES</button>
-      <div class="bar-caption" style="margin-top:8px">Checks for a newer web version and asks before installing — nothing downloads without your OK. The app also checks on launch and prompts you then. Only brand-new native features need a fresh APK from the Releases page.</div>
+      <div class="bar-caption" style="margin-top:8px">Checks for a newer web version and asks before installing — nothing downloads without your OK. The app also checks on launch and prompts you then. Only brand-new native features need a fresh APK — download it from the project site.</div>
     </div>
 
     <div class="window">
